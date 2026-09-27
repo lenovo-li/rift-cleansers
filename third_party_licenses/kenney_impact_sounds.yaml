@@ -1,0 +1,16 @@
+asset_name: Kenney Impact Sounds
+author: Kenney
+source_url: https://kenney.nl/assets/impact-sounds
+license: CC0 1.0 Universal (Public Domain)
+license_url: https://creativecommons.org/publicdomain/zero/1.0/
+download_date: 2026-09-28
+modified: false
+credit_required: false
+used_in:
+  - 技能命中音效 (core/audio/sfx_manager.gd)
+  - 敌人受伤音效 (gameplay/actors/enemy_ai.gd)
+files_location: assets/sfx/kenney_impact-sounds/
+notes: |
+  包含54个.ogg格式打击音效，涵盖金属、木头、玻璃、通用等材质。
+  本项目主要使用impactMetal和impactGeneric系列。
+  CC0许可允许商用、修改、分发，无需署名。

@@ -116,6 +116,10 @@ func _use_shield_bash() -> void:
 	
 	# 视觉特效
 	SkillVfx.shield_bash(get_tree().root.get_child(0), ctx.origin, ctx.facing, 3.0 * (1.5 if result.tier >= 5 else 1.0))
+	
+	# 音效
+	var sfx: Script = preload("res://core/audio/sfx_manager.gd")
+	sfx.play_whoosh(get_tree().root.get_child(0), ctx.origin, -10.0)
 
 
 ## 范围脉冲：对 attack_range 内所有存活敌人造成伤害（铁卫近战范围定位的灰盒版）。

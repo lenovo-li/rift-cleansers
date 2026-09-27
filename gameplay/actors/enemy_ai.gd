@@ -4,10 +4,11 @@ extends CharacterBody3D
 @export var move_speed: float = 3.0
 @export var attack_damage: float = 10.0
 @export var attack_cooldown: float = 1.0
-@export var max_health: float = 50.0
+@export var max_health: float = 60.0
+@export var exp_reward: float = 2.0
 
 var entity_id: int = -1
-var current_health: float = 50.0
+var current_health: float = 60.0
 var target_player: Node3D = null
 var attack_timer: float = 0.0
 var is_alive: bool = true
@@ -15,6 +16,7 @@ var is_alive: bool = true
 
 func _ready() -> void:
 	current_health = max_health
+	add_to_group("enemies")
 	find_player()
 
 
@@ -74,6 +76,6 @@ func die() -> void:
 	# 掉落经验
 	var game_session: Node = get_tree().root.find_child("GameSession", true, false)
 	if game_session and game_session.has_method("add_experience"):
-		game_session.add_experience(5.0)
+		game_session.add_experience(exp_reward)
 	
 	queue_free()

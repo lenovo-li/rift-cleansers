@@ -3,8 +3,8 @@ class_name SpawnDirector extends Node
 
 signal wave_spawned(enemy_count: int)
 
-@export var max_budget: int = 100
-@export var base_spawn_interval: float = 3.0
+@export var max_budget: int = 50
+@export var base_spawn_interval: float = 4.0
 
 var current_budget: int = 0
 var spawn_timer: float = 0.0

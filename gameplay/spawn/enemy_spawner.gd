@@ -31,19 +31,22 @@ func spawn_enemies(count: int) -> void:
 	
 	for i in count:
 		var enemy: CharacterBody3D = EnemyScene.instantiate()
+		enemy.entity_id = _next_id
+		_next_id += 1
 		
-		# 在玩家周围生成
+		# 先加入场景树
+		add_child(enemy)
+		
+		# 然后设置位置
 		var angle: float = randf() * TAU
 		var distance: float = spawn_radius + randf() * 10.0
 		var offset: Vector3 = Vector3(cos(angle) * distance, 0, sin(angle) * distance)
 		
 		if _player:
 			enemy.global_position = _player.global_position + offset
+		else:
+			enemy.global_position = offset
 		
-		enemy.entity_id = _next_id
-		_next_id += 1
-		
-		add_child(enemy)
 		_active_enemies.append(enemy)
 
 

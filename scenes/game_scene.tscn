@@ -29,8 +29,8 @@ script = ExtResource("4")
 
 [node name="SpawnDirector" type="Node" parent="GameSession"]
 script = ExtResource("5")
-max_budget = 100
-base_spawn_interval = 3.0
+max_budget = 50
+base_spawn_interval = 4.0
 
 [node name="EnemySpawner" type="Node3D" parent="."]
 script = ExtResource("6")

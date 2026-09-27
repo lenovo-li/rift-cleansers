@@ -68,6 +68,17 @@ func take_damage(amount: float) -> void:
 	
 	current_health -= amount
 	
+	# 受伤视觉反馈：变红0.1秒
+	var mesh: MeshInstance3D = get_node_or_null("Mesh")
+	if mesh:
+		var mat: StandardMaterial3D = mesh.get_surface_override_material(0) as StandardMaterial3D
+		if mat:
+			var original_color: Color = mat.albedo_color
+			mat.albedo_color = Color(1, 0.5, 0.5)
+			await get_tree().create_timer(0.1).timeout
+			if is_instance_valid(mesh) and is_instance_valid(mat):
+				mat.albedo_color = original_color
+	
 	if current_health <= 0.0:
 		die()
 

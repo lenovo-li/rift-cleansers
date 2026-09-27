@@ -79,6 +79,9 @@ func _use_shield_bash() -> void:
 	var level: int = ability_system.get_level("shield_bash")
 	var tier: int = result.get("tier", 1)
 	print("[PlayerM1] Shield Bash Lv%d (Tier%d)! hits=%d, damage=%.0f" % [level, tier, result.hits, result.damage])
+	
+	# 简单视觉反馈：屏幕闪烁
+	_flash_screen()
 
 
 ## 范围脉冲：对 attack_range 内所有存活敌人造成伤害（铁卫近战范围定位的灰盒版）。
@@ -131,3 +134,21 @@ func _on_level_up(new_level: int) -> void:
 	if target != shield_bash.level:
 		shield_bash.set_level(target)
 		print("[PlayerM1] Shield Bash -> Lv%d (Tier%d)" % [shield_bash.level, shield_bash.get_tier()])
+
+
+func _flash_screen() -> void:
+	# 创建全屏白色闪光
+	var flash: ColorRect = ColorRect.new()
+	flash.color = Color(1, 1, 1, 0.3)
+	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	# 添加到场景根UI
+	var ui: CanvasLayer = get_tree().root.find_child("UI", true, false)
+	if ui:
+		flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+		ui.add_child(flash)
+		
+		# 0.1秒后淡出并删除
+		var tween: Tween = create_tween()
+		tween.tween_property(flash, "modulate:a", 0.0, 0.15)
+		tween.tween_callback(flash.queue_free)

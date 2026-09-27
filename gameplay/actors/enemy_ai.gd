@@ -69,7 +69,8 @@ func take_damage(amount: float) -> void:
 	current_health -= amount
 	
 	# 音效
-	SfxManager.play_hit(get_tree().current_scene)
+	var sfx_mgr: Script = preload("res://core/audio/sfx_manager.gd")
+	sfx_mgr.play_hit(get_tree().current_scene)
 	
 	# 受伤视觉反馈：变红0.1秒
 	var mesh: MeshInstance3D = get_node_or_null("Mesh")

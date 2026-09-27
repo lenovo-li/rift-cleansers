@@ -1,0 +1,44 @@
+# Godot
+.import/
+export.cfg
+export_presets.cfg
+.mono/
+data_*/
+mono_crash.*.json
+
+# Godot 4+
+.godot/
+
+# 构建输出
+builds/
+dist/
+*.x86_64
+*.exe
+*.dll
+*.so
+*.dylib
+*.pck
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# 日志
+*.log
+user://
+
+# 临时文件
+*.tmp
+*.bak
+
+# 备份目录
+*_backup_*/
+archive/

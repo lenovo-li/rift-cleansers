@@ -62,7 +62,7 @@ func cast(ctx: SkillContext) -> Dictionary:
 	
 	# Lv3+：连锁伤害
 	if tier >= 3 and hits > 0:
-		var chain_hits: int = _apply_chain(hit_enemies, damage * 0.5)
+		var chain_hits: int = _apply_chain(ctx, hit_enemies, damage * 0.5)
 		hits += chain_hits
 		total_damage += chain_hits * damage * 0.5
 	
@@ -98,20 +98,30 @@ func _max_targets(tier: int) -> int:
 	return 3 if tier >= 3 else 1
 
 
-func _apply_chain(primaries: Array, damage: float) -> int:
+## 被击中的敌人撞到周围 CHAIN_RADIUS 内的其他敌人（每个敌人最多被连锁一次，主目标不重复受伤）。
+func _apply_chain(ctx: SkillContext, primaries: Array, damage: float) -> int:
+	const CHAIN_RADIUS: float = 3.0
 	var chain_hits: int = 0
+	var already_hit: Array = primaries.duplicate()
 	for primary: Variant in primaries:
 		if not is_instance_valid(primary):
 			continue
-		# 查找附近3米内的其他敌人
-		for candidate: Node in primary.get_tree().get_nodes_in_group("enemies"):
-			if candidate == primary or not candidate.is_alive:
+		for candidate: Variant in ctx.alive_targets():
+			if candidate in already_hit:
 				continue
-			var distance: float = (candidate as Node3D).global_position.distance_to(primary.global_position)
-			if distance < 3.0 and candidate.has_method("take_damage"):
+			var offset: Vector3 = candidate.global_position - primary.global_position
+			offset.y = 0.0
+			if offset.length() < CHAIN_RADIUS:
 				candidate.take_damage(damage)
+				already_hit.append(candidate)
 				chain_hits += 1
 	return chain_hits
+
+
+## 玩家等级 -> 盾击等级：每 3 级 +1，上限 8。
+## 对应文档 05 §2.1 时间线：玩家 Lv7 -> 盾击 3 级，Lv13 -> 5 级，Lv22 -> 8 级。
+static func level_for_player_level(player_level: int) -> int:
+	return clampi(1 + (player_level - 1) / 3, 1, 8)
 
 
 func _apply_shockwave(ctx: SkillContext, damage: float, radius: float) -> int:

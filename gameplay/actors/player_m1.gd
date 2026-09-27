@@ -120,10 +120,11 @@ func get_max_health() -> float:
 	return max_health
 
 
+## 升级选择界面尚未实现，暂时按固定映射让盾击随玩家等级成长。
 func _on_level_up(new_level: int) -> void:
-	# Lv3/5/8自动升级盾击
-	if new_level == 3 or new_level == 5 or new_level == 8:
-		if ability_system != null and shield_bash != null:
-			shield_bash.set_level(shield_bash.level + 1)
-			var tier: int = shield_bash.get_tier()
-			print("[PlayerM1] Shield Bash upgraded to Lv%d (Tier%d)" % [shield_bash.level, tier])
+	if shield_bash == null:
+		return
+	var target: int = ShieldBash.level_for_player_level(new_level)
+	if target != shield_bash.level:
+		shield_bash.set_level(target)
+		print("[PlayerM1] Shield Bash -> Lv%d (Tier%d)" % [shield_bash.level, shield_bash.get_tier()])

@@ -8,7 +8,6 @@ mono_crash.*.json
 
 # Godot 4+
 .godot/
-*.uid
 *.import
 
 # 构建输出

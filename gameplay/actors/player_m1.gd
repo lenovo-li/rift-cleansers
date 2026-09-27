@@ -86,6 +86,11 @@ func _use_whirlwind() -> void:
 	var level: int = ability_system.get_level("whirlwind")
 	var tier: int = result.get("tier", 1)
 	print("[PlayerM1] Whirlwind Lv%d (Tier%d)! duration=%.1fs" % [level, tier, result.duration])
+	
+	# 视觉特效
+	var vfx: Script = preload("res://gameplay/vfx/skill_vfx.gd")
+	var radius: float = 4.0 * (1.3 if tier >= 5 else 1.0)
+	vfx.create_whirlwind_vfx(self, radius, result.duration)
 
 
 func _use_shield_bash() -> void:
@@ -110,6 +115,10 @@ func _use_shield_bash() -> void:
 	# 简单视觉反馈：屏幕闪烁
 	if result.hits > 0:
 		_flash_screen()
+	
+	# 视觉特效
+	var vfx: Script = preload("res://gameplay/vfx/skill_vfx.gd")
+	vfx.create_shield_bash_vfx(ctx.origin, ctx.facing, 3.0 * (1.5 if result.tier >= 5 else 1.0), PI / 4.0)
 
 
 ## 范围脉冲：对 attack_range 内所有存活敌人造成伤害（铁卫近战范围定位的灰盒版）。

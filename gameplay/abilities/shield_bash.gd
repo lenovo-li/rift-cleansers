@@ -77,6 +77,10 @@ func cast(ctx: SkillContext) -> Dictionary:
 		var trail_end: Vector3 = ctx.origin + facing * range
 		var zone: GroundZone = GroundZone.new(ctx.origin, trail_end, 1.5, damage * 0.2, 3.0)
 		ctx.new_zones.append(zone)
+		
+		# 视觉特效
+		var vfx: Script = preload("res://gameplay/vfx/skill_vfx.gd")
+		vfx.create_ground_zone_vfx(ctx.origin, trail_end, 1.5, 3.0)
 	
 	return {"hits": hits, "damage": total_damage, "tier": tier}
 

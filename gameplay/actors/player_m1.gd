@@ -69,7 +69,8 @@ func _use_shield_bash() -> void:
 	
 	var ctx: SkillContext = SkillContext.new()
 	ctx.origin = global_position
-	ctx.facing = -global_transform.basis.z
+	# 使用玩家当前旋转计算朝向
+	ctx.facing = Vector3.FORWARD.rotated(Vector3.UP, rotation.y)
 	ctx.targets = get_tree().get_nodes_in_group("enemies")
 	
 	var result: Dictionary = ability_system.cast("shield_bash", ctx)
@@ -78,10 +79,11 @@ func _use_shield_bash() -> void:
 	
 	var level: int = ability_system.get_level("shield_bash")
 	var tier: int = result.get("tier", 1)
-	print("[PlayerM1] Shield Bash Lv%d (Tier%d)! hits=%d, damage=%.0f" % [level, tier, result.hits, result.damage])
+	print("[PlayerM1] Shield Bash Lv%d (Tier%d)! hits=%d, damage=%.0f, facing=%s" % [level, tier, result.hits, result.damage, ctx.facing])
 	
 	# 简单视觉反馈：屏幕闪烁
-	_flash_screen()
+	if result.hits > 0:
+		_flash_screen()
 
 
 ## 范围脉冲：对 attack_range 内所有存活敌人造成伤害（铁卫近战范围定位的灰盒版）。
@@ -97,6 +99,10 @@ func auto_attack() -> int:
 		if offset.length_squared() <= range_sq:
 			enemy.take_damage(attack_damage)
 			hits += 1
+	
+	if hits > 0:
+		print("[PlayerM1] Auto-attack hit %d enemies" % hits)
+	
 	return hits
 
 

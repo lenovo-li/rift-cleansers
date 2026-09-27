@@ -1,6 +1,5 @@
 extends CharacterBody3D
 ## M1 玩家控制器 - 完整战斗系统版本
-## 用于game_scene.tscn，不影响M0的test_arena
 
 const SPEED: float = 8.0
 
@@ -13,9 +12,23 @@ var current_health: float = 1000.0
 var entity_id: int = 0
 var attack_timer: float = 0.0
 
+# 技能系统（不依赖Node）
+var ability_system: AbilitySystem = null
+var shield_bash: ShieldBash = null
+
 
 func _ready() -> void:
 	current_health = max_health
+	
+	# 初始化技能系统
+	ability_system = AbilitySystem.new()
+	shield_bash = ShieldBash.new()
+	ability_system.add_skill(shield_bash)
+	
+	# 连接升级事件
+	var game_session: Node = get_tree().root.find_child("GameSession", true, false)
+	if game_session:
+		game_session.level_up.connect(_on_level_up)
 
 
 func _physics_process(delta: float) -> void:
@@ -32,11 +45,37 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	
 	# 自动攻击
-	if attack_timer > 0.0:
-		attack_timer -= delta
-	else:
+	attack_timer -= delta
+	if attack_timer <= 0.0:
 		auto_attack()
 		attack_timer = attack_interval
+	
+	# 技能冷却
+	if ability_system != null:
+		var enemies: Array = get_tree().get_nodes_in_group("enemies")
+		ability_system.tick(delta, enemies)
+	
+	# 技能输入
+	if Input.is_action_just_pressed("ui_accept"):
+		_use_shield_bash()
+
+
+func _use_shield_bash() -> void:
+	if ability_system == null or not ability_system.can_cast("shield_bash"):
+		return
+	
+	var ctx: SkillContext = SkillContext.new()
+	ctx.origin = global_position
+	ctx.facing = -global_transform.basis.z
+	ctx.targets = get_tree().get_nodes_in_group("enemies")
+	
+	var result: Dictionary = ability_system.cast("shield_bash", ctx)
+	if result.is_empty():
+		return
+	
+	var level: int = ability_system.get_level("shield_bash")
+	var tier: int = result.get("tier", 1)
+	print("[PlayerM1] Shield Bash Lv%d (Tier%d)! hits=%d, damage=%.0f" % [level, tier, result.hits, result.damage])
 
 
 ## 范围脉冲：对 attack_range 内所有存活敌人造成伤害（铁卫近战范围定位的灰盒版）。
@@ -79,3 +118,12 @@ func get_health() -> float:
 
 func get_max_health() -> float:
 	return max_health
+
+
+func _on_level_up(new_level: int) -> void:
+	# Lv3/5/8自动升级盾击
+	if new_level == 3 or new_level == 5 or new_level == 8:
+		if ability_system != null and shield_bash != null:
+			shield_bash.set_level(shield_bash.level + 1)
+			var tier: int = shield_bash.get_tier()
+			print("[PlayerM1] Shield Bash upgraded to Lv%d (Tier%d)" % [shield_bash.level, tier])

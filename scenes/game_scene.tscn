@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3 uid="uid://dyv5u3mw72r"]
+[gd_scene load_steps=8 format=3 uid="uid://dyv5u3mw72r"]
 
 [ext_resource type="PackedScene" uid="uid://b3tn7kqm5vh8r" path="res://gameplay/actors/player_m1.tscn" id="1"]
 [ext_resource type="Script" path="res://scenes/game_scene.gd" id="2"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://core/systems/combat_simulation.gd" id="4"]
 [ext_resource type="Script" path="res://core/systems/spawn_director.gd" id="5"]
 [ext_resource type="Script" path="res://gameplay/spawn/enemy_spawner.gd" id="6"]
+[ext_resource type="Script" path="res://gameplay/camera/follow_camera.gd" id="7"]
 
 [node name="GameScene" type="Node3D"]
 script = ExtResource("2")
@@ -14,21 +15,7 @@ script = ExtResource("2")
 
 [node name="Camera" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 20, 20)
-script = SubResource("GDScript_camera_follow")
-
-[sub_resource type="GDScript" id="GDScript_camera_follow"]
-script/source = "extends Camera3D
-
-var player: Node3D = null
-
-func _ready() -> void:
-	player = get_parent().get_node_or_null(\"PlayerM1\")
-
-func _process(_delta: float) -> void:
-	if player:
-		global_position.x = player.global_position.x
-		global_position.z = player.global_position.z + 20
-"
+script = ExtResource("7")
 
 [node name="Sun" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.707107, -0.5, 0.5, 0, 0.707107, 0.707107, -0.707107, -0.5, 0.5, 0, 20, 0)

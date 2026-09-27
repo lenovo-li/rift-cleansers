@@ -9,7 +9,7 @@
 
 ## 执行摘要
 
-**最终推荐：Godot 4.3 稳定版 + GDScript + 主机权威ENet/Steam架构**
+**最终推荐：Godot 4.7.2 稳定版 + GDScript + 主机权威ENet/Steam架构**
 
 从零开始创建项目，采用成熟游戏引擎而非Web技术栈。主要理由：
 
@@ -52,7 +52,7 @@
 
 #### 技术栈
 
-- **引擎**：Godot 4.3 稳定版（MIT许可证）
+- **引擎**：Godot 4.7.2 稳定版（MIT许可证）
 - **主语言**：GDScript，强制类型标注
 - **性能扩展**：C++/GDExtension（仅在Profiler确认热点后使用）
 - **联机**：Godot高层多人API + ENet（开发期）+ GodotSteam（Steam版）
@@ -86,7 +86,7 @@
 
 #### 实现路径
 
-1. **M0（2周）**：Godot 4.3项目 + 玩家移动 + 1000方块压测
+1. **M0（2周）**：Godot 4.7.2项目 + 玩家移动 + 1000方块压测
 2. **M1（4-6周）**：10分钟单人灰盒，GDScript实现核心战斗
 3. **M2（3-4周）**：ENet局域网2人原型
 4. **M3（8-12周）**：垂直切片美术，Blender→glTF工作流
@@ -197,7 +197,7 @@
 ### 4.1 决策结论
 
 ```yaml
-引擎: Godot 4.3 稳定版
+引擎: Godot 4.7.2 稳定版
 主语言: GDScript（强制类型标注）
 性能扩展: C++/GDExtension（Profiler确认热点后）
 联机模型: 主机权威 Listen Server
@@ -326,7 +326,7 @@ node_modules: 归档到archive/或删除
 ### M0技术试验（2周）
 
 **验证目标**：
-1. Godot 4.3工程创建和构建
+1. Godot 4.7.2工程创建和构建
 2. 玩家移动和俯视镜头
 3. 1000个简单方块移动压力测试
 4. 对象池基础实现
@@ -365,9 +365,9 @@ node_modules: 归档到archive/或删除
 
 ```yaml
 # 核心版本
-Godot: 4.3 stable (2024-08-xx发布)
-GodotSteam: 4.9 (for Godot 4.3)
-Steamworks SDK: 1.59
+Godot: 4.7.2 stable (2026-08-17发布)
+GodotSteam: 4.22 (for Godot 4.7)
+Steamworks SDK: 1.65
 
 # 工具链
 Blender: 4.2 LTS
@@ -385,15 +385,15 @@ MSAA: 2x (性能平衡)
 ```
 
 **版本升级策略**：
-- M0-M2：锁定Godot 4.3，不升级
-- M3-M4：评估4.4，仅修复严重Bug时升级
+- M0-M2：锁定Godot 4.7.2，不升级
+- M3-M4：评估4.8，仅修复严重Bug时升级
 - M5+：稳定后考虑LTS版本
 
 ---
 
 ## 10. 决策批准
 
-**推荐方案**：Godot 4.3 + GDScript + 主机权威ENet/Steam架构
+**推荐方案**：Godot 4.7.2 + GDScript + 主机权威ENet/Steam架构
 
 **批准状态**：✓ 已批准
 

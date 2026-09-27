@@ -8,6 +8,11 @@ var b: Vector3
 var half_width: float
 var damage_per_tick: float
 var remaining: float
+## 可选：跟随的对象（需有 global_position）。设置后每次 tick 前把区域平移到它的位置。
+var anchor: Object = null
+## 可选：命中时附加减速（目标需实现 apply_slow(factor, duration)）。0 表示不减速。
+var slow_factor: float = 0.0
+var slow_duration: float = 0.0
 var _tick_timer: float = 0.0
 
 
@@ -27,6 +32,10 @@ func is_expired() -> bool:
 func tick(delta: float, targets: Array) -> int:
 	if is_expired():
 		return 0
+	if anchor != null and is_instance_valid(anchor):
+		var p: Vector3 = anchor.global_position
+		b = p + (b - a)
+		a = p
 	remaining -= delta
 	_tick_timer += delta
 	var hits: int = 0
@@ -35,6 +44,8 @@ func tick(delta: float, targets: Array) -> int:
 		for t: Variant in targets:
 			if is_instance_valid(t) and t.is_alive and contains(t.global_position):
 				t.take_damage(damage_per_tick)
+				if slow_factor > 0.0 and t.has_method("apply_slow"):
+					t.apply_slow(slow_factor, slow_duration)
 				hits += 1
 	return hits
 

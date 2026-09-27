@@ -15,7 +15,7 @@ var attack_timer: float = 0.0
 # 技能系统（不依赖Node）
 var ability_system: AbilitySystem = null
 var shield_bash: ShieldBash = null
-var whirlwind: Whirlwind = null
+var whirlwind = null  # Whirlwind技能
 
 
 func _ready() -> void:
@@ -26,7 +26,7 @@ func _ready() -> void:
 	shield_bash = ShieldBash.new()
 	ability_system.add_skill(shield_bash)
 	
-	whirlwind = Whirlwind.new()
+	whirlwind = preload("res://gameplay/abilities/whirlwind.gd").new()
 	ability_system.add_skill(whirlwind)
 	
 	# 连接升级事件
@@ -72,6 +72,7 @@ func _use_shield_bash() -> void:
 		return
 	
 	var ctx: SkillContext = SkillContext.new()
+	ctx.caster = self
 	ctx.origin = global_position
 	# 使用玩家当前旋转计算朝向
 	ctx.facing = Vector3.FORWARD.rotated(Vector3.UP, rotation.y)

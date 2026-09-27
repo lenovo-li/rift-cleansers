@@ -2,6 +2,8 @@ class_name SkillContext extends RefCounted
 ## 技能施放上下文：施法者位置与朝向、候选目标，以及技能新产生的地面效果。
 ## 目标对象需提供：global_position、is_alive、take_damage(float)、apply_knockback(Vector3)。
 
+## 施法者（需有 global_position）。持续跟随类效果用它作为锚点，可为 null。
+var caster: Object = null
 var origin: Vector3 = Vector3.ZERO
 var facing: Vector3 = Vector3.FORWARD
 var targets: Array = []

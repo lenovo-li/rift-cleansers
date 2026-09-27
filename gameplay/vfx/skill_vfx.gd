@@ -1,145 +1,101 @@
-extends Node3D
-## 视觉特效管理器 - 创建临时特效节点
+class_name SkillVfx extends RefCounted
+## 技能视觉特效助手
 
-## 创建盾击锥形特效（前方蓝色半透明锥形，0.3秒消失）
-static func create_shield_bash_vfx(origin: Vector3, facing: Vector3, range: float, cone_angle: float) -> void:
-	var scene_root: Node = Engine.get_main_loop().root.get_child(0)
-	
-	# 创建锥形网格
+const CONE_COLOR: Color = Color(0.3, 0.6, 1.0, 0.4)
+const WHIRL_COLOR: Color = Color(0.3, 1.0, 0.4, 0.3)
+const FLAME_COLOR: Color = Color(1.0, 0.35, 0.05, 0.4)
+
+
+static func _make_material(color: Color) -> StandardMaterial3D:
+	var mat: StandardMaterial3D = StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return mat
+
+
+## 盾击特效：前方扇形
+static func shield_bash(parent: Node, origin: Vector3, facing: Vector3, radius: float) -> void:
 	var mesh_instance: MeshInstance3D = MeshInstance3D.new()
 	var mesh: CylinderMesh = CylinderMesh.new()
-	mesh.top_radius = range * tan(cone_angle)
+	mesh.top_radius = radius * tan(PI / 4.0)
 	mesh.bottom_radius = 0.01
-	mesh.height = range
+	mesh.height = radius
 	mesh_instance.mesh = mesh
+	mesh_instance.material_override = _make_material(CONE_COLOR)
 	
-	# 半透明蓝色材质
-	var material: StandardMaterial3D = StandardMaterial3D.new()
-	material.albedo_color = Color(0.3, 0.5, 1.0, 0.4)
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mesh_instance.set_surface_override_material(0, material)
-	
-	# 位置和朝向
-	scene_root.add_child(mesh_instance)
-	mesh_instance.global_position = origin + facing * range * 0.5
-	mesh_instance.global_position.y += 0.5
-	
-	# 让锥形朝向facing方向（锥尖朝origin）
-	var target: Vector3 = origin + facing * range
-	mesh_instance.look_at(target, Vector3.UP)
+	parent.add_child(mesh_instance)
+	mesh_instance.global_position = origin + facing * radius * 0.5
+	mesh_instance.global_position.y = 0.5
+	mesh_instance.look_at(origin + facing * radius, Vector3.UP)
 	mesh_instance.rotate_object_local(Vector3.RIGHT, PI / 2)
 	
-	# 0.3秒后删除
-	await scene_root.get_tree().create_timer(0.3).timeout
-	mesh_instance.queue_free()
+	await parent.get_tree().create_timer(0.3).timeout
+	if is_instance_valid(mesh_instance):
+		mesh_instance.queue_free()
 
 
-## 创建旋风斩圆环特效（跟随施法者的半透明圆环）
-static func create_whirlwind_vfx(caster: Node3D, radius: float, duration: float) -> void:
-	var scene_root: Node = Engine.get_main_loop().root.get_child(0)
-	
-	# 创建圆环（扁平圆柱）
+## 旋风斩特效：跟随的圆环
+static func whirlwind(parent: Node, caster: Node3D, radius: float, duration: float) -> void:
 	var mesh_instance: MeshInstance3D = MeshInstance3D.new()
-	var mesh: CylinderMesh = CylinderMesh.new()
-	mesh.top_radius = radius
-	mesh.bottom_radius = radius
-	mesh.height = 0.2
+	var mesh: TorusMesh = TorusMesh.new()
+	mesh.inner_radius = radius - 0.3
+	mesh.outer_radius = radius
 	mesh_instance.mesh = mesh
+	var mat: StandardMaterial3D = _make_material(WHIRL_COLOR)
+	mesh_instance.material_override = mat
 	
-	# 半透明绿色材质
-	var material: StandardMaterial3D = StandardMaterial3D.new()
-	material.albedo_color = Color(0.3, 1.0, 0.3, 0.3)
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mesh_instance.set_surface_override_material(0, material)
-	
-	scene_root.add_child(mesh_instance)
+	parent.add_child(mesh_instance)
 	mesh_instance.global_position = caster.global_position
-	mesh_instance.global_position.y = 0.1
+	mesh_instance.global_position.y = 0.3
 	
-	# 持续旋转并跟随施法者
+	# 跟随并旋转
 	var elapsed: float = 0.0
-	while elapsed < duration and is_instance_valid(mesh_instance):
-		await scene_root.get_tree().process_frame
-		var delta: float = scene_root.get_tree().process_frame
-		elapsed += delta
+	while elapsed < duration and is_instance_valid(mesh_instance) and is_instance_valid(caster):
+		await parent.get_tree().process_frame
+		elapsed += parent.get_tree().root.get_process_delta_time()
 		
-		if is_instance_valid(caster):
-			mesh_instance.global_position = caster.global_position
-			mesh_instance.global_position.y = 0.1
-			mesh_instance.rotate_y(delta * 3.0)
-		
-		# 淡出
-		var alpha: float = 0.3 * (1.0 - elapsed / duration)
-		material.albedo_color.a = alpha
+		mesh_instance.global_position = caster.global_position
+		mesh_instance.global_position.y = 0.3
+		mesh_instance.rotate_y(parent.get_tree().root.get_process_delta_time() * 5.0)
+		mat.albedo_color.a = 0.3 * (1.0 - elapsed / duration)
 	
 	if is_instance_valid(mesh_instance):
 		mesh_instance.queue_free()
 
 
-## 创建地面持续伤害区域显示（半透明红色区域）
-static func create_ground_zone_vfx(zone_a: Vector3, zone_b: Vector3, half_width: float, duration: float) -> void:
-	var scene_root: Node = Engine.get_main_loop().root.get_child(0)
+## 地面火焰特效
+static func ground_zone(parent: Node, a: Vector3, b: Vector3, half_width: float, duration: float) -> void:
+	var dir: Vector3 = b - a
+	dir.y = 0.0
+	var length: float = dir.length()
 	
-	# 计算线段方向和长度
-	var direction: Vector3 = zone_b - zone_a
-	direction.y = 0.0
-	var length: float = direction.length()
-	
+	var mesh_instance: MeshInstance3D = MeshInstance3D.new()
 	if length < 0.01:
-		# 点或圆形区域：用圆柱
-		var mesh_instance: MeshInstance3D = MeshInstance3D.new()
 		var mesh: CylinderMesh = CylinderMesh.new()
 		mesh.top_radius = half_width
 		mesh.bottom_radius = half_width
 		mesh.height = 0.1
 		mesh_instance.mesh = mesh
-		
-		var material: StandardMaterial3D = StandardMaterial3D.new()
-		material.albedo_color = Color(1.0, 0.3, 0.0, 0.4)
-		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mesh_instance.set_surface_override_material(0, material)
-		
-		scene_root.add_child(mesh_instance)
-		mesh_instance.global_position = zone_a
-		mesh_instance.global_position.y = 0.05
-		
-		# 淡出并删除
-		var elapsed: float = 0.0
-		while elapsed < duration and is_instance_valid(mesh_instance):
-			await scene_root.get_tree().process_frame
-			elapsed += scene_root.get_tree().process_frame
-			material.albedo_color.a = 0.4 * (1.0 - elapsed / duration)
-		
-		if is_instance_valid(mesh_instance):
-			mesh_instance.queue_free()
+		mesh_instance.global_position = a
 	else:
-		# 线段区域：用长方体
-		var mesh_instance: MeshInstance3D = MeshInstance3D.new()
 		var mesh: BoxMesh = BoxMesh.new()
 		mesh.size = Vector3(length, 0.1, half_width * 2.0)
 		mesh_instance.mesh = mesh
-		
-		var material: StandardMaterial3D = StandardMaterial3D.new()
-		material.albedo_color = Color(1.0, 0.3, 0.0, 0.4)
-		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mesh_instance.set_surface_override_material(0, material)
-		
-		scene_root.add_child(mesh_instance)
-		var center: Vector3 = (zone_a + zone_b) * 0.5
-		center.y = 0.05
-		mesh_instance.global_position = center
-		mesh_instance.look_at(zone_b, Vector3.UP)
-		
-		# 淡出并删除
-		var elapsed: float = 0.0
-		while elapsed < duration and is_instance_valid(mesh_instance):
-			await scene_root.get_tree().process_frame
-			elapsed += scene_root.get_tree().process_frame
-			material.albedo_color.a = 0.4 * (1.0 - elapsed / duration)
-		
-		if is_instance_valid(mesh_instance):
-			mesh_instance.queue_free()
+		mesh_instance.global_position = (a + b) * 0.5
+		mesh_instance.look_at(b, Vector3.UP)
+	
+	mesh_instance.global_position.y = 0.05
+	var mat: StandardMaterial3D = _make_material(FLAME_COLOR)
+	mesh_instance.material_override = mat
+	parent.add_child(mesh_instance)
+	
+	# 淡出
+	var elapsed: float = 0.0
+	while elapsed < duration and is_instance_valid(mesh_instance):
+		await parent.get_tree().process_frame
+		elapsed += parent.get_tree().root.get_process_delta_time()
+		mat.albedo_color.a = 0.4 * (1.0 - elapsed / duration)
+	
+	if is_instance_valid(mesh_instance):
+		mesh_instance.queue_free()

@@ -1,0 +1,65 @@
+[gd_scene load_steps=7 format=3 uid="uid://dyv5u3mw72r"]
+
+[ext_resource type="PackedScene" uid="uid://b3tn7kqm5vh8r" path="res://gameplay/actors/player_m1.tscn" id="1"]
+[ext_resource type="Script" path="res://scenes/game_scene.gd" id="2"]
+[ext_resource type="Script" path="res://core/systems/game_session.gd" id="3"]
+[ext_resource type="Script" path="res://core/systems/combat_simulation.gd" id="4"]
+[ext_resource type="Script" path="res://core/systems/spawn_director.gd" id="5"]
+[ext_resource type="Script" path="res://gameplay/spawn/enemy_spawner.gd" id="6"]
+
+[node name="GameScene" type="Node3D"]
+script = ExtResource("2")
+
+[node name="PlayerM1" parent="." instance=ExtResource("1")]
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.707107, -0.5, 0.5, 0, 0.707107, 0.707107, -0.707107, -0.5, 0.5, 0, 20, 0)
+shadow_enabled = true
+
+[node name="Ground" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+use_collision = true
+size = Vector3(200, 1, 200)
+
+[node name="GameSession" type="Node" parent="."]
+script = ExtResource("3")
+
+[node name="CombatSimulation" type="Node" parent="GameSession"]
+script = ExtResource("4")
+
+[node name="SpawnDirector" type="Node" parent="GameSession"]
+script = ExtResource("5")
+max_budget = 100
+base_spawn_interval = 3.0
+
+[node name="EnemySpawner" type="Node3D" parent="."]
+script = ExtResource("6")
+initial_count = 10
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="HUD" type="VBoxContainer" parent="UI"]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 400.0
+offset_bottom = 150.0
+
+[node name="FPS" type="Label" parent="UI/HUD"]
+layout_mode = 2
+text = "FPS: --"
+
+[node name="Health" type="Label" parent="UI/HUD"]
+layout_mode = 2
+text = "HP: 1000/1000"
+
+[node name="Level" type="Label" parent="UI/HUD"]
+layout_mode = 2
+text = "Lv1 | EXP: 0/28"
+
+[node name="Time" type="Label" parent="UI/HUD"]
+layout_mode = 2
+text = "Time: 0:00 / 10:00"
+
+[node name="Enemies" type="Label" parent="UI/HUD"]
+layout_mode = 2
+text = "Enemies: 0"

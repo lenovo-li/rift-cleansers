@@ -1,0 +1,24 @@
+[gd_scene load_steps=5 format=3 uid="uid://c3vn8r2m5k3f"]
+
+[ext_resource type="Script" path="res://gameplay/actors/enemy_ai.gd" id="1"]
+
+[sub_resource type="BoxMesh" id="1"]
+size = Vector3(1, 1, 1)
+
+[sub_resource type="StandardMaterial3D" id="2"]
+albedo_color = Color(1, 0.2, 0.2, 1)
+
+[sub_resource type="BoxShape3D" id="3"]
+size = Vector3(1, 1, 1)
+
+[node name="Enemy" type="CharacterBody3D"]
+script = ExtResource("1")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+mesh = SubResource("1")
+surface_material_override/0 = SubResource("2")
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("3")

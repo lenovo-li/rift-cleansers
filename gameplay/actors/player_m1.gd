@@ -65,6 +65,27 @@ func _physics_process(delta: float) -> void:
 	# 技能输入
 	if Input.is_action_just_pressed("ui_accept"):
 		_use_shield_bash()
+	
+	if Input.is_action_just_pressed("skill_1"):
+		_use_whirlwind()
+
+
+func _use_whirlwind() -> void:
+	if ability_system == null or not ability_system.can_cast("whirlwind"):
+		return
+	
+	var ctx: SkillContext = SkillContext.new()
+	ctx.caster = self
+	ctx.origin = global_position
+	ctx.targets = get_tree().get_nodes_in_group("enemies")
+	
+	var result: Dictionary = ability_system.cast("whirlwind", ctx)
+	if result.is_empty():
+		return
+	
+	var level: int = ability_system.get_level("whirlwind")
+	var tier: int = result.get("tier", 1)
+	print("[PlayerM1] Whirlwind Lv%d (Tier%d)! duration=%.1fs" % [level, tier, result.duration])
 
 
 func _use_shield_bash() -> void:

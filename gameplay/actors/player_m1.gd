@@ -15,6 +15,7 @@ var attack_timer: float = 0.0
 # 技能系统（不依赖Node）
 var ability_system: AbilitySystem = null
 var shield_bash: ShieldBash = null
+var whirlwind: Whirlwind = null
 
 
 func _ready() -> void:
@@ -24,6 +25,9 @@ func _ready() -> void:
 	ability_system = AbilitySystem.new()
 	shield_bash = ShieldBash.new()
 	ability_system.add_skill(shield_bash)
+	
+	whirlwind = Whirlwind.new()
+	ability_system.add_skill(whirlwind)
 	
 	# 连接升级事件
 	var game_session: Node = get_tree().root.find_child("GameSession", true, false)

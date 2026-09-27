@@ -13,7 +13,7 @@ config_version=5
 config/name="裂界清扫者 (Rift Cleansers)"
 config/description="1-4人合作肉鸽动作游戏"
 config/version="0.1.0"
-run/main_scene="res://scenes/test_arena.tscn"
+run/main_scene="res://scenes/game_scene.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 

@@ -117,8 +117,8 @@ config/name="裂界清扫者 (Rift Cleansers)"
 config/description="1-4人合作肉鸽动作游戏"
 config/version="0.1.0"
 run/main_scene="res://scenes/main.tscn"
-config/features=PackedStringArray("4.3", "Forward Plus")
-config/icon="res://icon.png"
+config/features=PackedStringArray("4.7", "Forward Plus")
+config/icon="res://icon.svg"
 
 [display]
 
@@ -614,7 +614,7 @@ used_in:
 
 ```bash
 # 1. 项目文件
-git add project.godot icon.png
+git add project.godot icon.svg
 
 # 2. Git配置
 git add .gitignore .gitattributes

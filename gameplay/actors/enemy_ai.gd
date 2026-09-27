@@ -12,6 +12,7 @@ var current_health: float = 60.0
 var target_player: Node3D = null
 var attack_timer: float = 0.0
 var is_alive: bool = true
+var knockback_velocity: Vector3 = Vector3.ZERO
 
 
 func _ready() -> void:
@@ -36,7 +37,13 @@ func _physics_process(delta: float) -> void:
 	var direction: Vector3 = (target_player.global_position - global_position).normalized()
 	direction.y = 0.0
 	
-	velocity = direction * move_speed
+	# 应用击退，然后正常移动
+	if knockback_velocity.length_squared() > 0.01:
+		velocity = knockback_velocity
+		knockback_velocity = knockback_velocity.lerp(Vector3.ZERO, 0.1)
+	else:
+		velocity = direction * move_speed
+	
 	move_and_slide()
 	
 	# 攻击冷却
@@ -79,3 +86,7 @@ func die() -> void:
 		game_session.add_experience(exp_reward)
 	
 	queue_free()
+
+
+func apply_knockback(impulse: Vector3) -> void:
+	knockback_velocity = impulse

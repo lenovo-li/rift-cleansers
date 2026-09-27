@@ -38,6 +38,9 @@ func _physics_process(delta: float) -> void:
 	if direction:
 		velocity.x = direction.x * SPEED
 		velocity.z = direction.z * SPEED
+		# 朝移动方向转身
+		var target_rotation: float = atan2(direction.x, -direction.z)
+		rotation.y = lerp_angle(rotation.y, target_rotation, 0.2)
 	else:
 		velocity.x = move_toward(velocity.x, 0, SPEED)
 		velocity.z = move_toward(velocity.z, 0, SPEED)

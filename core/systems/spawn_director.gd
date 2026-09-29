@@ -19,6 +19,8 @@ const BOSS_PHASE_CAP: int = 120
 @export var stress_cap: int = 0
 
 var alive_count: int = 0
+## 多人：返回玩家人数，存活上限 ×(1 + 0.5 × (人数-1))。
+var player_count_provider: Callable = Callable()
 var boss_spawned: bool = false
 var game_session: GameSession = null
 var _spawn_timer: float = 0.0
@@ -52,7 +54,7 @@ func _process(delta: float) -> void:
 
 
 func _spawn_wave(t: float) -> void:
-	var cap: int = stress_cap if stress_cap > 0 else get_alive_cap(t, boss_spawned)
+	var cap: int = stress_cap if stress_cap > 0 else int(get_alive_cap(t, boss_spawned) * _player_scale())
 	var missing: int = cap - alive_count
 	if missing <= 0:
 		return
@@ -66,6 +68,11 @@ func _spawn_wave(t: float) -> void:
 			elif _rng.randf() < get_elite_chance(t):
 				mod = ELITE_MODS[_rng.randi() % ELITE_MODS.size()]
 		spawn_requested.emit(pick_enemy_type(t, _rng.randf()), mod)
+
+
+func _player_scale() -> float:
+	var n: int = int(player_count_provider.call()) if player_count_provider.is_valid() else 1
+	return 1.0 + 0.5 * float(maxi(0, n - 1))
 
 
 func on_enemy_spawned() -> void:

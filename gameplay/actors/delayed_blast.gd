@@ -1,5 +1,5 @@
 extends Node3D
-## 延时爆炸：先在地面显示逐渐填满的红圈（可读的预警），fuse 秒后对圈内玩家造成伤害。
+## 延时爆炸：先在地面显示逐渐填满的红圈（可读的预警），fuse 秒后对圈内所有玩家造成伤害。
 ## 用于爆裂小鬼的死亡爆炸——近战击杀后有时间走出圈外。
 
 var radius: float = 2.5
@@ -7,16 +7,16 @@ var damage: float = 25.0
 var fuse: float = 0.7
 var source_name: String = "爆炸"
 var _elapsed: float = 0.0
-var _player: Node3D = null
 var _fill: MeshInstance3D = null
+## 客户端回放用：只显示、不结算伤害。
+var visual_only: bool = false
 
 
-func setup(p_radius: float, p_damage: float, p_fuse: float, p_source_name: String, player: Node3D) -> void:
+func setup(p_radius: float, p_damage: float, p_fuse: float, p_source_name: String) -> void:
 	radius = p_radius
 	damage = p_damage
 	fuse = p_fuse
 	source_name = p_source_name
-	_player = player
 
 
 func _ready() -> void:
@@ -32,12 +32,10 @@ func _physics_process(delta: float) -> void:
 	_fill.scale = Vector3(k, 1, k)
 	if _elapsed < fuse:
 		return
-	if _player != null and is_instance_valid(_player):
-		var d: Vector3 = _player.global_position - global_position
-		d.y = 0.0
-		if d.length() <= radius:
-			_player.take_damage(damage, source_name)
-	SkillVfx.pulse_ring(get_parent(), global_position, radius, Color(1, 0.5, 0.1, 0.6), 0.25)
+	if not visual_only:
+		for p: Node3D in PlayerQuery.alive_in_radius(get_tree(), global_position, radius):
+			p.take_damage(damage, source_name)
+		SkillVfx.pulse_ring(get_parent(), global_position, radius, Color(1, 0.5, 0.1, 0.6), 0.25)
 	queue_free()
 
 

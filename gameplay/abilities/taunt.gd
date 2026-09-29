@@ -13,6 +13,7 @@ const MAX_PULL_SPEED: float = 45.0
 const SHIELD_PER_TARGET: float = 4.0
 const MAX_SHIELD: float = 80.0
 const IMPACT_DAMAGE: float = 40.0
+const TAUNT_DURATION: float = 4.0
 
 
 func _init() -> void:
@@ -45,6 +46,9 @@ func cast(ctx: SkillContext) -> Dictionary:
 		if dist > radius:
 			continue
 		pulled += 1
+		# 多人：被嘲讽的敌人 4 秒内只追施法者
+		if ctx.caster != null and target.has_method("apply_taunt"):
+			target.apply_taunt(ctx.caster, TAUNT_DURATION)
 		if tier >= 3 and target.has_method("apply_slow"):
 			target.apply_slow(0.4, 2.0)
 		if dist > PULL_STOP_DISTANCE:

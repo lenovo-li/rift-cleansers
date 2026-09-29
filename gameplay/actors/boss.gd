@@ -92,9 +92,10 @@ func _charge(delta: float, dir: Vector3) -> Variant:
 			return _charge_dir * CHARGE_SPEED
 		_:
 			_charge_time -= delta
-			if not _charge_hit and global_position.distance_to(target_player.global_position) < 2.5:
-				_charge_hit = true
-				target_player.take_damage(def.special_value, self)
+			if not _charge_hit:
+				for p: Node3D in PlayerQuery.alive_in_radius(get_tree(), global_position, 2.5):
+					_charge_hit = true
+					p.take_damage(def.special_value, self)
 			if _charge_time <= 0.0:
 				_charge_state = 0
 				_charge_timer = CHARGE_INTERVAL * (0.7 if phase == 3 else 1.0)
@@ -118,6 +119,7 @@ func _show_telegraph(visible_now: bool) -> void:
 	if visible_now:
 		var center: Vector3 = global_position + _charge_dir * def.special_range * 0.5
 		_telegraph.global_transform = Transform3D(Basis.looking_at(_charge_dir, Vector3.UP), Vector3(center.x, 0.05, center.z))
+		SkillVfx.record(["telegraph", center, _charge_dir, def.special_range, CHARGE_WINDUP])
 
 
 ## Boss 不会被击退打断冲锋。

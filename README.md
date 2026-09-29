@@ -124,11 +124,29 @@ godot --path . --editor
 godot --path . res://scenes/main.tscn
 ```
 
-### 性能测试
+### 操作
+
+WASD 移动 · 空格/Q/E/R/F/C 六个技能 · Shift 闪避 · 1/2/3 选升级 · T 自动施放 · F3 联机调试 · Esc 回菜单
+
+### 局域网联机（M2 原型）
+
+菜单里一人「创建房间」，另一人填主机 IP「加入房间」（UDP 端口默认 24570）。也可以用命令行：
 
 ```bash
-# 1000敌人压力测试
-godot --path . --script tests/stress_test_1000.gd
+godot --path . -- --host --name=A
+godot --path . -- --join=192.168.1.10 --name=B   # 可加 --lag=50 模拟单向延迟
+```
+
+原型没有加密和鉴权，只在可信局域网使用。
+
+### 测试
+
+```bash
+godot --headless --path . --script res://tests/run_all_tests.gd                   # 单元测试
+godot --headless --fixed-fps 60 --path . --script res://tests/sim_full_run.gd     # 单人 10 分钟机器人
+godot --path . --script res://tests/stress_m1_500.gd -- --count=500               # 单人 500 敌人（渲染）
+python tests/net_smoke.py --seconds 60     # 双进程联机：一致性 + 掉线托管 + 重连
+python tests/net_stress.py --count 500     # 双进程联机 500 敌人 FPS
 ```
 
 ---

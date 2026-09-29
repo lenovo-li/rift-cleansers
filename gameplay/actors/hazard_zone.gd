@@ -9,9 +9,10 @@ var slow_factor: float = 0.5
 var duration: float = 4.0
 var _elapsed: float = 0.0
 var _tick_timer: float = 0.0
-var _player: Node3D = null
 var _mat: StandardMaterial3D = null
 var _color: Color = Color(0.6, 0.65, 0.1, 0.35)
+## 客户端回放用：只显示、不结算伤害。
+var visual_only: bool = false
 
 
 func setup(p_radius: float, p_slow: float, p_duration: float, color: Color) -> void:
@@ -22,7 +23,6 @@ func setup(p_radius: float, p_slow: float, p_duration: float, color: Color) -> v
 
 
 func _ready() -> void:
-	_player = get_tree().root.find_child("PlayerM1", true, false) as Node3D
 	var mi: MeshInstance3D = MeshInstance3D.new()
 	var cyl: CylinderMesh = CylinderMesh.new()
 	cyl.top_radius = radius
@@ -45,14 +45,9 @@ func _physics_process(delta: float) -> void:
 		return
 	_mat.albedo_color.a = _color.a * (1.0 - _elapsed / duration * 0.6)
 	_tick_timer += delta
-	if _tick_timer < TICK:
+	if visual_only or _tick_timer < TICK:
 		return
 	_tick_timer -= TICK
-	if _player == null or not is_instance_valid(_player):
-		return
-	var d: Vector3 = _player.global_position - global_position
-	d.y = 0.0
-	if d.length() <= radius:
-		_player.take_damage(DPS * TICK, "膨胀怪毒区")
-		if _player.has_method("apply_slow"):
-			_player.apply_slow(slow_factor, 1.0)
+	for p: Node3D in PlayerQuery.alive_in_radius(get_tree(), global_position, radius):
+		p.take_damage(DPS * TICK, "膨胀怪毒区")
+		p.apply_slow(slow_factor, 1.0)

@@ -12,6 +12,8 @@ var victory: bool = false
 var end_reason: String = ""
 var player_level: int = 1
 var player_exp: float = 0.0
+## 多人：返回玩家人数。等级共享、击杀数约为人数倍，经验按人数均分以保持单人的升级节奏。
+var player_count_provider: Callable = Callable()
 
 
 func start_game() -> void:
@@ -42,7 +44,8 @@ func end_game(reason: String, is_victory: bool = false) -> void:
 func add_experience(amount: float) -> void:
 	if not is_running:
 		return
-	player_exp += amount * get_exp_multiplier()
+	var n: int = maxi(1, int(player_count_provider.call())) if player_count_provider.is_valid() else 1
+	player_exp += amount * get_exp_multiplier() / float(n)
 
 	var required: float = get_exp_required(player_level)
 	while player_exp >= required:

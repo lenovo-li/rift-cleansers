@@ -5,6 +5,14 @@ const CONE_COLOR: Color = Color(0.3, 0.6, 1.0, 0.4)
 const WHIRL_COLOR: Color = Color(0.3, 1.0, 0.4, 0.3)
 const FLAME_COLOR: Color = Color(1.0, 0.35, 0.05, 0.4)
 
+## 联机：主机设置后，每次调用特效都会把参数交给 recorder(event: Array)，由 NetSession 转发给客户端回放。
+static var recorder: Callable = Callable()
+
+
+static func record(event: Array) -> void:
+	if recorder.is_valid():
+		recorder.call(event)
+
 
 static func _make_material(color: Color) -> StandardMaterial3D:
 	var mat: StandardMaterial3D = StandardMaterial3D.new()
@@ -16,6 +24,7 @@ static func _make_material(color: Color) -> StandardMaterial3D:
 
 ## 盾击特效：前方扇形
 static func shield_bash(parent: Node, origin: Vector3, facing: Vector3, radius: float) -> void:
+	record(["cone", origin, facing, radius])
 	var mesh_instance: MeshInstance3D = MeshInstance3D.new()
 	var mesh: CylinderMesh = CylinderMesh.new()
 	mesh.top_radius = radius * tan(PI / 4.0)
@@ -37,6 +46,7 @@ static func shield_bash(parent: Node, origin: Vector3, facing: Vector3, radius: 
 
 ## 旋风斩特效：跟随的圆环
 static func whirlwind(parent: Node, caster: Node3D, radius: float, duration: float, color: Color = WHIRL_COLOR) -> void:
+	record(["whirl", int(caster.get("net_slot")), radius, duration, color])
 	var mesh_instance: MeshInstance3D = MeshInstance3D.new()
 	var mesh: TorusMesh = TorusMesh.new()
 	mesh.inner_radius = radius - 0.3
@@ -66,6 +76,7 @@ static func whirlwind(parent: Node, caster: Node3D, radius: float, duration: flo
 
 ## 地面火焰特效
 static func ground_zone(parent: Node, a: Vector3, b: Vector3, half_width: float, duration: float, color: Color = FLAME_COLOR) -> void:
+	record(["zone", a, b, half_width, duration, color])
 	var dir: Vector3 = b - a
 	dir.y = 0.0
 	var length: float = dir.length()
@@ -102,6 +113,7 @@ static func ground_zone(parent: Node, a: Vector3, b: Vector3, half_width: float,
 
 ## 一次性扩散圆盘：从 0 扩到 radius 并淡出（嘲讽、震地、爆燃、碎裂、治疗、爆炸等）。
 static func pulse_ring(parent: Node, center: Vector3, radius: float, color: Color, duration: float = 0.35) -> void:
+	record(["ring", center, radius, color, duration])
 	if parent == null or not parent.is_inside_tree():
 		return
 	var mi: MeshInstance3D = MeshInstance3D.new()
@@ -124,6 +136,7 @@ static func pulse_ring(parent: Node, center: Vector3, radius: float, color: Colo
 
 ## 冲锋拖尾：起点到终点的长条，快速淡出。
 static func dash_trail(parent: Node, a: Vector3, b: Vector3, width: float, color: Color) -> void:
+	record(["trail", a, b, width, color])
 	if parent == null or not parent.is_inside_tree() or a.distance_to(b) < 0.1:
 		return
 	var mi: MeshInstance3D = MeshInstance3D.new()

@@ -9,16 +9,15 @@ var _source: Node = null
 var _dir: Vector3 = Vector3.FORWARD
 var _damage: float = 10.0
 var _life: float = LIFETIME
-var _player: Node3D = null
 var _source_name: String = "酸液"
+## 客户端回放用：只显示、不结算伤害。
+var visual_only: bool = false
 
 
 func setup(source: Node, dir: Vector3, damage: float, color: Color) -> void:
 	_source = source
 	_dir = dir
 	_damage = damage
-	if source != null and "target_player" in source:
-		_player = source.target_player
 	if source != null and source.has_method("get_display_name"):
 		_source_name = "%s的酸液" % source.get_display_name()
 	var mi: MeshInstance3D = MeshInstance3D.new()
@@ -41,13 +40,11 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 		return
 	global_position += _dir * SPEED * delta
-	if _player == null or not is_instance_valid(_player):
+	if visual_only:
 		return
-	var d: Vector3 = _player.global_position - global_position
-	d.y = 0.0
-	if d.length() < HIT_RADIUS:
-		# 来源可能已死亡，用名字记录死因
-		_player.take_damage(_damage, _source_name)
-		if _player.has_method("apply_slow"):
-			_player.apply_slow(0.3, 1.5)
+	# 命中任意存活玩家（来源可能已死亡，用名字记录死因）
+	for p: Node3D in PlayerQuery.alive_in_radius(get_tree(), global_position, HIT_RADIUS):
+		p.take_damage(_damage, _source_name)
+		p.apply_slow(0.3, 1.5)
 		queue_free()
+		return

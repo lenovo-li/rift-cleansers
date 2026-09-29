@@ -1,5 +1,5 @@
 extends SceneTree
-## 完整 10 分钟模拟：简单机器人（绕圈风筝 + 自动施放 + 自动选升级 + 捡装备）跑完整局，
+## 完整 10 分钟模拟：PlayerBot（贴近横移 + 自动施放 + 自动选升级 + 捡装备）跑完整局，
 ## 验证时间线（等级、敌人数量、装备、精英、Boss）没有运行时错误，并输出每 30 秒的状态。
 ## 用法: godot --headless --fixed-fps 60 --path . --script res://tests/sim_full_run.gd -- --seed=N
 ## 退出码 0 = 跑到结束且无异常（胜负都算），1 = 卡住或超时。
@@ -28,18 +28,18 @@ func _init() -> void:
 	_session = _scene.get_node("GameSession") as GameSession
 	_player = _scene.get_node("PlayerM1")
 	_spawner = _scene.get_node("EnemySpawner")
-	_player.auto_cast = true
+	_player.ai_controlled = true
+	_player.bot = PlayerBot.new()
 	_session.game_over.connect(_on_game_over)
 	print("[full] seed=%d" % sim_seed)
 
 
-func _process(delta: float) -> bool:
+func _process(_delta: float) -> bool:
 	if _done:
 		return true
 	if not _session.is_running:
 		return false
 	var t: float = _session.get_game_time()
-	_drive_bot(delta)
 	var enemies: Array = get_nodes_in_group("enemies")
 	_max_enemies = maxi(_max_enemies, enemies.size())
 	for e: Node in enemies:
@@ -53,43 +53,6 @@ func _process(delta: float) -> bool:
 		_done = true
 		quit(1)
 	return false
-
-
-## 机器人：优先去捡装备；被围超过 12 只时后撤闪避；否则靠近最近的敌人并绕着它横移。
-func _drive_bot(_delta: float) -> void:
-	var pos: Vector3 = _player.global_position
-	var loot: Node = _scene.get_node("LootManager")
-	for p: Node in loot.get_children():
-		if p.get("kind") == "equipment":
-			_player.move_override = (p.global_position - pos) * Vector3(1, 0, 1)
-			return
-	var nearest: Node3D = null
-	var nearest_d: float = INF
-	var crowd: int = 0
-	var crowd_center: Vector3 = Vector3.ZERO
-	for e: Node in get_nodes_in_group("enemies"):
-		var d: float = (e as Node3D).global_position.distance_to(pos)
-		if d < nearest_d:
-			nearest_d = d
-			nearest = e
-		if d < 3.0:
-			crowd += 1
-			crowd_center += (e as Node3D).global_position
-	if crowd > 12:
-		_player.move_override = (pos - crowd_center / crowd) * Vector3(1, 0, 1) + Vector3(0.001, 0, 0)
-		if _player.dodge_cooldown_remaining <= 0.0:
-			_player.dodge()
-	elif _spawner.boss != null:
-		# Boss 出现后集中打 Boss
-		var to_b: Vector3 = (_spawner.boss.global_position - pos) * Vector3(1, 0, 1)
-		_player.move_override = to_b if to_b.length() > 4.0 else to_b.cross(Vector3.UP).normalized()
-	elif nearest != null:
-		# 远了就靠近，近了就绕着最近的敌人横移（半速不可控，这里用切向 + 轻微后撤）
-		var to_e: Vector3 = (nearest.global_position - pos) * Vector3(1, 0, 1)
-		var tangent: Vector3 = to_e.cross(Vector3.UP).normalized()
-		_player.move_override = to_e if nearest_d > 3.0 else tangent - to_e.normalized() * 0.3
-	else:
-		_player.move_override = Vector3.ZERO
 
 
 func _report(t: float, enemy_count: int) -> void:

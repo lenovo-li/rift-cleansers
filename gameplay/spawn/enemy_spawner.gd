@@ -24,15 +24,19 @@ const SEPARATION_CELL: float = 1.5
 
 var kills: int = 0
 var boss: Boss = null
+## 客户端：由 NetSession 写入的敌人数量和 Boss 信息
+var net_enemy_count: int = 0
+var net_boss_info: Dictionary = {}
 var _next_id: int = 1000
-var _player: Node3D = null
 var _director: SpawnDirector = null
 var _session: GameSession = null
 
 
 func _ready() -> void:
+	if NetConfig.is_client():
+		set_physics_process(false)
+		return  # 客户端不生成敌人，敌人来自主机快照
 	await get_tree().process_frame
-	_player = get_tree().root.find_child("PlayerM1", true, false) as Node3D
 	_director = get_tree().root.find_child("SpawnDirector", true, false) as SpawnDirector
 	_session = get_tree().root.find_child("GameSession", true, false) as GameSession
 	if _director:
@@ -49,7 +53,7 @@ func spawn_enemies(count: int) -> void:
 
 func spawn_enemy(enemy_id: String, elite_mod: String, center: Variant = null, radius: float = -1.0) -> Enemy:
 	var enemy: Enemy = EnemyScene.instantiate() as Enemy
-	enemy.setup(DEFS.get(enemy_id, DEFS["zombie"]), elite_mod, _player, get_parent())
+	enemy.setup(DEFS.get(enemy_id, DEFS["zombie"]), elite_mod, null, get_parent())
 	_add(enemy, center, radius)
 	return enemy
 
@@ -58,7 +62,8 @@ func spawn_boss() -> Boss:
 	var enemy: Node = EnemyScene.instantiate()
 	enemy.set_script(BossScript)
 	boss = enemy as Boss
-	boss.setup(BOSS_DEF, "", _player, get_parent())
+	boss.setup(BOSS_DEF, "", null, get_parent())
+	boss.health_scale = 1.0 + 0.6 * float(PlayerQuery.all(get_tree()).size() - 1)
 	boss.summon_requested.connect(_on_boss_summon)
 	_add(boss, null, 18.0)
 	boss_spawned.emit(boss)
@@ -70,7 +75,7 @@ func _add(enemy: Enemy, center: Variant, radius: float) -> void:
 	_next_id += 1
 	enemy.died.connect(_on_enemy_died)
 	add_child(enemy)
-	var origin: Vector3 = center if center is Vector3 else (_player.global_position if _player else Vector3.ZERO)
+	var origin: Vector3 = center if center is Vector3 else _random_player_position()
 	var r: float = radius if radius >= 0.0 else spawn_radius + randf() * 10.0
 	var angle: float = randf() * TAU
 	var pos: Vector3 = origin + Vector3(cos(angle) * r, 0.0, sin(angle) * r)
@@ -79,6 +84,14 @@ func _add(enemy: Enemy, center: Variant, radius: float) -> void:
 	enemy.global_position = pos
 	if _director and not (enemy is Boss):
 		_director.on_enemy_spawned()
+
+
+## 普通刷怪围绕随机一名存活玩家（多人时每个人身边都有怪）。
+func _random_player_position() -> Vector3:
+	var players: Array[Node3D] = PlayerQuery.alive(get_tree())
+	if players.is_empty():
+		return Vector3.ZERO
+	return players[randi() % players.size()].global_position
 
 
 func _on_boss_summon(enemy_id: String, count: int, elite_mod: String, center: Vector3) -> void:
@@ -156,4 +169,15 @@ func _physics_process(_delta: float) -> void:
 
 
 func get_enemy_count() -> int:
+	if NetConfig.is_client():
+		return net_enemy_count
 	return get_tree().get_nodes_in_group("enemies").size()
+
+
+## Boss 信息 {name, phase, hp, max_hp}；没有 Boss 时为空字典。
+func get_boss_info() -> Dictionary:
+	if NetConfig.is_client():
+		return net_boss_info
+	if boss == null or not is_instance_valid(boss) or not boss.is_alive:
+		return {}
+	return {"name": boss.get_display_name(), "phase": boss.phase, "hp": boss.current_health, "max_hp": boss.max_health}

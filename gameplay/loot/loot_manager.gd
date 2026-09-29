@@ -5,7 +5,6 @@ signal equipment_collected(item_id: String)
 
 const PickupScript: GDScript = preload("res://gameplay/loot/pickup.gd")
 
-var _player: Node3D = null
 var _pending: Array[String] = []
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
@@ -13,7 +12,6 @@ var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 func _ready() -> void:
 	_rng.randomize()
 	await get_tree().process_frame
-	_player = get_tree().root.find_child("PlayerM1", true, false) as Node3D
 	var director: SpawnDirector = get_tree().root.find_child("SpawnDirector", true, false) as SpawnDirector
 	if director:
 		director.equipment_drop_due.connect(func(_i: int) -> void: drop_equipment_near_player())
@@ -29,18 +27,20 @@ func _on_enemy_killed(enemy: Enemy) -> void:
 		_spawn("heal", "", DropSystem.HEAL_ORB_AMOUNT, enemy.global_position)
 
 
-## 时间表掉落：在玩家附近 6-9 米处出现，需要走过去拿。
+## 时间表掉落：在随机一名存活玩家附近 6-9 米处出现，需要走过去拿。
 func drop_equipment_near_player() -> void:
-	if _player == null:
+	var players: Array[Node3D] = PlayerQuery.alive(get_tree())
+	if players.is_empty():
 		return
+	var target: Node3D = players[_rng.randi() % players.size()]
 	var angle: float = _rng.randf() * TAU
 	var r: float = _rng.randf_range(6.0, 9.0)
-	drop_equipment(_player.global_position + Vector3(cos(angle) * r, 0.0, sin(angle) * r))
+	drop_equipment(target.global_position + Vector3(cos(angle) * r, 0.0, sin(angle) * r))
 
 
 func drop_equipment(pos: Vector3) -> void:
-	var owned: Dictionary = _player.stats.equipment if _player else {}
-	var id: String = DropSystem.pick_equipment(owned, _pending, _rng)
+	# 多人时只排除所有玩家都已拥有的装备
+	var id: String = DropSystem.pick_equipment(_owned_by_everyone(), _pending, _rng)
 	if id.is_empty():
 		_spawn("heal", "", DropSystem.HEAL_ORB_AMOUNT * 3.0, pos)
 		return
@@ -50,18 +50,30 @@ func drop_equipment(pos: Vector3) -> void:
 
 func _spawn(kind: String, item_id: String, amount: float, pos: Vector3) -> void:
 	var p: Node3D = PickupScript.new()
-	p.setup(kind, item_id, amount, _player)
+	p.setup(kind, item_id, amount)
 	p.collected.connect(_on_collected)
 	add_child(p)
 	p.global_position = Vector3(clampf(pos.x, -95.0, 95.0), 0.0, clampf(pos.z, -95.0, 95.0))
 
 
-func _on_collected(p: Node3D) -> void:
-	if _player == null:
-		return
+func _owned_by_everyone() -> Dictionary:
+	var result: Dictionary = {}
+	var players: Array[Node3D] = PlayerQuery.all(get_tree())
+	for id: String in ItemCatalog.EQUIPMENT:
+		var all_have: bool = not players.is_empty()
+		for p: Node3D in players:
+			if not p.stats.has_equipment(id):
+				all_have = false
+				break
+		if all_have:
+			result[id] = true
+	return result
+
+
+func _on_collected(p: Node3D, player: Node3D) -> void:
 	if p.kind == "equipment":
 		_pending.erase(p.item_id)
-		_player.add_equipment(p.item_id)
+		player.add_equipment(p.item_id)
 		equipment_collected.emit(p.item_id)
 	else:
-		_player.heal(p.amount)
+		player.heal(p.amount)

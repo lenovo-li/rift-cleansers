@@ -21,6 +21,8 @@ const HIT_MIN_INTERVAL_MS: int = 60
 const WHOOSH_MIN_INTERVAL_MS: int = 0
 
 static var _last_played_ms: Dictionary = {}  # 类别 -> 上次播放时间
+## 联机：主机设置后，实际播放的音效类别会交给 recorder(category) 转发给客户端。
+static var recorder: Callable = Callable()
 
 
 ## 命中音效。返回创建的播放器；被节流时返回 null。
@@ -41,6 +43,8 @@ static func _play(parent: Node, category: String, streams: Array[AudioStream],
 	if min_interval_ms > 0 and now - int(_last_played_ms.get(category, -100000)) < min_interval_ms:
 		return null
 	_last_played_ms[category] = now
+	if recorder.is_valid():
+		recorder.call(category)
 	var player: AudioStreamPlayer = AudioStreamPlayer.new()
 	player.stream = streams.pick_random()
 	player.volume_db = volume_db

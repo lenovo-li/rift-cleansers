@@ -40,10 +40,15 @@ var exp_reward: float = 2.0
 var is_alive: bool = true
 var status: StatusEffects = StatusEffects.new()
 var target_player: Node3D = null
+## 嘲讽：强制把目标锁定为某个玩家若干秒（多人时由嘲讽者承担火力）。
+var _taunt_time: float = 0.0
+var _retarget_timer: float = 0.0
 ## 投射物、危险区的父节点（一般是游戏场景根）。
 var effects_parent: Node = null
 var knockback_velocity: Vector3 = Vector3.ZERO
 var knockback_resist: float = 0.0
+## 多人时 Boss 血量倍率（加入场景树前设置）。
+var health_scale: float = 1.0
 ## 与邻近敌人的分离向量（由 EnemySpawner 每帧写入）。
 var separation: Vector3 = Vector3.ZERO
 var attack_timer: float = 0.0
@@ -73,7 +78,7 @@ func _ready() -> void:
 	if def == null:
 		def = DEFAULT_DEF
 	var elite: bool = not elite_mod.is_empty()
-	max_health = def.max_health * (ELITE_HEALTH_MULT if elite else 1.0)
+	max_health = def.max_health * (ELITE_HEALTH_MULT if elite else 1.0) * health_scale
 	current_health = max_health
 	exp_reward = def.exp_reward * (ELITE_EXP_MULT if elite else 1.0)
 	special_timer = def.special_cooldown * randf()
@@ -89,8 +94,7 @@ func _ready() -> void:
 	var col: CollisionShape3D = get_node("Collision") as CollisionShape3D
 	col.shape = _cached_shape(s)
 	col.position = Vector3(0, 0.8 * s, 0)
-	if target_player == null:
-		target_player = get_tree().root.find_child("PlayerM1", true, false) as Node3D
+	_retarget_timer = randf() * 0.5
 	if effects_parent == null:
 		effects_parent = get_parent()
 
@@ -117,7 +121,8 @@ func _physics_process(delta: float) -> void:
 		if not is_alive:
 			return
 	_update_flash(delta)
-	if target_player == null or not is_instance_valid(target_player):
+	_update_target(delta)
+	if target_player == null:
 		return
 	if attack_timer > 0.0:
 		attack_timer -= delta
@@ -211,6 +216,24 @@ func _dasher(delta: float, dir: Vector3, dist: float, speed: float) -> Vector3:
 			return dir * speed * 0.3
 
 
+## 每 0.5 秒重新选择最近的存活玩家；被嘲讽期间锁定嘲讽者。
+func _update_target(delta: float) -> void:
+	_taunt_time -= delta
+	_retarget_timer -= delta
+	var invalid: bool = target_player == null or not is_instance_valid(target_player) or target_player.get("is_dead")
+	if _taunt_time > 0.0 and not invalid:
+		return
+	if invalid or _retarget_timer <= 0.0:
+		_retarget_timer = 0.5
+		target_player = PlayerQuery.nearest_alive(get_tree(), global_position)
+
+
+func apply_taunt(taunter: Node3D, duration: float) -> void:
+	if taunter != null and not taunter.get("is_dead"):
+		target_player = taunter
+		_taunt_time = duration
+
+
 func _melee(amount: float) -> void:
 	attack_timer = def.attack_cooldown
 	if target_player.has_method("take_damage"):
@@ -225,6 +248,7 @@ func _shoot(dir: Vector3) -> void:
 	p.setup(self, dir, def.attack_damage, Color(0.4, 1.0, 0.3))
 	effects_parent.add_child(p)
 	p.global_position = global_position + Vector3(0, 1.0, 0) + dir * 0.8
+	SkillVfx.record(["proj", p.global_position, dir])
 
 
 func _heal_allies() -> void:
@@ -261,7 +285,8 @@ func take_damage(amount: float) -> void:
 func _teleport_away() -> void:
 	SkillVfx.pulse_ring(effects_parent, global_position, 1.5, Color(0.2, 0.9, 1.0, 0.5), 0.3)
 	var angle: float = randf() * TAU
-	global_position = target_player.global_position + Vector3(cos(angle), 0, sin(angle)) * 10.0
+	var anchor: Vector3 = target_player.global_position if target_player else global_position
+	global_position = anchor + Vector3(cos(angle), 0, sin(angle)) * 10.0
 	knockback_velocity = Vector3.ZERO
 
 
@@ -279,6 +304,7 @@ func die() -> void:
 			hz.setup(def.special_range, def.special_value, def.special_cooldown, Color(0.6, 0.65, 0.1, 0.35))
 			effects_parent.add_child(hz)
 			hz.global_position = global_position
+			SkillVfx.record(["hazard", global_position, def.special_range, def.special_cooldown])
 	died.emit(self)
 	queue_free()
 
@@ -286,9 +312,10 @@ func die() -> void:
 ## 小鬼死亡爆炸：0.7 秒预警圈，之后伤害圈内玩家（近战击杀后可以走出去）。
 func _explode() -> void:
 	var blast: Node3D = BlastScript.new()
-	blast.setup(IMP_EXPLOSION_RADIUS, def.special_value, 0.7, "%s的自爆" % get_display_name(), target_player)
+	blast.setup(IMP_EXPLOSION_RADIUS, def.special_value, 0.7, "%s的自爆" % get_display_name())
 	effects_parent.add_child(blast)
 	blast.global_position = global_position
+	SkillVfx.record(["blast", global_position, IMP_EXPLOSION_RADIUS, 0.7])
 
 
 func apply_knockback(impulse: Vector3) -> void:

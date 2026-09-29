@@ -8,6 +8,7 @@ const BAR_WIDTH: float = 360.0
 var player: Node = null
 var session: GameSession = null
 var spawner: Node = null
+var net: NetSession = null
 
 var _hp_bar: ProgressBar
 var _shield_label: Label
@@ -21,6 +22,9 @@ var _boss_bar: ProgressBar
 var _boss_label: Label
 var _toast: Label
 var _toast_time: float = 0.0
+var _team_label: Label
+var _downed_label: Label
+var _debug_label: Label
 
 
 func _ready() -> void:
@@ -42,6 +46,17 @@ func _ready() -> void:
 
 	_build_skill_bar()
 	_build_boss_bar()
+
+	_team_label = _label(top_left, 16)
+	_downed_label = _label(self, 36)
+	_place(_downed_label, Vector4(0.5, 0.5, 0.5, 0.5), Vector4(-400, 80, 400, 160))
+	_downed_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_downed_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.4))
+	_debug_label = _label(self, 15)
+	_place(_debug_label, Vector4(1, 1, 1, 1), Vector4(-460, -260, -16, -16))
+	_debug_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_debug_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	_debug_label.visible = false
 
 	_toast = _label(self, 30)
 	_place(_toast, Vector4(0.5, 0, 0.5, 0), Vector4(-500, 150, 500, 210))
@@ -155,6 +170,29 @@ func _process(delta: float) -> void:
 	_update_skills()
 	_update_items(stats)
 	_update_boss()
+	_update_team()
+	if _debug_label.visible:
+		_debug_label.text = net.debug_text() if net != null else "[单人] F3 调试（联机时显示网络状态）"
+
+
+func toggle_debug() -> void:
+	_debug_label.visible = not _debug_label.visible
+
+
+## 队友列表 + 自己倒地时的提示。
+func _update_team() -> void:
+	if player.is_dead:
+		var multi: bool = PlayerQuery.all(get_tree()).size() > 1
+		_downed_label.text = "你倒下了！" + ("等待队友救援  %d%%" % int(player.revive_progress * 100.0) if multi else "")
+	else:
+		_downed_label.text = ""
+	var lines: PackedStringArray = []
+	for p: Node in get_tree().get_nodes_in_group("players"):
+		if p == player:
+			continue
+		var state: String = "倒地 %d%%" % int(p.revive_progress * 100.0) if p.is_dead else "%d/%d" % [p.stats.health, p.stats.max_health]
+		lines.append("%s  %s%s" % [p.display_name, state, "  [AI]" if p.ai_controlled else ""])
+	_team_label.text = "\n".join(lines)
 
 
 func _update_skills() -> void:
@@ -191,9 +229,9 @@ func _update_items(stats: CharacterStats) -> void:
 
 
 func _update_boss() -> void:
-	var boss: Boss = spawner.boss if spawner else null
-	_boss_box.visible = boss != null and is_instance_valid(boss) and boss.is_alive
+	var info: Dictionary = spawner.get_boss_info() if spawner else {}
+	_boss_box.visible = not info.is_empty()
 	if _boss_box.visible:
-		_boss_label.text = "%s  阶段 %d" % [boss.get_display_name(), boss.phase]
-		_boss_bar.max_value = boss.max_health
-		_boss_bar.value = boss.current_health
+		_boss_label.text = "%s  阶段 %d" % [info.name, info.phase]
+		_boss_bar.max_value = info.max_hp
+		_boss_bar.value = info.hp

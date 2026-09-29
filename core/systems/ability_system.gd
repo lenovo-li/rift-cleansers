@@ -32,6 +32,12 @@ func get_cooldown_remaining(skill_id: String) -> float:
 	return float(_cooldowns.get(skill_id, 0.0))
 
 
+## 客户端用主机快照覆盖冷却显示。
+func set_cooldown_remaining(skill_id: String, value: float) -> void:
+	if _cooldowns.has(skill_id):
+		_cooldowns[skill_id] = maxf(0.0, value)
+
+
 func can_cast(skill_id: String) -> bool:
 	return _skills.has(skill_id) and get_cooldown_remaining(skill_id) <= 0.0
 

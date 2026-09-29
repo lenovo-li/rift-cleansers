@@ -5,6 +5,7 @@ const SCENES: Array[String] = [
 	"res://scenes/main.tscn",
 	"res://scenes/test_arena.tscn",
 	"res://scenes/game_scene.tscn",
+	"res://scenes/menu.tscn",
 ]
 
 

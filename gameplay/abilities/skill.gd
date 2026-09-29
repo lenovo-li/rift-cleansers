@@ -30,6 +30,11 @@ func get_cooldown() -> float:
 	return 1.0
 
 
+## 档位之间的普通等级：每级伤害 +10%（例如 Lv4 = 3 档 × 1.1）。由施法者乘进 SkillContext.damage_mult。
+func level_bonus() -> float:
+	return 1.0 + 0.1 * float(level - get_tier())
+
+
 ## 执行技能。返回结果字典，至少包含 hits(int) 和 damage(float)。
 func cast(_ctx: SkillContext) -> Dictionary:
 	return {"hits": 0, "damage": 0.0}

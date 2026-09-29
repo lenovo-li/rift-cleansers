@@ -10,7 +10,7 @@ const KNOCKBACK_FORCE: float = 5.0
 func _init() -> void:
 	skill_id = "shield_bash"
 	display_name = "盾击"
-	max_level = 10
+	max_level = 8
 
 
 func get_tier_thresholds() -> Array[int]:
@@ -29,7 +29,7 @@ func get_cooldown() -> float:
 func cast(ctx: SkillContext) -> Dictionary:
 	var tier: int = get_tier()
 	var damage: float = BASE_DAMAGE * _damage_mult(tier)
-	var range: float = BASE_RANGE * _range_mult(tier)
+	var range: float = BASE_RANGE * _range_mult(tier) * ctx.area_mult
 	var max_targets: int = _max_targets(tier)
 	
 	var hits: int = 0
@@ -52,30 +52,31 @@ func cast(ctx: SkillContext) -> Dictionary:
 	
 	# 造成伤害和击退
 	for target: Variant in hit_enemies:
-		target.take_damage(damage)
-		hits += 1
-		total_damage += damage
-		var direction: Vector3 = (target.global_position - ctx.origin).normalized()
+		var direction: Vector3 = target.global_position - ctx.origin
 		direction.y = 0.0
-		if target.has_method("apply_knockback"):
-			target.apply_knockback(direction * KNOCKBACK_FORCE)
-	
+		direction = direction.normalized()
+		var dealt: float = ctx.hit(target, damage, true)
+		total_damage += dealt + ctx.push(target, direction * KNOCKBACK_FORCE, dealt)
+		hits += 1
+
 	# Lv3+：连锁伤害
 	if tier >= 3 and hits > 0:
 		var chain_hits: int = _apply_chain(ctx, hit_enemies, damage * 0.5)
 		hits += chain_hits
-		total_damage += chain_hits * damage * 0.5
-	
+		total_damage += chain_hits * damage * 0.5 * ctx.damage_mult
+
 	# Lv5+：冲击波
 	if tier >= 5:
 		var shockwave_hits: int = _apply_shockwave(ctx, damage * 0.3, range * 1.5)
 		hits += shockwave_hits
-		total_damage += shockwave_hits * damage * 0.3
-	
-	# Lv8+：火焰地带
+		total_damage += shockwave_hits * damage * 0.3 * ctx.damage_mult
+
+	# Lv8+：火焰地带（燃烧，可与后续重击组成爆燃）
 	if tier >= 8:
 		var trail_end: Vector3 = ctx.origin + facing * range
-		var zone: GroundZone = GroundZone.new(ctx.origin, trail_end, 1.5, damage * 0.2, 3.0)
+		var zone: GroundZone = GroundZone.new(ctx.origin, trail_end, 1.5, damage * 0.2 * ctx.damage_mult, 3.0)
+		zone.burn_dps = 10.0
+		zone.kind = "flame"
 		ctx.new_zones.append(zone)
 	
 	return {"hits": hits, "damage": total_damage, "tier": tier}
@@ -112,7 +113,7 @@ func _apply_chain(ctx: SkillContext, primaries: Array, damage: float) -> int:
 			var offset: Vector3 = candidate.global_position - primary.global_position
 			offset.y = 0.0
 			if offset.length() < CHAIN_RADIUS:
-				candidate.take_damage(damage)
+				ctx.hit(candidate, damage)
 				already_hit.append(candidate)
 				chain_hits += 1
 	return chain_hits
@@ -127,8 +128,9 @@ static func level_for_player_level(player_level: int) -> int:
 func _apply_shockwave(ctx: SkillContext, damage: float, radius: float) -> int:
 	var shockwave_hits: int = 0
 	for target: Variant in ctx.alive_targets():
-		var distance: float = (target.global_position - ctx.origin).length()
-		if distance < radius:
-			target.take_damage(damage)
+		var offset: Vector3 = target.global_position - ctx.origin
+		offset.y = 0.0
+		if offset.length() < radius:
+			ctx.hit(target, damage)
 			shockwave_hits += 1
 	return shockwave_hits

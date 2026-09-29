@@ -13,6 +13,10 @@ var anchor: Object = null
 ## 可选：命中时附加减速（目标需实现 apply_slow(factor, duration)）。0 表示不减速。
 var slow_factor: float = 0.0
 var slow_duration: float = 0.0
+## 可选：命中时附加燃烧（目标需有 status: StatusEffects）。0 表示不燃烧。
+var burn_dps: float = 0.0
+## 表现层用的类型标签（flame / whirl / slam / aura）。
+var kind: String = ""
 var _tick_timer: float = 0.0
 
 
@@ -46,6 +50,10 @@ func tick(delta: float, targets: Array) -> int:
 				t.take_damage(damage_per_tick)
 				if slow_factor > 0.0 and t.has_method("apply_slow"):
 					t.apply_slow(slow_factor, slow_duration)
+				if burn_dps > 0.0:
+					var s: StatusEffects = Reactions.status_of(t)
+					if s != null:
+						s.apply_burn(burn_dps, 3.0)
 				hits += 1
 	return hits
 

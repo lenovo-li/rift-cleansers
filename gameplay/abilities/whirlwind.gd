@@ -24,22 +24,27 @@ func get_cooldown() -> float:
 	return 8.0 * (0.8 if get_tier() >= 5 else 1.0)
 
 
+func get_radius() -> float:
+	return BASE_RADIUS * (1.3 if get_tier() >= 5 else 1.0)
+
+
 func cast(ctx: SkillContext) -> Dictionary:
 	var tier: int = get_tier()
-	var radius: float = BASE_RADIUS * (1.3 if tier >= 5 else 1.0)
+	var radius: float = get_radius() * ctx.area_mult
 	var duration: float = BASE_DURATION * (1.5 if tier >= 8 else 1.0)
 	var dps: float = BASE_DPS
-	if tier >= 3:
-		dps *= 1.3
 	if tier >= 8:
-		dps = BASE_DPS * 2.0
-	
+		dps *= 2.0
+	elif tier >= 3:
+		dps *= 1.3
+
 	# 创建跟随施法者的圆形持续伤害区域
-	var zone: GroundZone = GroundZone.new(ctx.origin, ctx.origin, radius, dps, duration)
+	var zone: GroundZone = GroundZone.new(ctx.origin, ctx.origin, radius, dps * ctx.damage_mult, duration)
 	zone.anchor = ctx.caster
+	zone.kind = "whirl"
 	if tier >= 3:
 		zone.slow_factor = 0.5
 		zone.slow_duration = 1.0
 	ctx.new_zones.append(zone)
-	
-	return {"hits": 0, "damage": 0.0, "tier": tier, "duration": duration}
+
+	return {"hits": 0, "damage": 0.0, "tier": tier, "duration": duration, "radius": radius}

@@ -10,7 +10,7 @@ const MAPS: Dictionary = {
 		"desc": "焦土废墟，火盆与残墙。危险：余烬坠落（红圈预警后爆炸）。",
 		"boss": "corrupted_knight",
 		"enemies": {
-			"early": {"zombie": 0.6, "skeleton": 0.2, "ember_guard": 0.15, "imp": 0.05},
+			"early": {"zombie": 0.75, "skeleton": 0.15, "ember_guard": 0.1},
 			"mid": {"zombie": 0.3, "skeleton": 0.25, "ember_guard": 0.2, "imp": 0.15, "necromancer": 0.1},
 			"late": {"skeleton": 0.25, "ember_guard": 0.2, "necromancer": 0.15, "imp": 0.15, "zombie": 0.15, "ghoul": 0.1},
 		},

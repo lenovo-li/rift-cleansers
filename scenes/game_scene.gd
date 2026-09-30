@@ -24,6 +24,8 @@ var _game_over_panel: Control = null
 var _pause_menu: PauseMenu = null
 var _music: Node = null
 var _music_timer: float = 0.0
+## 地图随机事件（主机 / 单人）
+var events: EventDirector = null
 
 
 func _ready() -> void:
@@ -32,6 +34,12 @@ func _ready() -> void:
 	_music = (load("res://presentation/music_manager.gd") as GDScript).new()
 	_music.name = "Music"
 	add_child(_music)
+	if not NetConfig.is_client():
+		events = EventDirector.new()
+		events.name = "EventDirector"
+		add_child(events)
+		events.initialize(NetConfig.map_id, _session, _loot, _spawner)
+		events.event_triggered.connect(func(_kind: int, text: String) -> void: _broadcast_toast(text))
 	_session.game_over.connect(_on_game_over)
 	_session.level_up.connect(_on_level_up)
 	_spawner.boss_spawned.connect(_on_boss_spawned)

@@ -22,6 +22,10 @@ const DEFS: Dictionary = {
 	"ghoul": preload("res://content/enemies/ghoul.tres"),
 	"necromancer": preload("res://content/enemies/necromancer.tres"),
 	"bloater": preload("res://content/enemies/bloater.tres"),
+	"ember_guard": preload("res://content/enemies/ember_guard.tres"),
+	"frost_wraith": preload("res://content/enemies/frost_wraith.tres"),
+	"sand_scarab": preload("res://content/enemies/sand_scarab.tres"),
+	"spore_shambler": preload("res://content/enemies/spore_shambler.tres"),
 }
 const ARENA_HALF: float = 95.0
 const SEPARATION_CELL: float = 1.5
@@ -89,15 +93,19 @@ func _add(enemy: Enemy, center: Variant, radius: float) -> void:
 	_next_id += 1
 	enemy.died.connect(_on_enemy_died)
 	add_child(enemy)
-	var origin: Vector3 = center if center is Vector3 else _random_player_position()
-	var r: float = radius if radius >= 0.0 else spawn_radius + randf() * 10.0
-	var angle: float = randf() * TAU
-	var pos: Vector3 = origin + Vector3(cos(angle) * r, 0.0, sin(angle) * r)
-	pos.x = clampf(pos.x, -ARENA_HALF, ARENA_HALF)
-	pos.z = clampf(pos.z, -ARENA_HALF, ARENA_HALF)
-	if MapBase.current:
-		pos = MapBase.current.find_free(pos, 1.2)
-	enemy.global_position = pos
+	if radius == 0.0 and center is Vector3:
+		# 事件刷怪：直接用给定位置
+		enemy.global_position = center
+	else:
+		var origin: Vector3 = center if center is Vector3 else _random_player_position()
+		var r: float = radius if radius >= 0.0 else spawn_radius + randf() * 10.0
+		var angle: float = randf() * TAU
+		var pos: Vector3 = origin + Vector3(cos(angle) * r, 0.0, sin(angle) * r)
+		pos.x = clampf(pos.x, -ARENA_HALF, ARENA_HALF)
+		pos.z = clampf(pos.z, -ARENA_HALF, ARENA_HALF)
+		if MapBase.current:
+			pos = MapBase.current.find_free(pos, 1.2)
+		enemy.global_position = pos
 	if _director and not (enemy is Boss):
 		_director.on_enemy_spawned()
 

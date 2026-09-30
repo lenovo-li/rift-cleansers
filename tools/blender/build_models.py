@@ -131,6 +131,42 @@ def bloater():
         lp.cyl((x, 0, 0.12), 0.1, 0.24, (0.4, 0.38, 0.15))
 
 
+def ember_guard():
+    """余烬守卫（灰烬王城）：燃烧盔甲碎片，CHASE 近战坦克"""
+    lp.box((0, 0, 0.75), (0.5, 0.3, 0.5), STEEL)
+    lp.box((0, 0.15, 0.82), (0.26, 0.05, 0.2), (1.0, 0.45, 0.15))  # 胸前发光余烬
+    lp.ball((0, 0, 1.3), (0.15, 0.15, 0.17), (0.22, 0.2, 0.2))
+    lp.cone((0, 0.05, 1.42), 0.05, 0.16, (1.0, 0.6, 0.25))  # 头顶火苗
+    for x in (0.32, -0.32):
+        lp.cyl((x, 0, 0.85), 0.08, 0.45, (0.32, 0.3, 0.35))
+
+
+def frost_wraith():
+    """霜魂（霜冻冰原）：半透明冰蓝幽灵，RANGED 冰弹"""
+    lp.cone((0, 0, 0.5), 0.42, 1.3, (0.62, 0.87, 1.0), verts=6)
+    lp.ball((0, 0.02, 1.35), (0.13, 0.13, 0.14), (0.78, 0.92, 1.0))
+    lp.ball((0.07, 0.08, 1.4), (0.04, 0.04, 0.04), (0.35, 0.72, 1.0))
+    lp.ball((-0.07, 0.08, 1.4), (0.04, 0.04, 0.04), (0.35, 0.72, 1.0))
+
+
+def sand_scarab():
+    """沙甲虫（沙海遗迹）：低矮昆虫，DASHER 快速冲刺爆炸"""
+    lp.ball((0, 0, 0.3), (0.32, 0.26, 0.28), (0.72, 0.52, 0.32))
+    lp.ball((0, 0.1, 0.48), (0.23, 0.18, 0.2), (0.82, 0.62, 0.38))
+    for x in (0.16, -0.16):
+        for z in (0.1, 0.28, 0.45):
+            lp.cyl((x, 0.16, z), 0.03, 0.22, (0.58, 0.42, 0.28), rot=(0, 0, 72))
+
+
+def spore_shambler():
+    """孢子行者（幽暗森林）：蘑菇人形，BLOATER 留毒区"""
+    lp.cyl((0, 0, 0.35), 0.15, 0.7, (0.38, 0.52, 0.32))
+    lp.ball((0, 0, 0.88), (0.18, 0.18, 0.22), (0.62, 0.78, 0.52))
+    lp.cone((0, 0, 1.18), 0.26, 0.38, (0.82, 0.42, 0.62), verts=8)  # 菌盖
+    for x in (0.2, -0.2):
+        lp.cyl((x, 0, 0.62), 0.06, 0.45, (0.42, 0.58, 0.38), rot=(0, 0, 22 if x > 0 else -22))
+
+
 def corrupted_knight():
     """腐化骑士（Boss）：尖刺黑甲、巨剑、发红光的眼缝和胸口。以 1 米高度建模，Godot 按 body_scale 放大。"""
     s = 0.55  # 整体按铁卫比例缩小到约 1.1 米，放大 2.5 倍后约 2.7 米
@@ -520,6 +556,8 @@ MODELS = {
     "shadow_walker": (shadow_walker, 2.0), "cleric": (cleric, 2.0), "zombie": (zombie, 1.6), "skeleton": (skeleton, 1.6),
     "imp": (imp, 1.2), "ghoul": (ghoul, 1.2), "necromancer": (necromancer, 1.8),
     "bloater": (bloater, 1.6), "corrupted_knight": (corrupted_knight, 1.3), "rocks": (rocks, 1.0),
+    "ember_guard": (ember_guard, 1.6), "frost_wraith": (frost_wraith, 1.6), "sand_scarab": (sand_scarab, 0.8),
+    "spore_shambler": (spore_shambler, 1.4),
     "frost_lich": (frost_lich, 1.3), "sand_colossus": (sand_colossus, 1.3), "rotwood_treant": (rotwood_treant, 1.3),
     "decor": (decor, 0.5),
     "ashen_city": (city_kit, 4.0),

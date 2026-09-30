@@ -9,6 +9,16 @@ const MAPS: Dictionary = {
 		"name": "灰烬王城",
 		"desc": "焦土废墟，火盆与残墙。危险：余烬坠落（红圈预警后爆炸）。",
 		"boss": "corrupted_knight",
+		"enemies": {
+			"early": {"zombie": 0.6, "skeleton": 0.2, "ember_guard": 0.15, "imp": 0.05},
+			"mid": {"zombie": 0.3, "skeleton": 0.25, "ember_guard": 0.2, "imp": 0.15, "necromancer": 0.1},
+			"late": {"skeleton": 0.25, "ember_guard": 0.2, "necromancer": 0.15, "imp": 0.15, "zombie": 0.15, "ghoul": 0.1},
+		},
+		"events": [
+			{"kind": 0, "time": 120.0, "offset": Vector3(8, 0, 8), "params": {"exp": 50, "heal": 30}},
+			{"kind": 1, "time": 240.0, "offset": Vector3.ZERO, "params": {"count": 3}},
+			{"kind": 2, "time": 360.0, "offset": Vector3(-8, 0, -8), "params": {"upgrade_reroll": true}},
+		],
 		"seed": 20260927, "layout": "ashen", "kit": "ashen_city",
 		"colliders": {
 			"wall": Vector3(6.0, 2.6, 0.8), "wall_broken": Vector3(3.2, 1.6, 0.8), "pillar": Vector3(1.1, 3.7, 1.1),
@@ -29,6 +39,16 @@ const MAPS: Dictionary = {
 		"name": "霜冻冰原",
 		"desc": "冰刺与雪松林，冰晶发出冷光。危险：寒霜地带（减速并持续冻伤）。",
 		"boss": "frost_lich",
+		"enemies": {
+			"early": {"zombie": 0.5, "skeleton": 0.25, "frost_wraith": 0.15, "bloater": 0.1},
+			"mid": {"skeleton": 0.3, "frost_wraith": 0.25, "zombie": 0.2, "bloater": 0.15, "necromancer": 0.1},
+			"late": {"frost_wraith": 0.25, "skeleton": 0.2, "bloater": 0.2, "necromancer": 0.15, "imp": 0.1, "zombie": 0.1},
+		},
+		"events": [
+			{"kind": 2, "time": 150.0, "offset": Vector3(10, 0, 10), "params": {"upgrade_reroll": true}},
+			{"kind": 0, "time": 270.0, "offset": Vector3(-10, 0, 10), "params": {"exp": 60, "heal": 40}},
+			{"kind": 1, "time": 400.0, "offset": Vector3.ZERO, "params": {"count": 4}},
+		],
 		"seed": 20261001, "layout": "frost", "kit": "frost_wastes",
 		"colliders": {
 			"ice_spire": Vector3(1.6, 3.6, 1.6), "pine": Vector3(1.4, 4.5, 1.4), "ice_rock": Vector3(2.0, 1.3, 1.8),
@@ -49,6 +69,16 @@ const MAPS: Dictionary = {
 		"name": "沙海遗迹",
 		"desc": "烈日下的砂岩柱廊与台地。危险：流沙塌陷（预警后爆发，伤害高）。",
 		"boss": "sand_colossus",
+		"enemies": {
+			"early": {"skeleton": 0.45, "sand_scarab": 0.3, "imp": 0.15, "zombie": 0.1},
+			"mid": {"skeleton": 0.3, "sand_scarab": 0.25, "imp": 0.2, "necromancer": 0.15, "ghoul": 0.1},
+			"late": {"sand_scarab": 0.25, "necromancer": 0.2, "skeleton": 0.2, "ghoul": 0.18, "imp": 0.12, "bloater": 0.05},
+		},
+		"events": [
+			{"kind": 1, "time": 180.0, "offset": Vector3.ZERO, "params": {"count": 5}},
+			{"kind": 0, "time": 300.0, "offset": Vector3(12, 0, 0), "params": {"exp": 70, "heal": 35}},
+			{"kind": 2, "time": 450.0, "offset": Vector3(0, 0, -12), "params": {"upgrade_reroll": true}},
+		],
 		"seed": 20261002, "layout": "desert", "kit": "sand_ruins",
 		"colliders": {
 			"sand_wall": Vector3(6.0, 2.8, 0.8), "obelisk": Vector3(2.2, 6.6, 2.2), "sand_pillar": Vector3(1.0, 3.6, 1.0),
@@ -68,6 +98,16 @@ const MAPS: Dictionary = {
 		"name": "幽暗森林",
 		"desc": "古树遮天，发光巨菇指路，林间通道狭窄。危险：毒孢子云（减速并持续中毒）。",
 		"boss": "rotwood_treant",
+		"enemies": {
+			"early": {"zombie": 0.45, "spore_shambler": 0.25, "bloater": 0.2, "imp": 0.1},
+			"mid": {"spore_shambler": 0.3, "bloater": 0.25, "ghoul": 0.2, "zombie": 0.15, "skeleton": 0.1},
+			"late": {"spore_shambler": 0.25, "ghoul": 0.25, "bloater": 0.2, "necromancer": 0.15, "imp": 0.1, "skeleton": 0.05},
+		},
+		"events": [
+			{"kind": 0, "time": 100.0, "offset": Vector3(-10, 0, 10), "params": {"exp": 55, "heal": 35}},
+			{"kind": 1, "time": 220.0, "offset": Vector3.ZERO, "params": {"count": 4}},
+			{"kind": 2, "time": 380.0, "offset": Vector3(10, 0, -10), "params": {"upgrade_reroll": true}},
+		],
 		"seed": 20261003, "layout": "forest", "kit": "dark_forest",
 		"colliders": {
 			"oak": Vector3(1.2, 4.5, 1.2), "dark_pine": Vector3(1.0, 5.0, 1.0), "log": Vector3(4.0, 0.9, 0.9),

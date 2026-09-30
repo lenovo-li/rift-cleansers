@@ -57,6 +57,8 @@ var special_timer: float = 0.0
 var _mesh: MeshInstance3D = null
 var _base_material: Material = null
 var _flash_timer: float = 0.0
+## 下一次 take_damage 的飘字类型（-1 = 按伤害大小自动）
+var _number_kind: int = -1
 var _magnet_point: Vector3 = Vector3.ZERO
 var _magnet_time: float = 0.0
 var _teleported: bool = false
@@ -117,7 +119,9 @@ func _physics_process(delta: float) -> void:
 		return
 	var burn: float = status.tick(delta)
 	if burn > 0.0:
+		_number_kind = DamageNumbers.Kind.BURN
 		take_damage(burn)
+		_number_kind = -1
 		if not is_alive:
 			return
 	_update_flash(delta)
@@ -273,8 +277,11 @@ func take_damage(amount: float) -> void:
 		return
 	current_health -= amount
 	SfxManager.play_hit(effects_parent)
+	DamageNumbers.spawn(effects_parent, global_position, amount, _number_kind)
+	if amount >= DamageNumbers.BIG_DAMAGE:
+		ParticleFx.burst(effects_parent, "spark", global_position + Vector3(0, 1, 0), 0.8)
 	_flash_timer = FLASH_TIME
-	_mesh.material_override = shared_material(Color(1, 0.55, 0.55))
+	_mesh.material_override = flash_material()
 	if elite_mod == "teleporter" and not _teleported and current_health > 0.0 and current_health < max_health * 0.3:
 		_teleported = true
 		_teleport_away()
@@ -296,6 +303,8 @@ func die() -> void:
 	is_alive = false
 	current_health = 0.0
 	remove_from_group("enemies")
+	SkillVfx.death(effects_parent, global_position, _mesh.mesh, _mesh.position.y, (_base_material as StandardMaterial3D).albedo_color, is_elite() or self is Boss)
+	SfxManager.play(effects_parent, "explode" if is_elite() or self is Boss else "death")
 	match def.behavior:
 		EnemyDef.Behavior.DASHER:
 			_explode()
@@ -337,6 +346,16 @@ func _update_flash(delta: float) -> void:
 		_flash_timer -= delta
 		if _flash_timer <= 0.0 and _dash_state != 1:
 			_mesh.material_override = _base_material
+
+
+## 受击闪白（无光照纯白，比变红更醒目）。
+static func flash_material() -> StandardMaterial3D:
+	if not _materials.has("flash"):
+		var mat: StandardMaterial3D = StandardMaterial3D.new()
+		mat.albedo_color = Color(1, 1, 1)
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_materials["flash"] = mat
+	return _materials["flash"]
 
 
 ## 场景退出时释放共享的材质/网格缓存。

@@ -12,6 +12,8 @@ signal revived
 ## 客户端预测闪避时发出，NetSession 转发给主机。
 signal dodge_requested
 signal equipment_added(item_id: String)
+## 实际扣血后发出（HUD 受伤闪红、飘字）。
+signal hurt(amount: float)
 
 enum ControlMode { LOCAL, REMOTE, PREDICTED, PUPPET }
 
@@ -271,15 +273,17 @@ func _apply_skill_result(skill_id: String, result: Dictionary, ctx: SkillContext
 	var tier: int = int(result.get("tier", 1))
 	match skill_id:
 		"shield_bash":
-			SkillVfx.shield_bash(_fx_parent, ctx.origin, ctx.flat_facing(), ShieldBash.BASE_RANGE * (1.5 if tier >= 5 else 1.0))
-			if tier >= 5:
-				SkillVfx.pulse_ring(_fx_parent, ctx.origin, ShieldBash.BASE_RANGE * 2.25, Color(0.4, 0.7, 1.0, 0.3))
+			SkillVfx.shield_bash_tiered(_fx_parent, ctx.origin, ctx.flat_facing(), ShieldBash.BASE_RANGE * (1.5 if tier >= 5 else 1.0),
+					tier, result.get("hit_points", []), result.get("chain_links", []))
 			if int(result.hits) > 0:
-				_shake(0.25)
+				_shake(0.2 + 0.05 * tier)
+				HitStop.trigger(get_tree(), 0.03 + 0.005 * tier)
+				SfxManager.play(_fx_parent, "heavy")
 		"whirlwind":
 			SkillVfx.whirlwind(_fx_parent, self, float(result.radius), float(result.duration))
 		"taunt":
-			SkillVfx.pulse_ring(_fx_parent, ctx.origin, float(result.radius), Color(1.0, 0.3, 0.2, 0.35), 0.4)
+			SkillVfx.shockwave(_fx_parent, ctx.origin, float(result.radius), Color(1.0, 0.25, 0.2, 1.0), 0.5)
+			SkillVfx.burst(_fx_parent, "magic", global_position + Vector3(0, 1.5, 0), 1.0, Color(1.0, 0.35, 0.25))
 			if float(result.get("shield", 0.0)) > 0.0:
 				stats.add_shield(float(result.shield))
 		"charge":
@@ -290,10 +294,19 @@ func _apply_skill_result(skill_id: String, result: Dictionary, ctx: SkillContext
 			SkillVfx.dash_trail(_fx_parent, ctx.origin, end, Charge.HALF_WIDTH * 2.0,
 					Color(1.0, 0.5, 0.1, 0.45) if tier >= 8 else Color(0.5, 0.8, 1.0, 0.4))
 			if tier >= 5:
-				SkillVfx.pulse_ring(_fx_parent, end, Charge.IMPACT_RADIUS, Color(1.0, 0.8, 0.3, 0.4))
+				SkillVfx.shockwave(_fx_parent, end, Charge.IMPACT_RADIUS, Color(1.0, 0.8, 0.3, 1.0), 0.35)
+			SkillVfx.burst(_fx_parent, "dust", end, 0.8)
+			if int(result.hits) > 0:
+				SfxManager.play(_fx_parent, "heavy")
+				HitStop.trigger(get_tree(), 0.04)
 			_shake(0.2)
 		"ground_slam":
-			SkillVfx.pulse_ring(_fx_parent, ctx.origin, float(result.radius), Color(0.8, 0.6, 0.3, 0.5), 0.35)
+			SkillVfx.shockwave(_fx_parent, ctx.origin, float(result.radius), Color(1.0, 0.75, 0.4, 1.0), 0.45)
+			SkillVfx.burst(_fx_parent, "dust", ctx.origin, 1.0 + 0.1 * tier)
+			if tier >= 8:
+				SkillVfx.shockwave(_fx_parent, ctx.origin, float(result.radius) * 1.4, Color(1.0, 0.5, 0.2, 1.0), 0.6)
+			SfxManager.play(_fx_parent, "slam")
+			HitStop.trigger(get_tree(), 0.06)
 			_shake(0.35)
 		"reflect_aura":
 			stats.set_aura(float(result.aura_duration), float(result.reflect), float(result.reduction))
@@ -356,12 +369,17 @@ func take_damage(amount: float, source: Variant = null) -> void:
 		source.take_damage(float(result.reflect))
 	if result.blocked:
 		SkillVfx.pulse_ring(_fx_parent, global_position, 1.5, Color(0.9, 0.9, 1.0, 0.5), 0.15)
+		SkillVfx.burst(_fx_parent, "spark", global_position + Vector3(0, 1.2, 0), 0.7, Color(0.9, 0.95, 1.0))
+		SfxManager.play(_fx_parent, "block")
 		return
 	last_damage_source = _describe_source(source)
 	var key: String = last_damage_source.split("·")[-1]
 	damage_taken_by_source[key] = float(damage_taken_by_source.get(key, 0.0)) + float(result.taken)
 	if float(result.taken) > 0.0:
 		_hurt_flash = 0.12
+		hurt.emit(float(result.taken))
+		if float(result.taken) >= 20.0:
+			SfxManager.play(_fx_parent, "hurt")
 	if not stats.is_alive():
 		die()
 
@@ -422,6 +440,8 @@ func apply_net_input(seq: int, move: Vector3, p_facing: Vector3) -> void:
 
 func add_equipment(item_id: String) -> void:
 	stats.add_equipment(item_id)
+	SkillVfx.burst(_fx_parent, "star", global_position + Vector3(0, 1, 0), 1.2)
+	SfxManager.play(_fx_parent, "pickup")
 	equipment_added.emit(item_id)
 	print("[PlayerM1] equipment: %s" % ItemCatalog.equipment_name(item_id))
 
@@ -459,7 +479,6 @@ func flash_hurt() -> void:
 
 func _shake(strength: float) -> void:
 	if control == ControlMode.REMOTE:
-		return  # 远程玩家的震屏由其客户端自己处理
-	var cam: Camera3D = get_viewport().get_camera_3d()
-	if cam and cam.has_method("shake"):
-		cam.shake(strength)
+		SkillVfx.record(["shake", strength, net_slot])  # 只震该玩家自己的屏幕
+		return
+	SkillVfx.shake(get_tree(), strength, net_slot)

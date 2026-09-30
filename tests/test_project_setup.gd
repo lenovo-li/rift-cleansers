@@ -31,6 +31,19 @@ func test_game_scene_has_core_nodes() -> String:
 	return "" if missing.is_empty() else "game_scene 缺少节点: %s" % ", ".join(missing)
 
 
+## 地面顶面必须在 y=0：地面特效（毒区、爆炸预警、冲击波）都画在 y≈0.05-0.1，
+## 地面被编辑器误拖高一点就会把它们全部盖住。
+func test_ground_top_at_zero() -> String:
+	var root: Node = (load("res://scenes/game_scene.tscn") as PackedScene).instantiate()
+	var ground: CSGBox3D = root.get_node("Ground") as CSGBox3D
+	var top: float = ground.transform.origin.y + ground.size.y * 0.5
+	var off: Vector3 = ground.transform.origin
+	root.free()
+	if absf(top) > 0.001 or absf(off.x) > 0.001 or absf(off.z) > 0.001:
+		return "地面顶面应在 y=0 且居中，实际 origin=%s top=%.3f" % [off, top]
+	return ""
+
+
 func _check_scene(path: String) -> String:
 	var packed: PackedScene = load(path) as PackedScene
 	if packed == null:

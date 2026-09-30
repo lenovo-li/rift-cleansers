@@ -25,11 +25,28 @@ var _toast_time: float = 0.0
 var _team_label: Label
 var _downed_label: Label
 var _debug_label: Label
+var _vignette: ColorRect
+var _vignette_mat: ShaderMaterial
+var _hurt_pulse: float = 0.0
+var _level_flash: ColorRect
 
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# 最底层：暗角和升级闪光，不挡其他 HUD
+	_vignette = ColorRect.new()
+	_vignette_mat = ShaderMaterial.new()
+	_vignette_mat.shader = preload("res://presentation/shaders/vignette.gdshader")
+	_vignette.material = _vignette_mat
+	_vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_vignette)
+	_level_flash = ColorRect.new()
+	_level_flash.color = Color(1.0, 0.85, 0.4, 0.0)
+	_level_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_level_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_level_flash)
 	var top_left: VBoxContainer = VBoxContainer.new()
 	top_left.position = Vector2(16, 16)
 	top_left.add_theme_constant_override("separation", 4)
@@ -102,6 +119,17 @@ static func _place(c: Control, anchors: Vector4, offsets: Vector4) -> void:
 	c.offset_bottom = offsets.w
 
 
+## 受伤：暗角脉冲，伤害越大越明显。
+func flash_hurt(amount: float) -> void:
+	_hurt_pulse = maxf(_hurt_pulse, clampf(amount / 60.0, 0.25, 0.8))
+
+
+func flash_level_up() -> void:
+	_level_flash.color.a = 0.14
+	var tw: Tween = _level_flash.create_tween()
+	tw.tween_property(_level_flash, "color:a", 0.0, 0.5)
+
+
 func show_toast(text: String, seconds: float = 2.5) -> void:
 	_toast.text = text
 	_toast_time = seconds
@@ -155,6 +183,10 @@ func _process(delta: float) -> void:
 	if player == null or session == null:
 		return
 	var stats: CharacterStats = player.stats
+	# 低于 35% 生命时常驻暗角，越低越重；受伤脉冲叠加
+	var low: float = clampf((0.35 - stats.health_ratio()) / 0.35, 0.0, 1.0) * 0.75
+	_hurt_pulse = maxf(0.0, _hurt_pulse - delta * 2.5)
+	_vignette_mat.set_shader_parameter("intensity", maxf(low, _hurt_pulse))
 	_hp_bar.max_value = stats.max_health
 	_hp_bar.value = stats.health
 	_shield_label.text = "生命 %d/%d   护盾 %d   怒气 %d%s" % [stats.health, stats.max_health, stats.shield, stats.rage,

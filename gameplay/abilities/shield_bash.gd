@@ -79,7 +79,10 @@ func cast(ctx: SkillContext) -> Dictionary:
 		zone.kind = "flame"
 		ctx.new_zones.append(zone)
 	
-	return {"hits": hits, "damage": total_damage, "tier": tier}
+	var hit_points: Array = []
+	for t: Variant in hit_enemies:
+		hit_points.append(t.global_position)
+	return {"hits": hits, "damage": total_damage, "tier": tier, "hit_points": hit_points, "chain_links": ctx.get_meta("chain_links", [])}
 
 
 func _damage_mult(tier: int) -> float:
@@ -114,6 +117,9 @@ func _apply_chain(ctx: SkillContext, primaries: Array, damage: float) -> int:
 			offset.y = 0.0
 			if offset.length() < CHAIN_RADIUS:
 				ctx.hit(candidate, damage)
+				var links: Array = ctx.get_meta("chain_links", [])
+				links.append([primary.global_position, candidate.global_position])
+				ctx.set_meta("chain_links", links)
 				already_hit.append(candidate)
 				chain_hits += 1
 	return chain_hits

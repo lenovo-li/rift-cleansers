@@ -12,5 +12,6 @@ used_in:
 files_location: assets/sfx/kenney_impact-sounds/
 notes: |
   包含54个.ogg格式打击音效，涵盖金属、木头、玻璃、通用等材质。
-  本项目主要使用impactMetal和impactGeneric系列。
+  按类别使用（见 core/audio/sfx_manager.gd CATEGORIES）：impactMetal_light/heavy, impactSoft_medium/heavy,
+  impactPunch_medium/heavy, impactWood_heavy, impactGlass_medium/light, impactPlate_heavy, impactBell_heavy。
   CC0许可允许商用、修改、分发，无需署名。

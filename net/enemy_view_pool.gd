@@ -1,6 +1,6 @@
 class_name EnemyViewPool extends Node3D
 ## 客户端敌人显示：按主机快照维护一组 MeshInstance3D（与主机敌人共用网格/材质缓存）。
-## 不运行 AI 和物理，只做位置平滑、受击闪红；快照里 1 秒没再出现的敌人视为已消失。
+## 不运行 AI 和物理，只做位置平滑、受击闪白和飘字（按血量比例下降估算伤害）；快照里 1 秒没再出现的敌人视为已消失。
 
 const SpawnerScript: GDScript = preload("res://gameplay/spawn/enemy_spawner.gd")
 const STALE_MS: int = 1000
@@ -32,14 +32,20 @@ func apply(records: Array[Dictionary]) -> void:
 		v.seen = now
 		if r.hp < v.hp - 0.001:
 			v.flash = 0.08
+			DamageNumbers.spawn(get_parent(), r.pos, (float(v.hp) - float(r.hp)) * float(v.max_hp))
 		v.hp = r.hp
 
 
-func remove(id: int) -> void:
+## killed = 主机通知的死亡（播放死亡特效）；超时移除则直接消失。
+func remove(id: int, killed: bool = false) -> void:
 	var v: Dictionary = _views.get(id, {})
 	if v.is_empty():
 		return
-	(v.node as Node).queue_free()
+	var mi: MeshInstance3D = v.node
+	if killed:
+		SkillVfx.death(get_parent(), v.target, mi.mesh, float(v.height), (v.base as StandardMaterial3D).albedo_color, bool(v.elite))
+		SfxManager.play(get_parent(), "explode" if v.elite else "death")
+	mi.queue_free()
 	_views.erase(id)
 
 
@@ -54,14 +60,16 @@ func _create(r: Dictionary) -> Dictionary:
 	mi.add_to_group("enemy_views")
 	add_child(mi)
 	mi.global_position = r.pos + Vector3(0, 0.8 * s, 0)
+	var is_boss: bool = r.type == "corrupted_knight"
 	return {"node": mi, "target": r.pos, "hp": r.hp, "seen": Time.get_ticks_msec(), "flash": 0.0,
-		"base": base, "height": 0.8 * s, "is_boss": r.type == "corrupted_knight"}
+		"base": base, "height": 0.8 * s, "is_boss": is_boss, "elite": elite or is_boss,
+		"max_hp": def.max_health * (Enemy.ELITE_HEALTH_MULT if elite else 1.0)}
 
 
 func _process(delta: float) -> void:
 	var now: int = Time.get_ticks_msec()
 	var k: float = clampf(delta * SMOOTHING, 0.0, 1.0)
-	var flash_mat: StandardMaterial3D = Enemy.shared_material(Color(1, 0.55, 0.55))
+	var flash_mat: StandardMaterial3D = Enemy.flash_material()
 	for id: int in _views.keys():
 		var v: Dictionary = _views[id]
 		if now - int(v.seen) > STALE_MS:

@@ -39,6 +39,10 @@ func _ready() -> void:
 		_player.bot = PlayerBot.new()
 		auto_pick_upgrades = true
 	register_player(_player)
+	SkillVfx.reset_counters()
+	_player.hurt.connect(func(amount: float) -> void:
+		DamageNumbers.spawn(self, _player.global_position, amount, DamageNumbers.Kind.PLAYER)
+		_hud.flash_hurt(amount))
 	if NetConfig.is_online():
 		_setup_network()
 		var reporter: Node = preload("res://net/net_test_reporter.gd").new()
@@ -71,6 +75,8 @@ func _setup_network() -> void:
 func _exit_tree() -> void:
 	Reactions.on_reaction = Callable()
 	Enemy.clear_caches()
+	SfxManager.reset_voices()
+	HitStop.reset()
 	if is_inside_tree():
 		get_tree().paused = false
 
@@ -128,6 +134,9 @@ func _broadcast_toast(text: String) -> void:
 func _on_level_up(_new_level: int) -> void:
 	if NetConfig.is_client():
 		return
+	for p: Node3D in PlayerQuery.all(get_tree()):
+		SkillVfx.burst(self, "star", p.global_position + Vector3(0, 1, 0), 1.0)
+	_hud.flash_level_up()
 	if net != null:
 		for slot: int in net.players_by_slot:
 			if slot != 0:
@@ -161,19 +170,28 @@ func _apply_upgrade(choice: Dictionary) -> void:
 		var skill: Skill = _player.ability_system.get_skill(choice.id)
 		if skill.level in skill.get_tier_thresholds():
 			_hud.show_toast("%s 进化！第 %d 段" % [skill.display_name, skill.get_tier_thresholds().find(skill.level) + 1])
+			SkillVfx.burst(self, "star", _player.global_position + Vector3(0, 1.5, 0), 1.6, Color(0.5, 0.85, 1.0))
+			SfxManager.play(self, "evolve")
 
 
 func _on_boss_spawned(boss: Boss) -> void:
 	_broadcast_toast("腐化骑士 降临！")
 	boss.phase_changed.connect(func(phase: int) -> void:
+		SkillVfx.shockwave(self, boss.global_position, 12.0, Color(0.9, 0.1, 0.25, 1.0), 0.7)
+		SfxManager.play(self, "slam")
+		HitStop.trigger(get_tree(), 0.08)
 		_broadcast_toast("腐化骑士 进入第 %d 阶段%s" % [phase, "：冲锋！注意红色预警" if phase == 2 else "：狂暴！"]))
 
 
 func _on_reaction(reaction: String, pos: Vector3) -> void:
 	if reaction == "ignite":
-		SkillVfx.pulse_ring(self, pos, Reactions.IGNITE_RADIUS, Color(1.0, 0.4, 0.05, 0.55), 0.3)
+		SkillVfx.shockwave(self, pos, Reactions.IGNITE_RADIUS, Color(1.0, 0.45, 0.1, 1.0), 0.35)
+		SkillVfx.burst(self, "fire", pos + Vector3(0, 0.8, 0), 1.2)
+		SfxManager.play(self, "explode")
+		HitStop.trigger(get_tree(), 0.04)
 	else:
-		SkillVfx.pulse_ring(self, pos, 1.2, Color(0.6, 0.9, 1.0, 0.6), 0.2)
+		SkillVfx.burst(self, "shard", pos + Vector3(0, 1, 0), 1.0)
+		SfxManager.play(self, "shatter")
 
 
 func _on_game_over(reason: String, victory: bool) -> void:

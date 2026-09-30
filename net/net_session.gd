@@ -588,6 +588,8 @@ func _apply_players(states: Array, snap: bool) -> void:
 		p.display_name = st[1]
 		if st[4] < p.stats.health - 0.5:
 			p.flash_hurt()
+			if is_me and not snap:
+				p.hurt.emit(p.stats.health - float(st[4]))
 		p.stats.health = st[4]
 		p.stats.max_health = st[5]
 		p.stats.shield = st[6]
@@ -688,7 +690,16 @@ func _apply_pickups(list: Array) -> void:
 func _replay_fx(ev: Array) -> void:
 	match ev[0]:
 		"cone":
-			SkillVfx.shield_bash(scene, ev[1], ev[2], ev[3])
+			SkillVfx.shield_bash(scene, ev[1], ev[2], ev[3], ev[4])
+		"shock":
+			SkillVfx.shockwave(scene, ev[1], ev[2], ev[3], ev[4])
+		"burst":
+			ParticleFx.burst(scene, ev[1], ev[2], ev[3], ev[4])
+		"arc":
+			SkillVfx.arc(scene, ev[1], ev[2], ev[3])
+		"shake":
+			if int(ev[2]) == my_slot or int(ev[2]) < 0:
+				SkillVfx.shake_local(get_tree(), ev[1])
 		"whirl":
 			var caster: Node3D = players_by_slot.get(int(ev[1]))
 			if caster != null:
@@ -700,13 +711,10 @@ func _replay_fx(ev: Array) -> void:
 		"trail":
 			SkillVfx.dash_trail(scene, ev[1], ev[2], ev[3], ev[4])
 		"sfx":
-			if ev[1] == "hit":
-				SfxManager.play_hit(scene)
-			else:
-				SfxManager.play_whoosh(scene)
+			SfxManager.play(scene, ev[1])
 		"dead":
 			if enemy_views != null:
-				enemy_views.remove(int(ev[1]))
+				enemy_views.remove(int(ev[1]), true)
 		"proj":
 			var pr: Node3D = ProjectileScript.new()
 			pr.setup(null, ev[2], 0.0, Color(0.4, 1.0, 0.3))

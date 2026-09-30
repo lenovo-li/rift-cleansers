@@ -22,7 +22,7 @@ func get_tier_thresholds() -> Array[int]:
 
 
 func get_cooldown() -> float:
-	return 4.0
+	return 3.5
 
 
 func cast(ctx: SkillContext) -> Dictionary:

@@ -200,10 +200,10 @@ func _lich(delta: float, dir: Vector3, dist: float) -> Vector3:
 		if _timer_c <= 0.0:
 			_timer_c = 6.0
 			_rain_on_players(3, 2.5, 1.3, 35.0, Color(0.6, 0.9, 1.0, 0.45), "%s的冰雨" % def.display_name)
-	# 保持 9 米左右的距离：太近后撤，太远靠近
-	if dist < 7.0:
-		return -dir * move_speed() * 0.8
-	return dir * move_speed() if dist > 11.0 else Vector3.ZERO
+	# 保持距离：太近时慢慢后撤（比玩家慢得多，近战追得上），太远靠近；狂暴阶段不再后撤
+	if dist < 5.0 and phase < 3:
+		return -dir * move_speed() * 0.4
+	return dir * move_speed() if dist > 10.0 else Vector3.ZERO
 
 
 func _shoot_colored(dir: Vector3, damage: float, color: Color) -> void:

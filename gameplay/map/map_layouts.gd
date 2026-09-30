@@ -79,7 +79,7 @@ static func _desert(m: MapBase) -> void:
 	m.border("sand_wall", "mesa_rock")
 
 
-## 幽暗森林：中央立石阵（7 块环形）→ 巨菇指路 → 大量古树与暗松（留出几条林间空地）→ 倒木苔石 → 边缘密林。
+## 幽暗森林：中央立石阵（7 块环形）→ 巨菇指路 → 约 90 棵古树与暗松（沿坐标轴留 18 米宽的林间通道）→ 倒木苔石 → 边缘密林。
 static func _forest(m: MapBase) -> void:
 	for i in 7:
 		var a: float = TAU * i / 7.0
@@ -87,12 +87,12 @@ static func _forest(m: MapBase) -> void:
 	for i in 6:
 		var a: float = TAU * i / 6.0 + 0.25
 		m.add("glowshroom", Vector3(cos(a), 0, sin(a)) * 27.0, m.rng.randf() * TAU)
-	# 4 条林间通道（沿坐标轴，宽 14 米）不种树，保证走得开
+	# 4 条林间通道（沿坐标轴，宽 18 米）不种树，保证走得开
 	for i in 220:
 		var p: Vector3 = Vector3(m.rng.randf_range(-88, 88), 0, m.rng.randf_range(-88, 88))
-		if absf(p.x) < 7.0 or absf(p.z) < 7.0 or not m.free_for(p, 4.0):
+		if absf(p.x) < 9.0 or absf(p.z) < 9.0 or not m.free_for(p, 4.5):
 			continue
-		if m.placed_count("oak") + m.placed_count("dark_pine") >= 120:
+		if m.placed_count("oak") + m.placed_count("dark_pine") >= 90:
 			break
 		m.add("oak" if m.rng.randf() < 0.5 else "dark_pine", p, m.rng.randf() * TAU)
 	m.scatter({"log": 18, "mossy_rock": 24}, 5.0)

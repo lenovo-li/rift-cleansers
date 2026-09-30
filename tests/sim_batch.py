@@ -1,7 +1,7 @@
 """并行跑多局 sim_full_run.gd，汇总每个角色的胜率、平均存活时间、等级和击杀（数值平衡用）。
 用法（项目根目录）：
-  python tests/sim_batch.py --chars iron_guard,elementalist --seeds 1-6 [--jobs 12] [--extra "--map=frost"]
-单局结果写在 <tmp>/sim_batch/<角色>_<种子>.log。
+  python tests/sim_batch.py --chars iron_guard,elementalist --seeds 1-6 [--jobs 12] [--extra=--map=frost_wastes] [--tag=frost]
+单局结果写在 <tmp>/sim_batch/[<tag>_]<角色>_<种子>.log（并行跑多组时用不同的 --tag 避免互相覆盖）。
 """
 import argparse
 import os
@@ -24,8 +24,8 @@ def parse_seeds(text):
     return [int(s) for s in text.split(",")]
 
 
-def run_one(char, seed, extra, out_dir):
-    log = os.path.join(out_dir, "%s_%d.log" % (char, seed))
+def run_one(char, seed, extra, out_dir, tag=""):
+    log = os.path.join(out_dir, "%s%s_%d.log" % (tag + "_" if tag else "", char, seed))
     cmd = [GODOT, "--headless", "--fixed-fps", "60", "--path", ROOT, "--script", "res://tests/sim_full_run.gd",
            "--", "--seed=%d" % seed, "--char=%s" % char] + extra
     with open(log, "w", encoding="utf-8", errors="replace") as f:
@@ -45,13 +45,14 @@ def main():
     ap.add_argument("--seeds", default="1-6")
     ap.add_argument("--jobs", type=int, default=12)
     ap.add_argument("--extra", default="")
+    ap.add_argument("--tag", default="")
     args = ap.parse_args()
     out_dir = os.path.join(tempfile.gettempdir(), "sim_batch")
     os.makedirs(out_dir, exist_ok=True)
     extra = args.extra.split() if args.extra else []
     tasks = [(c, s) for c in args.chars.split(",") for s in parse_seeds(args.seeds)]
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        results = list(pool.map(lambda t: run_one(t[0], t[1], extra, out_dir), tasks))
+        results = list(pool.map(lambda t: run_one(t[0], t[1], extra, out_dir, args.tag), tasks))
     failed = False
     for char in args.chars.split(","):
         rows = [r for r in results if r["char"] == char]

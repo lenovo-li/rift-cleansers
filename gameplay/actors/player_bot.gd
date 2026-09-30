@@ -123,7 +123,8 @@ func _decide(player: Node3D, enemies: Array) -> void:
 			player.dodge()
 	elif boss != null:
 		var to_b: Vector3 = (boss.global_position - pos) * Vector3(1, 0, 1)
-		player.move_override = to_b if to_b.length() > 4.0 else to_b.cross(Vector3.UP).normalized()
+		var keep: float = 2.5 if player.attack_kind != "bolt" else 6.0  # 近战贴身，远程保持距离
+		player.move_override = to_b if to_b.length() > keep else to_b.cross(Vector3.UP).normalized()
 	elif nearest != null:
 		var to_e: Vector3 = (nearest.global_position - pos) * Vector3(1, 0, 1)
 		var tangent: Vector3 = to_e.cross(Vector3.UP).normalized()

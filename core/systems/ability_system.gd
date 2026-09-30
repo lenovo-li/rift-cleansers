@@ -9,6 +9,8 @@ var zones: Array[GroundZone] = []
 var strikes: Array[Dictionary] = []
 ## 该角色可学的 6 个技能（HUD 技能栏顺序、升级三选一的候选池）。空时退回 SkillFactory.SKILL_IDS。
 var skill_pool: Array[String] = []
+## 所有技能冷却倍率（天赋）。
+var cooldown_mult: float = 1.0
 var _skills: Dictionary = {}  # skill_id -> Skill
 var _cooldowns: Dictionary = {}  # skill_id -> 剩余秒数
 
@@ -57,7 +59,8 @@ func cast(skill_id: String, ctx: SkillContext) -> Dictionary:
 		return {}
 	var skill: Skill = _skills[skill_id]
 	var result: Dictionary = skill.cast(ctx)
-	_cooldowns[skill_id] = skill.get_cooldown()
+	# 技能可以用 result.cooldown 覆盖本次冷却（影步击杀刷新、处决斩杀返还）
+	_cooldowns[skill_id] = float(result.get("cooldown", skill.get_cooldown())) * cooldown_mult
 	zones.append_array(ctx.new_zones)
 	strikes.append_array(ctx.new_strikes)
 	skill_cast.emit(skill_id, result)
@@ -68,11 +71,12 @@ func has_zones() -> bool:
 	return not zones.is_empty()
 
 
-## 推进冷却、地面效果和延迟打击。
-func tick(delta: float, targets: Array) -> void:
+## 推进冷却、地面效果和延迟打击。allies：治疗类地面效果（圣域）作用的玩家。
+func tick(delta: float, targets: Array, allies: Array = []) -> void:
 	for skill_id: String in _cooldowns.keys():
 		_cooldowns[skill_id] = maxf(0.0, float(_cooldowns[skill_id]) - delta)
 	for zone: GroundZone in zones:
+		zone.tick_heal(delta, allies)
 		zone.tick(delta, targets)
 	for i in range(zones.size() - 1, -1, -1):
 		if zones[i].is_expired():

@@ -24,6 +24,12 @@ var revenge_remaining: float = 0.0
 var aura_remaining: float = 0.0
 var aura_reflect: float = 0.0
 var aura_reduction: float = 0.0
+## 祝福（牧师）：限时伤害与攻速加成。
+var blessing_remaining: float = 0.0
+var blessing_bonus: float = 0.0
+## 天赋：伤害倍率、每秒回复加成（开局由 Talents.apply 写入）。
+var talent_damage_mult: float = 1.0
+var regen_bonus: float = 0.0
 
 
 func _init(p_max_health: float = 1000.0) -> void:
@@ -57,7 +63,9 @@ func health_ratio() -> float:
 
 ## 输出伤害倍率：狂怒强化（怒气>80 +30%）、狂战头盔（生命<50% +40%），乘算。
 func damage_multiplier() -> float:
-	var mult: float = 1.0
+	var mult: float = talent_damage_mult
+	if blessing_remaining > 0.0:
+		mult *= 1.0 + blessing_bonus
 	if has_passive("rage_damage") and rage > 80.0:
 		mult *= 1.3
 	if has_equipment("berserker_helm") and health_ratio() < 0.5:
@@ -65,9 +73,17 @@ func damage_multiplier() -> float:
 	return mult
 
 
-## 自动攻击间隔倍率：复仇（受击后 5 秒攻速 +20%）。
+## 自动攻击间隔倍率：复仇（受击后 5 秒攻速 +20%）、祝福（攻速 +bonus）。
 func attack_interval_multiplier() -> float:
-	return 1.0 / 1.2 if has_passive("revenge") and revenge_remaining > 0.0 else 1.0
+	var speed: float = 1.2 if has_passive("revenge") and revenge_remaining > 0.0 else 1.0
+	if blessing_remaining > 0.0:
+		speed *= 1.0 + blessing_bonus
+	return 1.0 / speed
+
+
+func set_blessing(duration: float, bonus: float) -> void:
+	blessing_remaining = maxf(blessing_remaining, duration)
+	blessing_bonus = maxf(blessing_bonus, bonus)
 
 
 ## 聚怪（嘲讽）范围倍率：集结 +30%。
@@ -134,7 +150,10 @@ func on_damage_dealt(hits: int, total_damage: float, melee: bool) -> float:
 
 func tick(delta: float) -> void:
 	if is_alive():
-		heal(HEALTH_REGEN * delta)
+		heal((HEALTH_REGEN + regen_bonus) * delta)
 	rage = maxf(0.0, rage - RAGE_DECAY * delta)
 	revenge_remaining = maxf(0.0, revenge_remaining - delta)
 	aura_remaining = maxf(0.0, aura_remaining - delta)
+	blessing_remaining = maxf(0.0, blessing_remaining - delta)
+	if blessing_remaining <= 0.0:
+		blessing_bonus = 0.0

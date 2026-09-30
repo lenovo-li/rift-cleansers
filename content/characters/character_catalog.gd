@@ -1,6 +1,8 @@
 class_name CharacterCatalog extends RefCounted
-## 可选角色（文档 M3：2 个角色，玩法差异明显）。
-## 铁卫：近战、高血量、聚怪和击退；元素术士：远程、低血量、火冰雷组合反应（燃烧→爆燃，减速→碎裂）。
+## 可选角色（4 个，玩法差异明显）。
+## 铁卫：近战、高血量、聚怪和击退；元素术士：远程、低血量、火冰雷组合反应（燃烧→爆燃，减速→碎裂）；
+## 影行者：高机动、暴击、死亡标记 + 影步刷新；牧师：中距离、治疗/护盾/祝福/复活队友。
+## crit_chance：自动攻击和技能的暴击率（暴击 2 倍伤害）。
 
 const DEFAULT_ID: String = "iron_guard"
 
@@ -30,6 +32,34 @@ const CHARACTERS: Dictionary = {
 		"attack_damage": 22.0,
 		"attack_range": 13.0,
 		"attack_interval": 0.7,
+	},
+	"shadow_walker": {
+		"name": "影行者",
+		"desc": "刺客：影步闪到目标身后，死亡标记精英，处决残血。击杀标记目标刷新影步。生命 800，暴击 20%。",
+		"model": "shadow_walker",
+		"skills": ["shadow_step", "fan_of_knives", "death_mark", "blade_flurry", "smoke_bomb", "execute"],
+		"starting": ["shadow_step", "fan_of_knives"],
+		"max_health": 800.0,
+		"move_speed": 9.5,
+		"attack": "slash",  # 前方近身斩击（最近的敌人 + 身边顺劈）
+		"attack_damage": 30.0,
+		"attack_range": 3.0,
+		"attack_interval": 0.55,
+		"crit_chance": 0.2,
+	},
+	"cleric": {
+		"name": "牧师",
+		"desc": "辅助：圣光新星治疗全队，惩击光柱，圣域回血，护盾与祝福，大招可复活倒地队友。生命 900。",
+		"model": "cleric",
+		"skills": ["holy_nova", "smite", "sanctuary", "divine_shield", "blessing", "divine_intervention"],
+		"starting": ["holy_nova", "smite"],
+		"max_health": 900.0,
+		"move_speed": 8.0,
+		"attack": "bolt",
+		"attack_damage": 20.0,
+		"attack_range": 10.0,
+		"attack_interval": 0.8,
+		"bolt_color": Color(1.0, 0.9, 0.45, 0.85),
 	},
 }
 

@@ -8,6 +8,9 @@ var burn_dps: float = 0.0
 var burn_remaining: float = 0.0
 var slow_factor: float = 0.0  # 0 = 不减速，0.5 = 移速减半
 var slow_remaining: float = 0.0
+## 死亡标记（影行者）：受到的所有伤害 ×(1 + mark_bonus)。
+var mark_bonus: float = 0.0
+var mark_remaining: float = 0.0
 var _burn_timer: float = 0.0
 
 
@@ -20,6 +23,19 @@ func apply_burn(dps: float, duration: float) -> void:
 func apply_slow(factor: float, duration: float) -> void:
 	slow_factor = maxf(slow_factor, clampf(factor, 0.0, 0.9))
 	slow_remaining = maxf(slow_remaining, duration)
+
+
+func apply_mark(bonus: float, duration: float) -> void:
+	mark_bonus = maxf(mark_bonus, bonus)
+	mark_remaining = maxf(mark_remaining, duration)
+
+
+func is_marked() -> bool:
+	return mark_remaining > 0.0
+
+
+func damage_taken_multiplier() -> float:
+	return 1.0 + mark_bonus if is_marked() else 1.0
 
 
 func is_burning() -> bool:
@@ -60,4 +76,8 @@ func tick(delta: float) -> float:
 		slow_remaining -= delta
 		if slow_remaining <= 0.0:
 			slow_factor = 0.0
+	if mark_remaining > 0.0:
+		mark_remaining -= delta
+		if mark_remaining <= 0.0:
+			mark_bonus = 0.0
 	return damage

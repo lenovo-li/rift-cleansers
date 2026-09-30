@@ -19,7 +19,21 @@ var burn_dps: float = 0.0
 var heavy: bool = false
 ## 表现层用的类型标签（flame / whirl / slam / aura / frost / lightning）。
 var kind: String = ""
+## 可选：每秒治疗区域内的队友（牧师圣域）。队友需有 is_dead、global_position、heal(float)。
+var heal_per_second: float = 0.0
 var _tick_timer: float = 0.0
+
+
+## 在 tick 之前调用（tick 会扣减 remaining）。
+func tick_heal(delta: float, allies: Array) -> float:
+	if heal_per_second <= 0.0 or is_expired():
+		return 0.0
+	var total: float = 0.0
+	for a: Variant in allies:
+		if is_instance_valid(a) and not a.is_dead and contains(a.global_position):
+			a.heal(heal_per_second * delta)
+			total += heal_per_second * delta
+	return total
 
 
 func _init(p_a: Vector3, p_b: Vector3, p_half_width: float, dps: float, duration: float) -> void:

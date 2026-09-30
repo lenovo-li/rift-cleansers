@@ -17,6 +17,33 @@ var damage_mult: float = 1.0
 var area_mult: float = 1.0
 ## 磁力战靴：被击退的敌人随后被拉回施法者身边。
 var magnet: bool = false
+## 队友（含施法者自己和倒地的玩家），牧师的治疗/护盾/复活用。需有 global_position、is_dead、heal(float)、stats。
+var allies: Array = []
+## 暴击（影行者）：hit() 按 crit_chance 掷骰，暴击伤害 × crit_mult。rng 为空时不暴击（单元测试可注入）。
+var crit_chance: float = 0.0
+var crit_mult: float = 2.0
+var rng: RandomNumberGenerator = null
+var crits: int = 0
+
+
+## 存活的队友。
+func alive_allies() -> Array:
+	var result: Array = []
+	for a: Variant in allies:
+		if is_instance_valid(a) and not a.is_dead:
+			result.append(a)
+	return result
+
+
+## 距离 center 不超过 radius 的队友（include_dead：倒地的也算，复活用）。
+func allies_in_radius(center: Vector3, radius: float, include_dead: bool = false) -> Array:
+	var result: Array = []
+	for a: Variant in allies:
+		if not is_instance_valid(a) or (a.is_dead and not include_dead):
+			continue
+		if ((a.global_position - center) * Vector3(1, 0, 1)).length() <= radius:
+			result.append(a)
+	return result
 
 
 ## XZ 平面上的单位朝向；朝向为零时退回 Vector3.FORWARD。
@@ -37,6 +64,9 @@ func alive_targets() -> Array:
 ## heavy = 重击：命中燃烧目标时触发爆燃。
 func hit(target: Variant, base_damage: float, heavy: bool = false) -> float:
 	var damage: float = base_damage * damage_mult
+	if crit_chance > 0.0 and rng != null and rng.randf() < crit_chance:
+		damage *= crit_mult
+		crits += 1
 	var was_burning: bool = heavy and Reactions.is_burning(target)
 	target.take_damage(damage)
 	if was_burning:

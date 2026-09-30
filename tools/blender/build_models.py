@@ -233,6 +233,147 @@ def city_kit():
     lp.export_separate(os.path.join(OUT_DIR, "ashen_city.glb"), groups)
 
 
+def frost_kit():
+    """霜冻冰原零件：冰刺、雪松、雪岩、冰墙、发光冰晶、冰图腾（地标），以及地面装饰。"""
+    import math
+    ice = (0.62, 0.82, 0.95)
+    ice_dark = (0.35, 0.55, 0.75)
+    snow = (0.92, 0.95, 0.98)
+    rock = (0.40, 0.44, 0.50)
+    pine = (0.16, 0.30, 0.28)
+    bark = (0.30, 0.22, 0.18)
+    glow = (0.45, 0.85, 1.0)
+    groups = {}
+    for i, (x, y, h, r) in enumerate(((0, 0, 3.6, 0.45), (0.5, 0.3, 2.4, 0.35), (-0.45, 0.25, 2.0, 0.3), (0.1, -0.5, 1.6, 0.28))):
+        lp.cone((x, y, h / 2), r, h, ice if i % 2 == 0 else ice_dark, rot=(i * 6 - 8, i * 5, i * 40), verts=5)
+    groups["ice_spire"] = lp.take_parts()
+    lp.cyl((0, 0, 0.6), 0.2, 1.2, bark, verts=6)
+    for i, (z, r) in enumerate(((1.4, 1.2), (2.4, 0.95), (3.3, 0.7), (4.1, 0.45))):
+        lp.cone((0, 0, z), r, 1.2, pine, verts=7)
+        lp.cone((0, 0, z + 0.2), r * 0.8, 0.7, snow, verts=7)
+    groups["pine"] = lp.take_parts()
+    lp.rock((0, 0, 0.6), (1.1, 1.0, 0.7), rock, seed=41)
+    lp.rock((0.2, 0.1, 1.05), (0.85, 0.75, 0.25), snow, seed=42, jitter=0.15)
+    groups["ice_rock"] = lp.take_parts()
+    lp.box((0, 0, 0.9), (6.0, 0.9, 1.8), ice_dark)
+    for x, h in ((-2.2, 0.7), (-0.6, 0.4), (1.0, 0.8), (2.4, 0.5)):
+        lp.box((x, 0, 1.8 + h / 2), (1.2, 0.9, h), ice)
+    lp.box((0, 0, 1.85), (6.0, 1.0, 0.12), snow)
+    groups["frozen_wall"] = lp.take_parts()
+    lp.cone((0, 0, 0.8), 0.3, 1.6, glow, verts=5)
+    lp.cone((0.25, 0.1, 0.5), 0.18, 1.0, glow, rot=(0, 20, 30), verts=5)
+    lp.rock((0, 0, 0.1), (0.5, 0.5, 0.2), rock, seed=43)
+    groups["crystal"] = lp.take_parts()
+    lp.box((0, 0, 0.4), (2.0, 2.0, 0.8), rock)
+    lp.cyl((0, 0, 2.3), 0.55, 3.0, ice_dark, verts=6)
+    for i in range(4):
+        a = i * math.pi / 2
+        lp.cone((math.cos(a) * 0.6, math.sin(a) * 0.6, 3.6), 0.2, 1.0, ice, rot=(math.degrees(math.sin(a)) * 0.5, -math.degrees(math.cos(a)) * 0.5, 0), verts=4)
+    lp.ball((0, 0, 4.1), (0.35, 0.35, 0.35), glow)
+    groups["totem"] = lp.take_parts()
+    lp.ball((0, 0, 0.03), (0.3, 0.25, 0.06), snow)
+    lp.ball((0.25, 0.1, 0.02), (0.18, 0.14, 0.04), snow)
+    groups["d_snow"] = lp.take_parts()
+    lp.cone((0, 0, 0.12), 0.05, 0.25, ice, rot=(15, 0, 0), verts=4)
+    lp.cone((0.08, 0.05, 0.08), 0.04, 0.16, ice_dark, rot=(-20, 10, 0), verts=4)
+    groups["d_shard"] = lp.take_parts()
+    lp.rock((0, 0, 0.05), (0.12, 0.1, 0.07), rock, seed=44, jitter=0.35)
+    groups["d_pebble"] = lp.take_parts()
+    lp.export_separate(os.path.join(OUT_DIR, "frost_wastes.glb"), groups)
+
+
+def desert_kit():
+    """沙海遗迹零件：砂岩墙、方尖碑（地标）、砂岩柱、仙人掌、台地岩、火盆瓮，以及地面装饰。"""
+    sand = (0.85, 0.70, 0.46)
+    sand_dark = (0.66, 0.50, 0.32)
+    red_rock = (0.68, 0.38, 0.24)
+    cactus = (0.30, 0.52, 0.26)
+    ember = (1.0, 0.55, 0.15)
+    gold = GOLD
+    groups = {}
+    lp.box((0, 0, 1.0), (6.0, 0.8, 2.0), sand)
+    for x, h in ((-2.3, 0.4), (-0.9, 0.7), (0.8, 0.3), (2.2, 0.6)):
+        lp.box((x, 0, 2.0 + h / 2), (1.3, 0.8, h), sand_dark)
+    lp.box((0, 0.42, 1.2), (1.2, 0.04, 0.6), (0.3, 0.45, 0.6))  # 褪色壁画
+    groups["sand_wall"] = lp.take_parts()
+    lp.box((0, 0, 0.3), (2.2, 2.2, 0.6), sand_dark)
+    lp.cyl((0, 0, 3.3), 0.7, 5.4, sand, radius2=0.45, verts=4, rot=(0, 0, 45))
+    lp.cone((0, 0, 6.3), 0.45, 0.6, gold, verts=4, rot=(0, 0, 45))
+    groups["obelisk"] = lp.take_parts()
+    lp.box((0, 0, 0.2), (1.0, 1.0, 0.4), sand_dark)
+    lp.cyl((0, 0, 1.9), 0.34, 3.0, sand, verts=6)
+    lp.box((0, 0, 3.5), (0.9, 0.9, 0.25), sand_dark)
+    groups["sand_pillar"] = lp.take_parts()
+    lp.cyl((0, 0, 1.1), 0.28, 2.2, cactus, verts=6)
+    lp.cyl((0.4, 0, 1.3), 0.14, 0.7, cactus, verts=6)
+    lp.cyl((0.55, 0, 1.75), 0.14, 0.6, cactus, verts=6)
+    lp.cyl((-0.38, 0, 1.0), 0.13, 0.5, cactus, verts=6)
+    lp.cyl((-0.5, 0, 1.35), 0.13, 0.5, cactus, verts=6)
+    groups["cactus"] = lp.take_parts()
+    lp.rock((0, 0, 1.0), (1.5, 1.3, 1.0), red_rock, seed=51, jitter=0.18)
+    lp.box((0, 0, 1.95), (2.2, 1.9, 0.2), sand_dark)
+    groups["mesa_rock"] = lp.take_parts()
+    lp.cyl((0, 0, 0.45), 0.35, 0.9, red_rock, radius2=0.25, verts=8)
+    lp.ball((0, 0, 0.95), (0.3, 0.3, 0.15), ember)
+    groups["urn"] = lp.take_parts()
+    lp.box((0, 0, 0.01), (0.8, 0.08, 0.02), sand_dark, rot=(0, 0, 5))
+    lp.box((0.1, 0.25, 0.01), (0.6, 0.07, 0.02), sand_dark, rot=(0, 0, -5))
+    groups["d_ripple"] = lp.take_parts()
+    for i in range(5):
+        lp.cone((0, 0, 0.12), 0.03, 0.28, (0.55, 0.45, 0.25), rot=(30, 0, i * 72), verts=3)
+    groups["d_bush"] = lp.take_parts()
+    lp.ball((0, 0, 0.08), (0.1, 0.12, 0.09), BONE)
+    lp.box((0, 0.1, 0.03), (0.08, 0.06, 0.05), BONE)
+    groups["d_skull"] = lp.take_parts()
+    lp.export_separate(os.path.join(OUT_DIR, "sand_ruins.glb"), groups)
+
+
+def forest_kit():
+    """幽暗森林零件：古树、暗松、倒木、苔石、发光巨菇、立石（地标石阵），以及地面装饰。"""
+    bark = (0.28, 0.20, 0.15)
+    leaf = (0.18, 0.34, 0.16)
+    leaf_dark = (0.10, 0.22, 0.14)
+    moss = (0.32, 0.45, 0.22)
+    stone = (0.40, 0.42, 0.40)
+    glow = (0.55, 1.0, 0.75)
+    cap = (0.55, 0.25, 0.60)
+    groups = {}
+    lp.cyl((0, 0, 1.4), 0.4, 2.8, bark, radius2=0.28, verts=7)
+    for i, (x, y, z, s) in enumerate(((0, 0, 3.6, 1.8), (0.9, 0.3, 3.1, 1.2), (-0.8, -0.2, 3.2, 1.2), (0.1, 0.8, 3.3, 1.0))):
+        lp.ball((x, y, z), (s, s, s * 0.8), leaf if i % 2 == 0 else leaf_dark)
+    groups["oak"] = lp.take_parts()
+    lp.cyl((0, 0, 0.8), 0.22, 1.6, bark, verts=6)
+    for z, r in ((1.8, 1.1), (2.8, 0.85), (3.7, 0.6), (4.5, 0.35)):
+        lp.cone((0, 0, z), r, 1.3, leaf_dark, verts=7)
+    groups["dark_pine"] = lp.take_parts()
+    lp.cyl((0, 0, 0.4), 0.4, 4.0, bark, rot=(0, 90, 0), verts=7)
+    lp.box((0.5, 0, 0.8), (1.4, 0.7, 0.08), moss)
+    lp.cyl((-1.3, 0.3, 0.55), 0.08, 0.7, bark, rot=(30, 0, 0), verts=5)
+    groups["log"] = lp.take_parts()
+    lp.rock((0, 0, 0.7), (1.0, 0.95, 0.75), stone, seed=61)
+    lp.rock((0.1, 0.1, 1.25), (0.8, 0.7, 0.25), moss, seed=62, jitter=0.2)
+    groups["mossy_rock"] = lp.take_parts()
+    lp.cyl((0, 0, 0.9), 0.14, 1.8, (0.85, 0.82, 0.72), verts=6)
+    lp.ball((0, 0, 1.9), (0.7, 0.7, 0.35), cap)
+    for i, (x, y) in enumerate(((0.3, 0.2), (-0.35, 0.1), (0.05, -0.4))):
+        lp.ball((x, y, 2.1), (0.1, 0.1, 0.06), glow)
+    groups["glowshroom"] = lp.take_parts()
+    lp.box((0, 0, 1.5), (1.2, 0.8, 3.0), stone, rot=(0, 4, 0))
+    lp.box((0, 0.41, 1.8), (0.5, 0.02, 0.8), glow)  # 发光符文
+    lp.box((0, 0, 3.1), (1.0, 0.7, 0.2), moss)
+    groups["standing_stone"] = lp.take_parts()
+    for i in range(5):
+        lp.box((0, 0, 0.1), (0.05, 0.4, 0.02), leaf, rot=(40, 0, i * 72))
+    groups["d_fern"] = lp.take_parts()
+    lp.cyl((0, 0, 0.06), 0.02, 0.12, (0.85, 0.82, 0.72), verts=4)
+    lp.ball((0, 0, 0.13), (0.07, 0.07, 0.04), glow)
+    groups["d_mushroom"] = lp.take_parts()
+    lp.box((0, 0, 0.005), (0.14, 0.1, 0.01), (0.45, 0.30, 0.12), rot=(0, 0, 20))
+    lp.box((0.15, 0.08, 0.005), (0.12, 0.09, 0.01), (0.55, 0.36, 0.14), rot=(0, 0, -30))
+    groups["d_leaves"] = lp.take_parts()
+    lp.export_separate(os.path.join(OUT_DIR, "dark_forest.glb"), groups)
+
+
 def elementalist():
     """元素术士：长袍 + 宽檐尖帽 + 法杖三色宝珠（火/冰/雷）。袍子下摆和帽带用队伍色。约 1.9 米。"""
     robe = (0.28, 0.24, 0.36)
@@ -255,13 +396,58 @@ def elementalist():
     lp.ball((-0.44, 0.2, 1.85), (0.06, 0.06, 0.06), (0.75, 0.7, 1.0))
 
 
+def shadow_walker():
+    """影行者：兜帽斗篷、面巾、双持短刃，身形瘦长前倾。围巾和腰带用队伍色。约 1.8 米。"""
+    cloak = (0.16, 0.14, 0.2)
+    for x in (0.14, -0.14):
+        lp.cyl((x, 0, 0.42), 0.09, 0.84, CLOTH_DARK)                     # 细腿
+        lp.box((x, 0.05, 0.06), (0.16, 0.28, 0.12), BLACK)               # 软靴
+    lp.box((0, 0, 0.9), (0.4, 0.26, 0.12), TEAM, team=True)             # 腰带
+    lp.box((0, 0.02, 1.18), (0.44, 0.28, 0.5), cloak, rot=(-8, 0, 0))   # 上身
+    lp.cyl((0, -0.12, 0.95), 0.34, 0.9, cloak, radius2=0.18, verts=8)   # 斗篷下摆
+    lp.box((0, 0.12, 1.46), (0.34, 0.2, 0.08), TEAM, team=True)         # 围巾
+    lp.ball((0, 0.04, 1.6), (0.15, 0.15, 0.17), SKIN)                    # 头
+    lp.box((0, 0.15, 1.56), (0.22, 0.04, 0.08), BLACK)                   # 面巾
+    lp.cone((0, -0.02, 1.72), 0.21, 0.42, cloak, rot=(-15, 0, 0), verts=8)  # 兜帽
+    for x, s in ((0.3, 1), (-0.3, -1)):
+        lp.cyl((x, 0.1, 1.15), 0.06, 0.46, cloak, rot=(35, 0, 0))        # 手臂前伸
+        lp.ball((x, 0.28, 0.98), (0.05, 0.05, 0.05), SKIN)
+        lp.box((x, 0.5, 0.92), (0.04, 0.44, 0.07), STEEL, rot=(-20, 0, s * 10))  # 短刃
+        lp.box((x, 0.3, 0.97), (0.1, 0.04, 0.04), GOLD)                   # 护手
+
+
+def cleric():
+    """牧师：白金长袍、圣徽、法冠与发光圣锤。披肩和圣徽底色用队伍色。约 1.9 米。"""
+    robe = (0.9, 0.88, 0.8)
+    lp.cyl((0, 0, 0.55), 0.4, 1.1, robe, radius2=0.26, verts=10)        # 长袍
+    lp.cyl((0, 0, 0.08), 0.42, 0.14, GOLD, verts=10)                     # 金边下摆
+    lp.box((0, 0, 1.25), (0.5, 0.32, 0.45), robe)                        # 上身
+    lp.box((0, 0, 1.46), (0.62, 0.36, 0.1), TEAM, team=True)            # 披肩
+    lp.box((0, 0.17, 1.24), (0.16, 0.04, 0.2), TEAM, team=True)         # 圣徽底
+    lp.box((0, 0.2, 1.24), (0.04, 0.02, 0.16), GOLD)                     # 圣徽竖
+    lp.box((0, 0.2, 1.28), (0.12, 0.02, 0.04), GOLD)                     # 圣徽横
+    for x in (0.32, -0.32):
+        lp.cyl((x, 0.04, 1.15), 0.09, 0.5, robe, rot=(15, 0, 0))         # 袖子
+        lp.ball((x, 0.12, 0.92), (0.06, 0.06, 0.06), SKIN)
+    lp.ball((0, 0.02, 1.64), (0.15, 0.15, 0.16), SKIN)                   # 头
+    lp.cyl((0, 0, 1.84), 0.13, 0.22, robe, radius2=0.08, verts=8)        # 法冠
+    lp.box((0, 0.1, 1.86), (0.04, 0.02, 0.14), GOLD)
+    # 右手圣锤（锤头发光金色）
+    lp.cyl((-0.36, 0.2, 0.95), 0.03, 1.1, LEATHER)
+    lp.box((-0.36, 0.2, 1.52), (0.26, 0.16, 0.16), GOLD)
+    lp.ball((-0.36, 0.2, 1.52), (0.1, 0.1, 0.1), (1.0, 0.95, 0.6))
+
+
 MODELS = {
-    "iron_guard": (iron_guard, 2.0), "elementalist": (elementalist, 2.0), "zombie": (zombie, 1.6), "skeleton": (skeleton, 1.6),
+    "iron_guard": (iron_guard, 2.0), "elementalist": (elementalist, 2.0),
+    "shadow_walker": (shadow_walker, 2.0), "cleric": (cleric, 2.0), "zombie": (zombie, 1.6), "skeleton": (skeleton, 1.6),
     "imp": (imp, 1.2), "ghoul": (ghoul, 1.2), "necromancer": (necromancer, 1.8),
     "bloater": (bloater, 1.6), "corrupted_knight": (corrupted_knight, 1.3), "rocks": (rocks, 1.0),
     "decor": (decor, 0.5),
     "ashen_city": (city_kit, 4.0),
+    "frost_wastes": (frost_kit, 4.0), "sand_ruins": (desert_kit, 4.0), "dark_forest": (forest_kit, 4.0),
 }
+KITS = ("decor", "ashen_city", "frost_wastes", "sand_ruins", "dark_forest")
 
 
 def main():
@@ -274,7 +460,7 @@ def main():
         fn, height = MODELS[name]
         lp.reset_scene()
         fn()
-        if name in ("decor", "ashen_city"):
+        if name in KITS:
             print("[models] %s: multi-mesh kit" % name)
             continue
         tris = lp.export(os.path.join(OUT_DIR, name + ".glb"))

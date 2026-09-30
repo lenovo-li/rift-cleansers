@@ -273,6 +273,7 @@ func receive_heal(amount: float) -> void:
 func take_damage(amount: float) -> void:
 	if not is_alive:
 		return
+	amount *= status.damage_taken_multiplier()  # 死亡标记
 	current_health -= amount
 	SfxManager.play_hit(effects_parent)
 	DamageNumbers.spawn(effects_parent, global_position, amount, _number_kind)

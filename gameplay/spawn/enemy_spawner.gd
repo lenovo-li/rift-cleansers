@@ -3,11 +3,18 @@ extends Node3D
 
 signal enemy_killed(enemy: Enemy)
 signal boss_spawned(boss: Boss)
-signal boss_defeated
+signal boss_defeated(boss_name: String)
 
 const EnemyScene: PackedScene = preload("res://gameplay/actors/enemy.tscn")
 const BossScript: GDScript = preload("res://gameplay/actors/boss.gd")
 const BOSS_DEF: EnemyDef = preload("res://content/bosses/corrupted_knight.tres")
+## 每张地图的 Boss（MapCatalog.boss -> 定义）
+const BOSS_DEFS: Dictionary = {
+	"corrupted_knight": BOSS_DEF,
+	"frost_lich": preload("res://content/bosses/frost_lich.tres"),
+	"sand_colossus": preload("res://content/bosses/sand_colossus.tres"),
+	"rotwood_treant": preload("res://content/bosses/rotwood_treant.tres"),
+}
 const DEFS: Dictionary = {
 	"zombie": preload("res://content/enemies/zombie.tres"),
 	"skeleton": preload("res://content/enemies/skeleton.tres"),
@@ -23,6 +30,8 @@ const SEPARATION_CELL: float = 1.5
 @export var spawn_radius: float = 20.0
 
 var kills: int = 0
+## 测试用：固定 Boss 词缀（"none" = 无词缀），空 = 随机
+var forced_boss_affix: String = ""
 var boss: Boss = null
 ## 客户端：由 NetSession 写入的敌人数量和 Boss 信息
 var net_enemy_count: int = 0
@@ -62,7 +71,12 @@ func spawn_boss() -> Boss:
 	var enemy: Node = EnemyScene.instantiate()
 	enemy.set_script(BossScript)
 	boss = enemy as Boss
-	boss.setup(BOSS_DEF, "", null, get_parent())
+	var boss_id: String = MapCatalog.get_def(NetConfig.map_id).boss
+	boss.setup(BOSS_DEFS.get(boss_id, BOSS_DEF), "", null, get_parent())
+	if forced_boss_affix.is_empty():
+		boss.affix = Boss.AFFIXES.pick_random()
+	else:
+		boss.affix = "" if forced_boss_affix == "none" else forced_boss_affix
 	boss.health_scale = 1.0 + 0.6 * float(PlayerQuery.all(get_tree()).size() - 1)
 	boss.summon_requested.connect(_on_boss_summon)
 	_add(boss, null, 18.0)
@@ -108,7 +122,7 @@ func _on_enemy_died(enemy: Enemy) -> void:
 		_session.add_experience(enemy.exp_reward)
 	if enemy is Boss:
 		boss = null
-		boss_defeated.emit()
+		boss_defeated.emit(enemy.get_display_name())
 	elif _director:
 		_director.on_enemy_died()
 	enemy_killed.emit(enemy)

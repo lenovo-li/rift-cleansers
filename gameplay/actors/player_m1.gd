@@ -436,7 +436,7 @@ func _apply_support_skill_result(skill_id: String, result: Dictionary, ctx: Skil
 			SkillVfx.burst(_fx_parent, "star", ctx.origin + Vector3(0, 1.0, 0), 1.0 + 0.1 * tier, Color(1.0, 0.9, 0.5))
 		"smite":
 			for p: Vector3 in result.get("impacts", []):
-				SkillVfx.dash_trail(_fx_parent, p + Vector3(0, 9.0, 0), p, 0.9, Color(1.0, 0.92, 0.55, 0.8))
+				SkillVfx.pillar(_fx_parent, p, 0.6, 9.0, Color(1.0, 0.92, 0.55, 0.8))
 				SkillVfx.shockwave(_fx_parent, p, float(result.radius), Color(1.0, 0.85, 0.4, 1.0), 0.3)
 			if int(result.hits) > 0:
 				SfxManager.play(_fx_parent, "slam")

@@ -37,6 +37,26 @@ func test_all_maps_layout_valid() -> String:
 	return ""
 
 
+func test_every_map_has_a_boss() -> String:
+	var spawner: GDScript = load("res://gameplay/spawn/enemy_spawner.gd")
+	var bosses: Dictionary = {}
+	for id: String in MapCatalog.ids():
+		var boss_id: String = MapCatalog.get_def(id).boss
+		var bdef: EnemyDef = spawner.BOSS_DEFS.get(boss_id)
+		if bdef == null or bdef.enemy_id != boss_id:
+			return "%s 的 Boss %s 没有定义" % [id, boss_id]
+		if not NetCodec.TYPE_IDS.has(boss_id) or NetCodec.TYPE_IDS.size() > 16:
+			return "%s 不在网络类型表里（4 位最多 16 种）" % boss_id
+		if not Boss.SUMMONS.has(boss_id) or Boss.phase_hint(boss_id, 2).is_empty():
+			return "%s 缺少召唤表或阶段提示" % boss_id
+		if ModelLibrary.mesh(boss_id) == null:
+			return "%s 没有低模" % boss_id
+		bosses[boss_id] = true
+	if bosses.size() != MapCatalog.ids().size():
+		return "每张地图应有不同的 Boss"
+	return ""
+
+
 func test_layout_is_deterministic() -> String:
 	for id: String in MapCatalog.ids():
 		var a: MapBase = _layout(id)

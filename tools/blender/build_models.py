@@ -143,6 +143,63 @@ def corrupted_knight():
     lp.box((-0.6 * s, 0.05 * s, 1.18 * s), (0.4 * s, 0.1 * s, 0.1 * s), (0.5, 0.1, 0.12))                    # 护手
 
 
+def frost_lich():
+    """霜冻巫妖（Boss）：漂浮的破烂长袍、骷髅头冰冠、冰晶法杖、下摆冰雾。约 1.1 米，放大 2.5 倍。"""
+    s = 0.55
+    robe = (0.2, 0.26, 0.38)
+    ice = (0.55, 0.85, 1.0)
+    lp.cyl((0, 0, 0.75 * s), 0.45 * s, 1.2 * s, robe, radius2=0.25 * s, verts=8)   # 长袍（下摆离地）
+    lp.cone((0, 0, 0.12 * s), 0.35 * s, 0.3 * s, ice, rot=(180, 0, 0), verts=6)    # 冰雾尖
+    lp.box((0, 0, 1.45 * s), (0.7 * s, 0.4 * s, 0.35 * s), robe)                     # 肩
+    lp.ball((0, 0.02, 1.78 * s), (0.2 * s, 0.2 * s, 0.22 * s), BONE)                 # 骷髅头
+    lp.box((0, 0.18 * s, 1.78 * s), (0.2 * s, 0.03 * s, 0.05 * s), (0.4, 0.9, 1.0))  # 眼光
+    for i, x in enumerate((-0.16, -0.05, 0.05, 0.16)):
+        lp.cone((x * s, 0, 2.05 * s), 0.05 * s, (0.35 if i in (1, 2) else 0.25) * s, ice, verts=4)  # 冰冠
+    for x in (0.4, -0.4):
+        lp.cyl((x * s, 0.1 * s, 1.25 * s), 0.08 * s, 0.6 * s, robe, rot=(25, 0, 0))
+        lp.ball((x * s, 0.22 * s, 1.0 * s), (0.07 * s, 0.07 * s, 0.07 * s), BONE)
+    lp.cyl((-0.45 * s, 0.25 * s, 1.2 * s), 0.035 * s, 2.0 * s, (0.3, 0.3, 0.35))   # 法杖
+    lp.cone((-0.45 * s, 0.25 * s, 2.3 * s), 0.12 * s, 0.4 * s, ice, verts=5)
+
+
+def sand_colossus():
+    """沙之巨像（Boss）：砂岩方块身躯、金色面具、巨大石拳，裂缝透出橙光。约 1.1 米，放大 2.5 倍。"""
+    s = 0.55
+    sand = (0.78, 0.62, 0.4)
+    dark = (0.55, 0.4, 0.26)
+    glow = (1.0, 0.6, 0.15)
+    for x in (0.28, -0.28):
+        lp.box((x * s, 0, 0.4 * s), (0.34 * s, 0.4 * s, 0.8 * s), dark)             # 柱腿
+    lp.box((0, 0, 1.25 * s), (1.0 * s, 0.6 * s, 0.9 * s), sand)                      # 身躯
+    lp.box((0, 0.31 * s, 1.25 * s), (0.08 * s, 0.02 * s, 0.6 * s), glow)             # 裂缝
+    lp.box((0, 0, 1.9 * s), (0.45 * s, 0.4 * s, 0.4 * s), dark)                      # 头
+    lp.box((0, 0.21 * s, 1.9 * s), (0.36 * s, 0.03 * s, 0.3 * s), GOLD)              # 金面具
+    lp.box((0, 0.23 * s, 1.93 * s), (0.24 * s, 0.02 * s, 0.05 * s), glow)            # 眼光
+    for x in (0.7, -0.7):
+        lp.box((x * s, 0, 1.4 * s), (0.3 * s, 0.35 * s, 0.6 * s), dark)             # 上臂
+        lp.box((x * s, 0.1 * s, 0.85 * s), (0.5 * s, 0.5 * s, 0.5 * s), sand)       # 石拳
+
+
+def rotwood_treant():
+    """腐木树人（Boss）：扭曲树干身躯、苔藓肩、枝杈头冠、发绿光的眼和腐菌。约 1.1 米，放大 2.5 倍。"""
+    s = 0.55
+    bark = (0.3, 0.22, 0.15)
+    moss = (0.3, 0.45, 0.2)
+    glow = (0.5, 1.0, 0.5)
+    for x in (0.25, -0.25):
+        lp.cyl((x * s, 0, 0.35 * s), 0.16 * s, 0.7 * s, bark, rot=(0, x * 40, 0), verts=6)  # 根腿
+    lp.cyl((0, 0, 1.2 * s), 0.42 * s, 1.1 * s, bark, radius2=0.32 * s, verts=7)      # 树干
+    lp.ball((0, 0.3 * s, 1.35 * s), (0.2 * s, 0.1 * s, 0.25 * s), (0.2, 0.14, 0.1))  # 树洞
+    for x in (0.12, -0.12):
+        lp.ball((x * s, 0.32 * s, 1.55 * s), (0.05 * s, 0.03 * s, 0.05 * s), glow)   # 眼
+    for x in (0.5, -0.5):
+        lp.ball((x * s, 0, 1.7 * s), (0.28 * s, 0.25 * s, 0.18 * s), moss)          # 苔藓肩
+        lp.cyl((x * 1.3 * s, 0.1 * s, 1.25 * s), 0.1 * s, 0.8 * s, bark, rot=(20, x * 60, 0), verts=5)  # 枝臂
+    for i, (x, r) in enumerate(((0, 0), (0.2, 30), (-0.2, -30), (0.1, 15))):
+        lp.cyl((x * s, 0, 2.0 * s), 0.05 * s, 0.6 * s, bark, rot=(0, r, i * 20), verts=4)  # 枝冠
+    lp.ball((0.3 * s, 0.25 * s, 1.0 * s), (0.1 * s, 0.1 * s, 0.06 * s), (0.6, 0.3, 0.65))  # 腐菌
+
+
 def rocks():
     """障碍物石堆：3 块不规则石头，以 1 米为单位，Godot 按障碍物尺寸缩放。"""
     grey = (0.46, 0.43, 0.40)
@@ -443,6 +500,7 @@ MODELS = {
     "shadow_walker": (shadow_walker, 2.0), "cleric": (cleric, 2.0), "zombie": (zombie, 1.6), "skeleton": (skeleton, 1.6),
     "imp": (imp, 1.2), "ghoul": (ghoul, 1.2), "necromancer": (necromancer, 1.8),
     "bloater": (bloater, 1.6), "corrupted_knight": (corrupted_knight, 1.3), "rocks": (rocks, 1.0),
+    "frost_lich": (frost_lich, 1.3), "sand_colossus": (sand_colossus, 1.3), "rotwood_treant": (rotwood_treant, 1.3),
     "decor": (decor, 0.5),
     "ashen_city": (city_kit, 4.0),
     "frost_wastes": (frost_kit, 4.0), "sand_ruins": (desert_kit, 4.0), "dark_forest": (forest_kit, 4.0),

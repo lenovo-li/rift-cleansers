@@ -33,7 +33,7 @@ func _ready() -> void:
 	_session.game_over.connect(_on_game_over)
 	_session.level_up.connect(_on_level_up)
 	_spawner.boss_spawned.connect(_on_boss_spawned)
-	_spawner.boss_defeated.connect(func() -> void: _session.end_game("击败了腐化骑士", true))
+	_spawner.boss_defeated.connect(func(boss_name: String) -> void: _session.end_game("击败了%s" % boss_name, true))
 	_upgrade_panel.roll_choices = func() -> Array[Dictionary]:
 		return UpgradeSystem.roll_choices(_player.ability_system, _player.stats, _rng)
 	_upgrade_panel.chosen.connect(_on_upgrade_chosen)
@@ -191,12 +191,12 @@ func _apply_upgrade(choice: Dictionary) -> void:
 
 
 func _on_boss_spawned(boss: Boss) -> void:
-	_broadcast_toast("腐化骑士 降临！")
+	_broadcast_toast("%s 降临！" % boss.get_display_name())
 	boss.phase_changed.connect(func(phase: int) -> void:
 		SkillVfx.shockwave(self, boss.global_position, 12.0, Color(0.9, 0.1, 0.25, 1.0), 0.7)
 		SfxManager.play(self, "slam")
 		HitStop.trigger(get_tree(), 0.08)
-		_broadcast_toast("腐化骑士 进入第 %d 阶段%s" % [phase, "：冲锋！注意红色预警" if phase == 2 else "：狂暴！"]))
+		_broadcast_toast("%s 进入第 %d 阶段：%s" % [boss.get_display_name(), phase, Boss.phase_hint(boss.variant, phase)]))
 
 
 func _on_reaction(reaction: String, pos: Vector3) -> void:

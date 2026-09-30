@@ -14,7 +14,8 @@ var _defs: Dictionary = {}   # type -> EnemyDef
 func _ready() -> void:
 	for id: String in SpawnerScript.DEFS:
 		_defs[id] = SpawnerScript.DEFS[id]
-	_defs["corrupted_knight"] = SpawnerScript.BOSS_DEF
+	for id: String in SpawnerScript.BOSS_DEFS:
+		_defs[id] = SpawnerScript.BOSS_DEFS[id]
 
 
 func count() -> int:
@@ -59,7 +60,7 @@ func _create(r: Dictionary) -> Dictionary:
 	mi.add_to_group("enemy_views")
 	add_child(mi)
 	mi.global_position = r.pos + mi.position
-	var is_boss: bool = r.type == "corrupted_knight"
+	var is_boss: bool = SpawnerScript.BOSS_DEFS.has(r.type)
 	return {"node": mi, "target": r.pos, "hp": r.hp, "seen": Time.get_ticks_msec(), "flash": 0.0,
 		"base": base, "height": mi.position.y, "is_boss": is_boss, "color": Enemy.look_color(def, r.elite), "elite": elite or is_boss,
 		"max_hp": def.max_health * (Enemy.ELITE_HEALTH_MULT if elite else 1.0)}

@@ -153,6 +153,30 @@ static func dash_trail(parent: Node, a: Vector3, b: Vector3, width: float, color
 	tween.tween_callback(mi.queue_free)
 
 
+## 竖直光柱（牧师惩击）：从天而降的细圆柱，快速变细淡出。
+static func pillar(parent: Node, pos: Vector3, radius: float, height: float, color: Color) -> void:
+	record(["pillar", pos, radius, height, color])
+	if parent == null or not parent.is_inside_tree():
+		return
+	var mi: MeshInstance3D = MeshInstance3D.new()
+	var cyl: CylinderMesh = CylinderMesh.new()
+	cyl.top_radius = radius
+	cyl.bottom_radius = radius
+	cyl.height = height
+	cyl.radial_segments = 10
+	mi.mesh = cyl
+	var mat: StandardMaterial3D = _make_material(color)
+	mat.emission_enabled = true
+	mat.emission = Color(color, 1.0)
+	mi.material_override = mat
+	parent.add_child(mi)
+	mi.global_position = Vector3(pos.x, height * 0.5, pos.z)
+	var tween: Tween = mi.create_tween().set_parallel(true)
+	tween.tween_property(mat, "albedo_color:a", 0.0, 0.45)
+	tween.tween_property(mi, "scale", Vector3(0.2, 1.0, 0.2), 0.45)
+	tween.chain().tween_callback(mi.queue_free)
+
+
 # ---------- M3：打击感特效（全部经 record 录制，联机客户端同样回放） ----------
 
 const ShockwaveShader: Shader = preload("res://presentation/shaders/shockwave.gdshader")

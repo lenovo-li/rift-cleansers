@@ -728,6 +728,8 @@ func _replay_fx(ev: Array) -> void:
 			SkillVfx.pulse_ring(scene, ev[1], ev[2], ev[3], ev[4])
 		"trail":
 			SkillVfx.dash_trail(scene, ev[1], ev[2], ev[3], ev[4])
+		"pillar":
+			SkillVfx.pillar(scene, ev[1], ev[2], ev[3], ev[4])
 		"sfx":
 			SfxManager.play(scene, ev[1])
 		"dead":
@@ -735,7 +737,7 @@ func _replay_fx(ev: Array) -> void:
 				enemy_views.remove(int(ev[1]), true)
 		"proj":
 			var pr: Node3D = ProjectileScript.new()
-			pr.setup(null, ev[2], 0.0, Color(0.4, 1.0, 0.3))
+			pr.setup(null, ev[2], 0.0, ev[3] if ev.size() > 3 else Color(0.4, 1.0, 0.3))
 			pr.visual_only = true
 			scene.add_child(pr)
 			pr.global_position = ev[1]

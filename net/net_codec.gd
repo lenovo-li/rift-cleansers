@@ -3,7 +3,8 @@ class_name NetCodec extends RefCounted
 ## 每只敌人 10 字节：id u32 | x s16 | z s16 | 类型 u4 + 精英 u2 + 燃烧 u1 + 减速 u1 | 血量比例 u8
 ## 坐标精度 1/100 米（范围 ±327 米，竞技场 ±100 米）。
 
-const TYPE_IDS: Array[String] = ["zombie", "skeleton", "imp", "ghoul", "necromancer", "bloater", "corrupted_knight"]
+const TYPE_IDS: Array[String] = ["zombie", "skeleton", "imp", "ghoul", "necromancer", "bloater", "corrupted_knight",
+	"frost_lich", "sand_colossus", "rotwood_treant"]
 const ELITE_IDS: Array[String] = ["", "teleporter", "vampire", "haste"]
 const RECORD_SIZE: int = 10
 const POS_SCALE: float = 100.0

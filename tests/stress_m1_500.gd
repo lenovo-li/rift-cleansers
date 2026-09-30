@@ -25,6 +25,7 @@ func _init() -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	_scene = (load("res://scenes/game_scene.tscn") as PackedScene).instantiate()
 	_scene.auto_pick_upgrades = true
+	_scene.record_runs = false
 	var director: SpawnDirector = _scene.get_node("GameSession/SpawnDirector") as SpawnDirector
 	director.stress_cap = _count
 	root.add_child(_scene)

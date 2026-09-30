@@ -4,6 +4,8 @@ extends Node3D
 
 ## 模拟/测试用：自动选择升级第一项，不弹出暂停面板。
 @export var auto_pick_upgrades: bool = false
+## 结算时写入本地存档（排行榜、天赋碎片）。模拟/测试脚本关掉，避免污染玩家存档。
+@export var record_runs: bool = true
 
 const REVIVE_RADIUS: float = 2.5
 const REVIVE_TIME: float = 3.0
@@ -43,6 +45,7 @@ func _ready() -> void:
 		_player.ai_controlled = true
 		_player.bot = PlayerBot.new()
 		auto_pick_upgrades = true
+		record_runs = false
 	register_player(_player)
 	SkillVfx.reset_counters()
 	_player.hurt.connect(func(amount: float) -> void:
@@ -216,8 +219,12 @@ func _on_game_over(reason: String, victory: bool) -> void:
 	if _upgrade_panel.is_open():
 		_upgrade_panel.close()
 	get_tree().paused = true
+	var record: Dictionary = {}
+	if record_runs:
+		record = SaveData.record_run(_player.character_id, "ashen_city", victory, _session.get_game_time(),
+				_session.get_player_level(), _spawner.kills)
 	var can_restart: bool = not NetConfig.is_client()
-	_game_over_panel = GameOverPanel.build(victory, reason, _session, _spawner.kills, can_restart)
+	_game_over_panel = GameOverPanel.build(victory, reason, _session, _spawner.kills, can_restart, record)
 	_game_over_panel.restart_requested.connect(_restart)
 	_game_over_panel.quit_requested.connect(_quit_to_menu)
 	$UI.add_child(_game_over_panel)

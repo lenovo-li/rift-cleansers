@@ -28,6 +28,7 @@ func _init() -> void:
 	print("[sim] character=%s" % NetConfig.character_id)
 	_scene = (load("res://scenes/game_scene.tscn") as PackedScene).instantiate()
 	_scene.auto_pick_upgrades = true
+	_scene.record_runs = false
 	root.add_child(_scene)
 	_session = _scene.get_node("GameSession") as GameSession
 	_player = _scene.get_node("PlayerM1")

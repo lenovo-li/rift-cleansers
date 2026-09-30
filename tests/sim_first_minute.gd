@@ -30,6 +30,7 @@ func _init() -> void:
 	print("[sim] character=%s" % NetConfig.character_id)
 	var scene: Node = (load("res://scenes/game_scene.tscn") as PackedScene).instantiate()
 	scene.auto_pick_upgrades = true  # 升级面板会暂停场景树，模拟里直接选第一项
+	scene.record_runs = false
 	root.add_child(scene)
 	_session = scene.get_node("GameSession") as GameSession
 	_player = scene.get_node("PlayerM1")

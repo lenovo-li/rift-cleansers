@@ -55,6 +55,7 @@ func _ready() -> void:
 	_button(box, "创建房间（主机）", _on_host)
 	_addr_edit = _field(box, "主机 IP", NetConfig.address)
 	_button(box, "加入房间", _on_join)
+	_button(box, "本地排行榜", _show_leaderboard)
 	_button(box, "退出", func() -> void: get_tree().quit())
 	_status = Label.new()
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -122,6 +123,45 @@ func _on_join() -> void:
 	NetConfig.mode = NetConfig.Mode.CLIENT
 	NetConfig.address = _addr_edit.text.strip_edges()
 	_start()
+
+
+## 排行榜浮层：前 10 局 + 累计统计，点击任意处关闭。
+func _show_leaderboard() -> void:
+	var overlay: Button = Button.new()
+	overlay.flat = true
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var dim: ColorRect = ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.85)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(dim)
+	var label: Label = Label.new()
+	label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 22)
+	label.text = leaderboard_text()
+	overlay.add_child(label)
+	overlay.pressed.connect(overlay.queue_free)
+	add_child(overlay)
+
+
+static func leaderboard_text() -> String:
+	var d: Dictionary = SaveData.data()
+	var lines: PackedStringArray = ["本地排行榜", ""]
+	var board: Array = SaveData.leaderboard()
+	if board.is_empty():
+		lines.append("还没有记录，去打一局吧")
+	for i in board.size():
+		var e: Dictionary = board[i]
+		lines.append("%2d. %6d 分  %s  %s  %s  %d:%02d  Lv%d  击杀 %d  %s" % [i + 1, e.score,
+			CharacterCatalog.get_def(e.char).name, MapCatalog.get_def(e.map).name, "胜" if e.victory else "负",
+			int(e.time) / 60, int(e.time) % 60, e.level, e.kills, e.date])
+	lines.append("")
+	lines.append("总局数 %d   胜利 %d   累计击杀 %d   天赋碎片 %d" % [d.runs, d.wins, d.total_kills, d.shards])
+	lines.append("")
+	lines.append("点击任意处返回")
+	return "\n".join(lines)
 
 
 func _start() -> void:

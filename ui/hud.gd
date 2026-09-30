@@ -142,7 +142,7 @@ func _build_skill_bar() -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 8)
 	add_child(row)
-	for i in SkillFactory.SKILL_IDS.size():
+	for i in SKILL_KEYS.size():  # 每个角色都是 6 个技能
 		var panel: PanelContainer = PanelContainer.new()
 		panel.custom_minimum_size = Vector2(116, 90)
 		var style: StyleBoxFlat = StyleBoxFlat.new()
@@ -229,8 +229,9 @@ func _update_team() -> void:
 
 func _update_skills() -> void:
 	var abilities: AbilitySystem = player.ability_system
-	for i in SkillFactory.SKILL_IDS.size():
-		var id: String = SkillFactory.SKILL_IDS[i]
+	var pool: Array[String] = abilities.pool()
+	for i in mini(pool.size(), _skill_panels.size()):
+		var id: String = pool[i]
 		var p: Dictionary = _skill_panels[i]
 		var skill: Skill = abilities.get_skill(id)
 		if skill == null:

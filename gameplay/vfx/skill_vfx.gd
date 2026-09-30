@@ -311,3 +311,34 @@ static func shield_bash_tiered(parent: Node, origin: Vector3, facing: Vector3, r
 	if tier >= 8:
 		for i in 3:
 			burst(parent, "fire", origin + facing * radius * (0.3 + 0.3 * i), 1.0)
+
+
+## 预警圈：地面红色闪烁圆圈（陨石术即将落地）。
+static func telegraph_circle(parent: Node, center: Vector3, radius: float, duration: float) -> void:
+	var mesh: CylinderMesh = CylinderMesh.new()
+	mesh.top_radius = radius
+	mesh.bottom_radius = radius
+	mesh.height = 0.05
+	var mi: MeshInstance3D = MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.position = center + Vector3(0, 0.03, 0)
+	mi.material_override = _make_material(Color(1.0, 0.2, 0.1, 0.4))
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(mi)
+	var t: Tween = mi.create_tween()
+	t.set_loops(ceili(duration / 0.6))
+	t.tween_property(mi, "transparency", 0.8, 0.3)
+	t.tween_property(mi, "transparency", 0.0, 0.3)
+	await parent.get_tree().create_timer(duration).timeout
+	if is_instance_valid(mi):
+		mi.queue_free()
+
+
+## 陨石落地爆炸（冲击波 + 火焰爆裂 + 可选的第二圈冲击波）。
+static func meteor_impact(parent: Node, center: Vector3, radius: float, second_wave: bool) -> void:
+	shockwave(parent, center, radius, Color(1.0, 0.4, 0.1, 1.0), 0.5)
+	burst(parent, "fire", center + Vector3(0, 0.8, 0), radius * 0.15, Color(1.0, 0.5, 0.1))
+	if second_wave:
+		await parent.get_tree().create_timer(0.25).timeout
+		if is_instance_valid(parent):
+			shockwave(parent, center, radius * 1.6, Color(1.0, 0.5, 0.2, 0.6), 0.4)

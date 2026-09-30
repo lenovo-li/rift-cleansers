@@ -239,7 +239,7 @@ func _client_tick() -> void:
 	if not welcomed:
 		if _timers.hello >= HELLO_RETRY:
 			_timers.hello = 0.0
-			_send(1, &"rpc_hello", [NetConfig.reconnect_token, NetConfig.player_name])
+			_send(1, &"rpc_hello", [NetConfig.reconnect_token, NetConfig.player_name, NetConfig.character_id])
 		return
 	var p: CharacterBody3D = local_player
 	if p.ai_controlled and p.bot != null:
@@ -262,7 +262,7 @@ func send_action(kind: Action, value: int) -> void:
 # ---------- 主机收到的 RPC ----------
 
 @rpc("any_peer", "call_remote", "reliable")
-func rpc_hello(token: String, display: String) -> void:
+func rpc_hello(token: String, display: String, char_id: String = CharacterCatalog.DEFAULT_ID) -> void:
 	if not is_host():
 		return
 	var peer: int = multiplayer.get_remote_sender_id()
@@ -283,7 +283,7 @@ func rpc_hello(token: String, display: String) -> void:
 	_peer_by_slot[slot] = peer
 	var player: CharacterBody3D = players_by_slot.get(slot)
 	if player == null:
-		player = _spawn_remote(slot, display)
+		player = _spawn_remote(slot, display, char_id if CharacterCatalog.is_valid(char_id) else CharacterCatalog.DEFAULT_ID)
 		_pending_upgrades[slot] = session.get_player_level() - 1  # 中途加入：补齐已错过的升级
 	else:
 		player.ai_controlled = false
@@ -314,8 +314,8 @@ func rpc_action(kind: int, value: int) -> void:
 		return
 	match kind:
 		Action.SKILL:
-			if value >= 0 and value < SkillFactory.SKILL_IDS.size() and not player.is_dead:
-				player.cast_skill(SkillFactory.SKILL_IDS[value])
+			if value >= 0 and value < player.ability_system.pool().size() and not player.is_dead:
+				player.cast_skill(player.ability_system.pool()[value])
 		Action.DODGE:
 			if not player.is_dead:
 				player.dodge()
@@ -344,9 +344,10 @@ func _free_slot() -> int:
 	return -1
 
 
-func _spawn_remote(slot: int, display: String) -> CharacterBody3D:
+func _spawn_remote(slot: int, display: String, char_id: String) -> CharacterBody3D:
 	var p: CharacterBody3D = PlayerScene.instantiate()
 	p.name = "Player_%d" % slot
+	p.character_id = char_id
 	p.control = p.ControlMode.REMOTE
 	p.net_slot = slot
 	scene.add_child(p)
@@ -460,19 +461,19 @@ func _flush_fx_now() -> void:
 # ---------- 主机：状态打包 ----------
 
 ## [slot, 名字, 位置, 朝向角, 生命, 最大生命, 护盾, 怒气, 倒地, 救援进度, 托管, 已确认输入序号,
-##  闪避冷却, 光环剩余, 技能等级[6], 技能冷却[6]]
+##  闪避冷却, 光环剩余, 技能等级[6], 技能冷却[6], 角色 id]
 func _players_state() -> Array:
 	var out: Array = []
 	for slot: int in players_by_slot:
 		var p: CharacterBody3D = players_by_slot[slot]
 		var levels: PackedByteArray = PackedByteArray()
 		var cds: PackedFloat32Array = PackedFloat32Array()
-		for id: String in SkillFactory.SKILL_IDS:
+		for id: String in p.ability_system.pool():
 			levels.append(p.ability_system.get_level(id))
 			cds.append(p.ability_system.get_cooldown_remaining(id))
 		out.append([slot, p.display_name, p.global_position, p.rotation.y, p.stats.health, p.stats.max_health,
 			p.stats.shield, p.stats.rage, p.is_dead, p.revive_progress, p.ai_controlled, p.net_input_seq,
-			p.dodge_cooldown_remaining, p.stats.aura_remaining, levels, cds])
+			p.dodge_cooldown_remaining, p.stats.aura_remaining, levels, cds, p.character_id])
 	return out
 
 
@@ -583,7 +584,7 @@ func _apply_players(states: Array, snap: bool) -> void:
 		seen[slot] = true
 		var p: CharacterBody3D = players_by_slot.get(slot)
 		if p == null:
-			p = _spawn_puppet(slot, st[1], st[2])
+			p = _spawn_puppet(slot, st[1], st[2], st[16] if st.size() > 16 else CharacterCatalog.DEFAULT_ID)
 		var is_me: bool = slot == my_slot
 		p.display_name = st[1]
 		if st[4] < p.stats.health - 0.5:
@@ -620,8 +621,9 @@ func _apply_players(states: Array, snap: bool) -> void:
 
 
 func _apply_skills(p: CharacterBody3D, levels: PackedByteArray, cds: PackedFloat32Array) -> void:
-	for i in SkillFactory.SKILL_IDS.size():
-		var id: String = SkillFactory.SKILL_IDS[i]
+	var pool: Array[String] = p.ability_system.pool()
+	for i in mini(pool.size(), levels.size()):
+		var id: String = pool[i]
 		var lv: int = levels[i]
 		if lv <= 0:
 			continue
@@ -631,9 +633,10 @@ func _apply_skills(p: CharacterBody3D, levels: PackedByteArray, cds: PackedFloat
 		p.ability_system.set_cooldown_remaining(id, cds[i])
 
 
-func _spawn_puppet(slot: int, display: String, pos: Vector3) -> CharacterBody3D:
+func _spawn_puppet(slot: int, display: String, pos: Vector3, char_id: String) -> CharacterBody3D:
 	var p: CharacterBody3D = PlayerScene.instantiate()
 	p.name = "Player_%d" % slot
+	p.character_id = char_id
 	p.control = p.ControlMode.PUPPET
 	p.net_slot = slot
 	scene.add_child(p)
@@ -765,7 +768,7 @@ func report() -> Dictionary:
 	for slot: int in players_by_slot:
 		var p: CharacterBody3D = players_by_slot[slot]
 		var levels: Array = []
-		for id: String in SkillFactory.SKILL_IDS:
+		for id: String in p.ability_system.pool():
 			levels.append(p.ability_system.get_level(id))
 		players[str(slot)] = {"pos": [p.global_position.x, p.global_position.z], "hp": p.stats.health,
 			"dead": p.is_dead, "skills": levels, "equip": p.stats.equipment.size(), "ai": p.ai_controlled}

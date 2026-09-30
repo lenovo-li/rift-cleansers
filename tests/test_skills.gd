@@ -37,7 +37,7 @@ func _at(skill: Skill, level: int) -> Skill:
 
 
 func test_factory_creates_all_six_with_four_tiers() -> String:
-	for id: String in SkillFactory.SKILL_IDS:
+	for id: String in SkillFactory.SKILL_IDS + ["fireball", "ice_lance", "frost_nova", "chain_lightning", "meteor", "storm_field"]:
 		var s: Skill = SkillFactory.create(id)
 		if s == null or s.skill_id != id:
 			return "工厂无法创建 %s" % id

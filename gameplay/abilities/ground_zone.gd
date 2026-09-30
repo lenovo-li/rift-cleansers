@@ -15,7 +15,9 @@ var slow_factor: float = 0.0
 var slow_duration: float = 0.0
 ## 可选：命中时附加燃烧（目标需有 status: StatusEffects）。0 表示不燃烧。
 var burn_dps: float = 0.0
-## 表现层用的类型标签（flame / whirl / slam / aura）。
+## 元素术士：区域伤害是否算重击（引爆燃烧 = 爆燃反应）。
+var heavy: bool = false
+## 表现层用的类型标签（flame / whirl / slam / aura / frost / lightning）。
 var kind: String = ""
 var _tick_timer: float = 0.0
 
@@ -48,6 +50,8 @@ func tick(delta: float, targets: Array) -> int:
 		for t: Variant in targets:
 			if is_instance_valid(t) and t.is_alive and contains(t.global_position):
 				t.take_damage(damage_per_tick)
+				if heavy and t.is_alive:
+					Reactions.ignite(t, targets)  # 目标在燃烧时引爆（爆燃）
 				if slow_factor > 0.0 and t.has_method("apply_slow"):
 					t.apply_slow(slow_factor, slow_duration)
 				if burn_dps > 0.0:

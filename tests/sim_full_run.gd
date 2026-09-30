@@ -22,6 +22,10 @@ func _init() -> void:
 		if arg.begins_with("--seed="):
 			sim_seed = int(arg.get_slice("=", 1))
 	seed(sim_seed)
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--char="):
+			NetConfig.character_id = arg.get_slice("=", 1)
+	print("[sim] character=%s" % NetConfig.character_id)
 	_scene = (load("res://scenes/game_scene.tscn") as PackedScene).instantiate()
 	_scene.auto_pick_upgrades = true
 	root.add_child(_scene)
@@ -30,6 +34,7 @@ func _init() -> void:
 	_spawner = _scene.get_node("EnemySpawner")
 	_player.ai_controlled = true
 	_player.bot = PlayerBot.new()
+	_player.auto_cast = true
 	_session.game_over.connect(_on_game_over)
 	print("[full] seed=%d" % sim_seed)
 
@@ -57,7 +62,7 @@ func _process(_delta: float) -> bool:
 
 func _report(t: float, enemy_count: int) -> void:
 	var skills: PackedStringArray = []
-	for id: String in SkillFactory.SKILL_IDS:
+	for id: String in _player.ability_system.pool():
 		var s: Skill = _player.ability_system.get_skill(id)
 		if s != null:
 			skills.append("%s%d" % [id.substr(0, 4), s.level])

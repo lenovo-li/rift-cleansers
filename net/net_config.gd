@@ -1,7 +1,7 @@
 class_name NetConfig extends RefCounted
 ## 联机启动参数（菜单或命令行设置，跨场景重载保留）。
 ## 命令行（写在 -- 之后）：--host  --join=IP  --port=N  --lag=毫秒（单向模拟延迟）
-##   --name=名字  --token=重连令牌  --bot（本地玩家由机器人控制，测试用）
+##   --name=名字  --token=重连令牌  --char=iron_guard|elementalist  --bot（本地玩家由机器人控制，测试用）
 
 enum Mode { SINGLE, HOST, CLIENT }
 
@@ -15,6 +15,8 @@ static var lag_ms: int = 0
 static var player_name: String = "玩家"
 static var reconnect_token: String = ""
 static var bot: bool = false
+## 本地玩家选的角色（CharacterCatalog），单人和联机都用。
+static var character_id: String = "iron_guard"
 static var _parsed: bool = false
 
 
@@ -49,6 +51,10 @@ static func parse_cmdline() -> bool:
 			player_name = arg.get_slice("=", 1)
 		elif arg.begins_with("--token="):
 			reconnect_token = arg.get_slice("=", 1)
+		elif arg.begins_with("--char="):
+			var c: String = arg.get_slice("=", 1)
+			if CharacterCatalog.is_valid(c):
+				character_id = c
 		elif arg == "--bot":
 			bot = true
 	if reconnect_token.is_empty():

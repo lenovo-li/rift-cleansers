@@ -6,7 +6,41 @@ const CROWD_RADIUS: float = 3.0
 const CROWD_LIMIT: int = 12
 
 
+var _last_pos: Vector3 = Vector3.INF
+var _stuck_time: float = 0.0
+var _detour_time: float = 0.0
+var _detour_dir: Vector3 = Vector3.ZERO
+
+
 func think(player: Node3D, enemies: Array) -> void:
+	_decide(player, enemies)
+	_unstick(player)
+
+
+## 脱困：想移动却 0.5 秒几乎没动（被墙挡住），就沿墙横移 0.8 秒。
+func _unstick(player: Node3D) -> void:
+	var dt: float = player.get_physics_process_delta_time()
+	var pos: Vector3 = player.global_position
+	if _detour_time > 0.0:
+		_detour_time -= dt
+		player.move_override = _detour_dir
+		_last_pos = pos
+		return
+	var wants: bool = player.move_override.length_squared() > 0.01
+	if wants and _last_pos != Vector3.INF and pos.distance_to(_last_pos) < 0.02:
+		_stuck_time += dt
+	else:
+		_stuck_time = 0.0
+	_last_pos = pos
+	if _stuck_time > 0.5:
+		_stuck_time = 0.0
+		_detour_time = 0.8
+		var side: float = 1.0 if randf() < 0.5 else -1.0
+		_detour_dir = player.move_override.normalized().cross(Vector3.UP) * side
+		player.move_override = _detour_dir
+
+
+func _decide(player: Node3D, enemies: Array) -> void:
 	var pos: Vector3 = player.global_position
 	var tree: SceneTree = player.get_tree()
 	for other: Node in tree.get_nodes_in_group("players"):
@@ -43,7 +77,18 @@ func think(player: Node3D, enemies: Array) -> void:
 	elif nearest != null:
 		var to_e: Vector3 = (nearest.global_position - pos) * Vector3(1, 0, 1)
 		var tangent: Vector3 = to_e.cross(Vector3.UP).normalized()
-		player.move_override = to_e if nearest_d > 3.0 else tangent - to_e.normalized() * 0.3
+		var is_melee: bool = player.attack_kind == "pulse"
+		if is_melee:
+			player.move_override = to_e if nearest_d > 3.0 else tangent - to_e.normalized() * 0.3
+		else:
+			# 远程：保持 7 米距离（太远 -> 靠近，太近 -> 后退）
+			var kite_d: float = 7.0
+			if nearest_d > kite_d + 2.0:
+				player.move_override = to_e.normalized()
+			elif nearest_d < kite_d - 1.0:
+				player.move_override = -to_e.normalized()
+			else:
+				player.move_override = tangent
 	else:
 		player.move_override = Vector3.ZERO
 

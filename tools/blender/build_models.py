@@ -170,11 +170,97 @@ def decor():
     lp.export_separate(os.path.join(OUT_DIR, "decor.glb"), groups)
 
 
+def city_kit():
+    """灰烬王城模块化零件：每个零件以地面中心为原点，分别导出为 ashen_city.glb 里的独立网格。
+    Godot 侧 AshenCity 按固定种子摆放（主机和客户端布局一致，无需同步）。"""
+    stone = (0.42, 0.40, 0.38)
+    stone_dark = (0.28, 0.26, 0.25)
+    char = (0.14, 0.12, 0.12)
+    ember = (1.0, 0.45, 0.12)
+    royal = (0.38, 0.16, 0.42)
+    groups = {}
+    # 城墙段：长 6 米、高 2.6 米、厚 0.8 米，顶部残缺
+    lp.box((0, 0, 0.9), (6.0, 0.8, 1.8), stone)
+    for x, h in ((-2.4, 0.8), (-1.2, 0.5), (0.3, 0.9), (1.6, 0.35), (2.5, 0.7)):
+        lp.box((x, 0, 1.8 + h / 2), (1.1, 0.8, h), stone if h > 0.5 else stone_dark)
+    lp.box((0, 0.42, 0.15), (6.1, 0.1, 0.3), char)  # 墙根焦痕
+    lp.box((0.3, 0.44, 1.5), (0.9, 0.04, 1.4), royal)  # 残破王旗
+    groups["wall"] = lp.take_parts()
+    # 断墙：半截 + 倒塌碎块
+    lp.box((0, 0, 0.6), (3.2, 0.8, 1.2), stone_dark)
+    lp.box((-0.9, 0, 1.4), (1.2, 0.8, 0.4), stone)
+    lp.rock((2.2, 0.4, 0.3), (0.6, 0.5, 0.35), stone, seed=21)
+    lp.rock((2.7, -0.5, 0.2), (0.4, 0.35, 0.25), stone_dark, seed=22)
+    groups["wall_broken"] = lp.take_parts()
+    # 石柱：底座 + 八棱柱身 + 柱头
+    lp.box((0, 0, 0.2), (1.1, 1.1, 0.4), stone_dark)
+    lp.cyl((0, 0, 1.9), 0.38, 3.0, stone, verts=8)
+    lp.box((0, 0, 3.55), (1.0, 1.0, 0.3), stone_dark)
+    groups["pillar"] = lp.take_parts()
+    # 断柱
+    lp.box((0, 0, 0.2), (1.1, 1.1, 0.4), stone_dark)
+    lp.cyl((0, 0, 0.95), 0.38, 1.1, stone, verts=8)
+    lp.cyl((1.3, 0.2, 0.38), 0.36, 1.6, stone, rot=(0, 90, 25), verts=8)
+    groups["pillar_broken"] = lp.take_parts()
+    # 残塔：直径 4.4 米，高低不齐的垛口
+    lp.cyl((0, 0, 2.2), 2.2, 4.4, stone_dark, verts=12)
+    for i in range(6):
+        import math
+        a = i * math.pi / 3
+        h = 0.6 + (i % 3) * 0.4
+        lp.box((math.cos(a) * 1.9, math.sin(a) * 1.9, 4.4 + h / 2), (1.0, 0.7, h), stone, rot=(0, 0, math.degrees(a)))
+    lp.box((0, 2.15, 0.9), (1.1, 0.2, 1.8), char)  # 门洞
+    groups["tower"] = lp.take_parts()
+    # 火盆：石座 + 铁盆 + 余烬
+    lp.cyl((0, 0, 0.35), 0.35, 0.7, stone_dark, verts=6)
+    lp.cyl((0, 0, 0.85), 0.55, 0.3, char, radius2=0.7, verts=8)
+    lp.ball((0, 0, 1.02), (0.45, 0.45, 0.18), ember)
+    groups["brazier"] = lp.take_parts()
+    # 无头王像：台座 + 披风身躯 + 断剑
+    lp.box((0, 0, 0.6), (2.6, 2.6, 1.2), stone_dark)
+    lp.box((0, 0, 1.35), (2.2, 2.2, 0.3), stone)
+    lp.cyl((0, 0, 2.7), 0.8, 2.4, stone, radius2=0.5, verts=8)
+    for x in (0.7, -0.7):
+        lp.ball((x, 0, 3.9), (0.35, 0.3, 0.25), stone)
+    lp.cyl((0, 0, 4.0), 0.3, 0.3, char, verts=8)  # 断颈焦痕
+    lp.box((0.2, 0.9, 2.6), (0.15, 0.1, 2.2), stone_dark, rot=(0, 15, 0))  # 断剑
+    groups["statue"] = lp.take_parts()
+    # 瓦砾堆
+    for i, (x, y, sz) in enumerate(((0, 0, 0.7), (0.8, 0.3, 0.45), (-0.6, 0.5, 0.4), (0.2, -0.7, 0.5))):
+        lp.rock((x, y, sz * 0.5), (sz, sz * 0.9, sz * 0.6), stone if i % 2 else stone_dark, seed=30 + i)
+    lp.box((0.4, -0.2, 0.15), (1.2, 0.3, 0.2), char, rot=(0, 0, 30))  # 焦木
+    groups["rubble"] = lp.take_parts()
+    lp.export_separate(os.path.join(OUT_DIR, "ashen_city.glb"), groups)
+
+
+def elementalist():
+    """元素术士：长袍 + 宽檐尖帽 + 法杖三色宝珠（火/冰/雷）。袍子下摆和帽带用队伍色。约 1.9 米。"""
+    robe = (0.28, 0.24, 0.36)
+    lp.cyl((0, 0, 0.55), 0.42, 1.1, robe, radius2=0.24, verts=10)          # 长袍下摆
+    lp.cyl((0, 0, 0.06), 0.44, 0.12, TEAM, verts=10, team=True)           # 下摆队伍色镶边
+    lp.box((0, 0, 1.25), (0.46, 0.3, 0.45), robe)                          # 上身
+    lp.box((0, 0.16, 1.28), (0.12, 0.04, 0.4), GOLD)                       # 前襟金线
+    for x in (0.3, -0.3):
+        lp.cyl((x, 0.05, 1.2), 0.08, 0.5, robe, rot=(20, 0, 0))            # 袖子
+        lp.ball((x, 0.14, 0.97), (0.06, 0.06, 0.06), SKIN)                 # 手
+    lp.ball((0, 0.02, 1.62), (0.14, 0.14, 0.15), SKIN)                     # 头
+    lp.box((0, 0.13, 1.55), (0.14, 0.05, 0.12), (0.85, 0.85, 0.88))        # 胡子
+    lp.cyl((0, 0, 1.76), 0.34, 0.05, CLOTH_DARK, verts=12)                 # 帽檐
+    lp.cyl((0, 0, 1.8), 0.19, 0.06, TEAM, verts=12, team=True)             # 帽带
+    lp.cone((0.04, -0.02, 2.05), 0.18, 0.5, CLOTH_DARK, rot=(-12, 8, 0), verts=8)  # 尖帽
+    # 法杖（右手）+ 三色宝珠
+    lp.cyl((-0.36, 0.2, 1.0), 0.03, 1.8, LEATHER)
+    lp.ball((-0.36, 0.2, 1.95), (0.1, 0.1, 0.1), (1.0, 0.45, 0.1), subdiv=2)
+    lp.ball((-0.28, 0.2, 1.85), (0.06, 0.06, 0.06), (0.5, 0.85, 1.0))
+    lp.ball((-0.44, 0.2, 1.85), (0.06, 0.06, 0.06), (0.75, 0.7, 1.0))
+
+
 MODELS = {
-    "iron_guard": (iron_guard, 2.0), "zombie": (zombie, 1.6), "skeleton": (skeleton, 1.6),
+    "iron_guard": (iron_guard, 2.0), "elementalist": (elementalist, 2.0), "zombie": (zombie, 1.6), "skeleton": (skeleton, 1.6),
     "imp": (imp, 1.2), "ghoul": (ghoul, 1.2), "necromancer": (necromancer, 1.8),
     "bloater": (bloater, 1.6), "corrupted_knight": (corrupted_knight, 1.3), "rocks": (rocks, 1.0),
     "decor": (decor, 0.5),
+    "ashen_city": (city_kit, 4.0),
 }
 
 
@@ -188,8 +274,8 @@ def main():
         fn, height = MODELS[name]
         lp.reset_scene()
         fn()
-        if name == "decor":
-            print("[models] decor: 4 meshes")
+        if name in ("decor", "ashen_city"):
+            print("[models] %s: multi-mesh kit" % name)
             continue
         tris = lp.export(os.path.join(OUT_DIR, name + ".glb"))
         print("[models] %s: %d tris" % (name, tris))

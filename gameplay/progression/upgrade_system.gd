@@ -13,7 +13,7 @@ const WEIGHT_PASSIVE: float = 1.5
 static func roll_choices(abilities: AbilitySystem, stats: CharacterStats, rng: RandomNumberGenerator) -> Array[Dictionary]:
 	var pool: Array[Dictionary] = []
 	var owned: int = 0
-	for id: String in SkillFactory.SKILL_IDS:
+	for id: String in abilities.pool():
 		var skill: Skill = abilities.get_skill(id)
 		if skill != null:
 			owned += 1
@@ -21,7 +21,7 @@ static func roll_choices(abilities: AbilitySystem, stats: CharacterStats, rng: R
 				pool.append(_option("skill_up", id, "%s Lv%d → Lv%d" % [skill.display_name, skill.level, skill.level + 1],
 						_tier_hint(skill, skill.level + 1), WEIGHT_SKILL_UP))
 	if owned < MAX_SKILLS:
-		for id: String in SkillFactory.SKILL_IDS:
+		for id: String in abilities.pool():
 			if abilities.get_skill(id) == null:
 				pool.append(_option("skill_new", id, "新技能：%s" % SkillFactory.display_name(id), "获得 Lv1", WEIGHT_SKILL_NEW))
 	for id: String in ItemCatalog.PASSIVES:

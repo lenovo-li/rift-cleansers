@@ -4,6 +4,7 @@ extends Control
 const GAME_SCENE: String = "res://scenes/game_scene.tscn"
 
 var _name_edit: LineEdit
+var _char_buttons: Array[Button] = []
 var _addr_edit: LineEdit
 var _port_edit: LineEdit
 var _status: Label
@@ -35,6 +36,20 @@ func _ready() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
 	_name_edit = _field(box, "名字", NetConfig.player_name)
+	var char_row: HBoxContainer = HBoxContainer.new()
+	char_row.add_theme_constant_override("separation", 8)
+	box.add_child(char_row)
+	var char_label: Label = Label.new()
+	char_label.text = "角色"
+	char_label.custom_minimum_size.x = 80
+	char_row.add_child(char_label)
+	for id: String in CharacterCatalog.ids():
+		var btn: Button = Button.new()
+		btn.text = CharacterCatalog.get_def(id).name
+		btn.custom_minimum_size = Vector2(140, 40)
+		btn.pressed.connect(_on_char_select.bind(id))
+		char_row.add_child(btn)
+		_char_buttons.append(btn)
 	_button(box, "单人游戏", _on_single)
 	_port_edit = _field(box, "端口", str(NetConfig.DEFAULT_PORT))
 	_button(box, "创建房间（主机）", _on_host)
@@ -72,10 +87,23 @@ func _button(parent: Node, text: String, cb: Callable) -> void:
 
 
 func _read_common() -> void:
+	_update_char_buttons()
 	NetConfig.player_name = _name_edit.text.strip_edges().left(16) if not _name_edit.text.strip_edges().is_empty() else "玩家"
 	NetConfig.port = clampi(int(_port_edit.text), 1024, 65535) if _port_edit.text.is_valid_int() else NetConfig.DEFAULT_PORT
 	if NetConfig.reconnect_token.is_empty():
 		NetConfig.reconnect_token = NetConfig.generate_token()
+
+
+func _on_char_select(id: String) -> void:
+	NetConfig.character_id = id
+	_update_char_buttons()
+
+
+func _update_char_buttons() -> void:
+	for i in _char_buttons.size():
+		var btn: Button = _char_buttons[i]
+		var id: String = CharacterCatalog.ids()[i]
+		btn.disabled = (id == NetConfig.character_id)
 
 
 func _on_single() -> void:

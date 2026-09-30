@@ -122,7 +122,8 @@ def export(path):
         export_apply=True,
         export_vertex_color="ACTIVE",
         export_normals=True,
-        export_materials="PLACEHOLDER",
+        # 必须导出材质名（"Base"/"Team"），Godot 靠名字找队伍色表面；PLACEHOLDER 模式会丢掉名字
+        export_materials="EXPORT",
     )
     return tris
 
@@ -165,7 +166,7 @@ def export_separate(path, groups):
         bpy.context.active_object.name = name
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_yup=True,
-                              export_apply=True, export_vertex_color="ACTIVE", export_materials="PLACEHOLDER")
+                              export_apply=True, export_vertex_color="ACTIVE", export_materials="EXPORT")
 
 
 def take_parts():

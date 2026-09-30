@@ -90,7 +90,7 @@ func test_upgrade_choices_are_unique_and_apply() -> String:
 			return "选项不应重复: %s" % str(keys.keys())
 		if not UpgradeSystem.apply(choices[0], abilities, stats):
 			return "选项应能应用: %s" % choices[0].title
-	for id: String in SkillFactory.SKILL_IDS:
+	for id: String in abilities.pool():
 		if abilities.get_skill(id) == null:
 			return "40 次升级后应已学会全部技能，缺 %s" % id
 	return ""
@@ -98,7 +98,8 @@ func test_upgrade_choices_are_unique_and_apply() -> String:
 
 func test_upgrade_falls_back_to_heal_when_maxed() -> String:
 	var abilities: AbilitySystem = AbilitySystem.new()
-	for id: String in SkillFactory.SKILL_IDS:
+	for id: String in CharacterCatalog.get_def("iron_guard").skills:
+		abilities.skill_pool.append(id)
 		var s: Skill = SkillFactory.create(id)
 		s.set_level(s.max_level)
 		abilities.add_skill(s)

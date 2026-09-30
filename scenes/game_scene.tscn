@@ -10,19 +10,35 @@
 [ext_resource type="Script" uid="uid://bt367d0brehs3" path="res://gameplay/loot/loot_manager.gd" id="8"]
 [ext_resource type="Script" uid="uid://dwa44kw1dfo0b" path="res://ui/hud.gd" id="9"]
 [ext_resource type="Script" uid="uid://73k7abm04hlm" path="res://ui/upgrade_panel.gd" id="10"]
+[ext_resource type="Script" path="res://gameplay/map/ashen_city.gd" id="11"]
+[ext_resource type="Shader" path="res://presentation/shaders/ash_ground.gdshader" id="12"]
 
 [sub_resource type="Environment" id="env"]
 background_mode = 1
-background_color = Color(0.12, 0.13, 0.16, 1)
+background_color = Color(0.09, 0.06, 0.06, 1)
 ambient_light_source = 2
-ambient_light_color = Color(0.55, 0.58, 0.65, 1)
-ambient_light_energy = 0.6
+ambient_light_color = Color(0.62, 0.52, 0.48, 1)
+ambient_light_energy = 0.55
+tonemap_mode = 2
+glow_enabled = true
+glow_intensity = 0.6
+glow_bloom = 0.05
+fog_enabled = true
+fog_light_color = Color(0.3, 0.2, 0.17, 1)
+fog_density = 0.004
 
-[sub_resource type="StandardMaterial3D" id="mat_ground"]
-albedo_color = Color(0.32, 0.34, 0.3, 1)
+[sub_resource type="FastNoiseLite" id="ground_noise"]
+frequency = 0.05
 
-[sub_resource type="StandardMaterial3D" id="mat_rock"]
-albedo_color = Color(0.45, 0.42, 0.38, 1)
+[sub_resource type="NoiseTexture2D" id="ground_noise_tex"]
+width = 256
+height = 256
+seamless = true
+noise = SubResource("ground_noise")
+
+[sub_resource type="ShaderMaterial" id="mat_ground"]
+shader = ExtResource("12")
+shader_parameter/noise_tex = SubResource("ground_noise_tex")
 
 [node name="GameScene" type="Node3D" unique_id=654069175]
 script = ExtResource("2")
@@ -38,6 +54,8 @@ script = ExtResource("7")
 
 [node name="Sun" type="DirectionalLight3D" parent="." unique_id=775431469]
 transform = Transform3D(0.707107, -0.5, 0.5, 0, 0.707107, 0.707107, -0.707107, -0.5, 0.5, 0, 20, 0)
+light_color = Color(1, 0.86, 0.72, 1)
+light_energy = 1.1
 shadow_enabled = true
 
 [node name="Ground" type="CSGBox3D" parent="." unique_id=536545241]
@@ -46,35 +64,8 @@ use_collision = true
 size = Vector3(200, 1, 200)
 material = SubResource("mat_ground")
 
-[node name="Obstacles" type="Node3D" parent="." unique_id=1993598094]
-
-[node name="RockNE" type="CSGBox3D" parent="Obstacles" unique_id=56559808]
-transform = Transform3D(0.9, 0, 0.44, 0, 1, 0, -0.44, 0, 0.9, 22, 1, -18)
-use_collision = true
-collision_layer = 2
-size = Vector3(6, 2, 4)
-material = SubResource("mat_rock")
-
-[node name="RockNW" type="CSGBox3D" parent="Obstacles" unique_id=1108347413]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 1, -16)
-use_collision = true
-collision_layer = 2
-size = Vector3(4, 2, 7)
-material = SubResource("mat_rock")
-
-[node name="RockSE" type="CSGBox3D" parent="Obstacles" unique_id=1986599980]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 1, 22)
-use_collision = true
-collision_layer = 2
-size = Vector3(7, 2, 3)
-material = SubResource("mat_rock")
-
-[node name="RockSW" type="CSGBox3D" parent="Obstacles" unique_id=2137698390]
-transform = Transform3D(0.7, 0, -0.7, 0, 1, 0, 0.7, 0, 0.7, -20, 1, 20)
-use_collision = true
-collision_layer = 2
-size = Vector3(5, 2, 5)
-material = SubResource("mat_rock")
+[node name="Map" type="Node3D" parent="." unique_id=1993598094]
+script = ExtResource("11")
 
 [node name="GameSession" type="Node" parent="." unique_id=1284075721]
 script = ExtResource("3")

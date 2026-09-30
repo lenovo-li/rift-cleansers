@@ -1,5 +1,5 @@
 extends CharacterBody3D
-## 玩家（铁卫）：移动、闪避、自动攻击、6 个主技能、被动/装备、受击结算。
+## 玩家：移动、闪避、自动攻击、6 个主技能、被动/装备、受击结算。角色（铁卫/元素术士）由 character_id 决定。
 ## 数值规则在 CharacterStats / 各 Skill 里，这里只负责输入、场景交互和表现。
 ## 联机（M2）按 control 分四种：
 ## - LOCAL     单人或主机本地玩家：读键盘，完整结算
@@ -23,9 +23,8 @@ const DODGE_TIME: float = 0.18
 const CHARGE_TIME: float = 0.2
 const ARENA_HALF: float = 97.0
 const FLAME_CORE_BURN_DPS: float = 12.0
-## 技能栏：输入动作 -> 技能 id（顺序与 SkillFactory.SKILL_IDS 一致）
+## 技能栏：输入动作 -> 技能 id（顺序与角色的 skills 列表一致）
 const SKILL_ACTIONS: Array[String] = ["skill_0", "skill_1", "skill_2", "skill_3", "skill_4", "skill_5"]
-const STARTING_SKILLS: Array[String] = ["shield_bash", "taunt"]
 const SLOT_COLORS: Array[Color] = [Color(0.2, 0.6, 1.0), Color(1.0, 0.6, 0.15), Color(0.7, 0.35, 1.0), Color(0.3, 0.9, 0.5)]
 const REVIVE_HEALTH_RATIO: float = 0.3
 
@@ -36,6 +35,12 @@ const REVIVE_HEALTH_RATIO: float = 0.3
 ## 自动施放：技能冷却好且附近有敌人时自动释放（T 键切换）。
 @export var auto_cast: bool = false
 
+## 角色 id（CharacterCatalog）。远程/傀儡玩家在加入场景树前设置；
+## 留空时（场景里的本地玩家）在 _ready 读 NetConfig.character_id——子节点 _ready 早于游戏场景，场景来不及设置。
+var character_id: String = ""
+var move_speed: float = SPEED
+## "pulse" 自身周围范围脉冲（铁卫），"bolt" 射击最近的敌人（元素术士）
+var attack_kind: String = "pulse"
 var entity_id: int = 0
 var attack_timer: float = 0.0
 var stats: CharacterStats = null
@@ -89,10 +94,22 @@ func _ready() -> void:
 	add_to_group("players")
 	collision_layer = 1 << 2
 	collision_mask = (1 << 0) | (1 << 1)
+	if character_id.is_empty():
+		character_id = NetConfig.character_id
+	var cdef: Dictionary = CharacterCatalog.get_def(character_id)
+	max_health = cdef.max_health
+	move_speed = cdef.move_speed
+	attack_kind = cdef.attack
+	attack_damage = cdef.attack_damage
+	attack_range = cdef.attack_range
+	attack_interval = cdef.attack_interval
 	stats = CharacterStats.new(max_health)
 	ability_system = AbilitySystem.new()
-	for id: String in STARTING_SKILLS:
+	for id: String in cdef.skills:
+		ability_system.skill_pool.append(id)
+	for id: String in cdef.starting:
 		ability_system.add_skill(SkillFactory.create(id))
+	ability_system.strike_landed.connect(_on_strike_landed)
 	shield_bash = ability_system.get_skill("shield_bash") as ShieldBash
 	_mesh = get_node_or_null("Mesh") as MeshInstance3D
 	if _mesh:
@@ -133,7 +150,7 @@ func _physics_process(delta: float) -> void:
 	if control == ControlMode.LOCAL and not ai_controlled:
 		for i in SKILL_ACTIONS.size():
 			if InputMap.has_action(SKILL_ACTIONS[i]) and Input.is_action_just_pressed(SKILL_ACTIONS[i]):
-				cast_skill(SkillFactory.SKILL_IDS[i])
+				cast_skill(ability_system.pool()[i])
 		if InputMap.has_action("dash") and Input.is_action_just_pressed("dash"):
 			dodge()
 	if auto_cast or ai_controlled:
@@ -208,15 +225,15 @@ func _move(delta: float, direction: Vector3) -> void:
 		_dash_time -= delta
 		velocity = _dash_velocity
 	else:
-		var speed: float = SPEED * status.speed_multiplier()
+		var speed: float = move_speed * status.speed_multiplier()
 		if direction:
 			velocity.x = direction.x * speed
 			velocity.z = direction.z * speed
 			facing = direction
 			rotation.y = lerp_angle(rotation.y, atan2(-direction.x, -direction.z), 0.25)
 		else:
-			velocity.x = move_toward(velocity.x, 0, SPEED)
-			velocity.z = move_toward(velocity.z, 0, SPEED)
+			velocity.x = move_toward(velocity.x, 0, move_speed)
+			velocity.z = move_toward(velocity.z, 0, move_speed)
 	velocity.y = 0.0
 	move_and_slide()
 	global_position = Vector3(clampf(global_position.x, -ARENA_HALF, ARENA_HALF), 0.0,
@@ -312,48 +329,109 @@ func _apply_skill_result(skill_id: String, result: Dictionary, ctx: SkillContext
 		"reflect_aura":
 			stats.set_aura(float(result.aura_duration), float(result.reflect), float(result.reduction))
 			SkillVfx.whirlwind(_fx_parent, self, ReflectAura.AURA_RADIUS, float(result.aura_duration), Color(1.0, 0.85, 0.3, 0.35))
+		# ---------- 元素术士 ----------
+		"fireball":
+			for p: Vector3 in result.get("impacts", []):
+				SkillVfx.dash_trail(_fx_parent, global_position + Vector3(0, 1.3, 0), p + Vector3(0, 0.6, 0), 0.45,
+						Color(1.0, 0.5, 0.15, 0.85))
+				SkillVfx.shockwave(_fx_parent, p, float(result.radius), Color(1.0, 0.45, 0.1, 1.0), 0.3)
+				SkillVfx.burst(_fx_parent, "fire", p + Vector3(0, 0.6, 0), 0.9 + 0.1 * tier)
+			if int(result.hits) > 0:
+				SfxManager.play(_fx_parent, "explode")
+		"ice_lance":
+			for e: Vector3 in result.get("ends", []):
+				SkillVfx.dash_trail(_fx_parent, global_position + Vector3(0, 0.9, 0), e + Vector3(0, 0.9, 0),
+						IceLance.HALF_WIDTH * 1.4, Color(0.55, 0.9, 1.0, 0.75))
+				SkillVfx.burst(_fx_parent, "shard", e + Vector3(0, 1, 0), 0.8)
+			if int(result.hits) > 0:
+				SfxManager.play(_fx_parent, "shatter")
+		"frost_nova":
+			SkillVfx.shockwave(_fx_parent, ctx.origin, float(result.radius), Color(0.5, 0.85, 1.0, 1.0), 0.45)
+			SkillVfx.burst(_fx_parent, "shard", ctx.origin + Vector3(0, 0.8, 0), 1.2 + 0.1 * tier)
+			SfxManager.play(_fx_parent, "shatter")
+			_shake(0.2)
+		"chain_lightning":
+			for link: Array in result.get("links", []):
+				SkillVfx.arc(_fx_parent, link[0], link[1], Color(0.7, 0.75, 1.0, 1.0))
+			if int(result.hits) > 0:
+				SfxManager.play(_fx_parent, "heavy")
+		"meteor":
+			# 预警：地面红圈 delay 秒后砸下（落地由 strike_landed 播放）
+			SkillVfx.telegraph_circle(_fx_parent, result.center, float(result.radius), float(result.delay))
+		"storm_field":
+			SkillVfx.whirlwind(_fx_parent, self, float(result.radius), float(result.duration), Color(0.6, 0.65, 1.0, 0.35))
+			SkillVfx.burst(_fx_parent, "magic", global_position + Vector3(0, 1.5, 0), 1.2, Color(0.65, 0.7, 1.0))
 	for zone: GroundZone in ctx.new_zones:
 		if zone.anchor == null:
-			var color: Color = SkillVfx.FLAME_COLOR if zone.kind == "flame" else Color(0.6, 0.45, 0.2, 0.3)
+			var color: Color = Color(0.6, 0.45, 0.2, 0.3)
+			match zone.kind:
+				"flame": color = SkillVfx.FLAME_COLOR
+				"frost": color = Color(0.5, 0.85, 1.0, 0.3)
 			SkillVfx.ground_zone(_fx_parent, zone.a, zone.b, zone.half_width, zone.remaining, color)
 	SfxManager.play_whoosh(_fx_parent)
 	print("[PlayerM1] %s Lv%d (Tier%d) hits=%d damage=%.0f" % [skill_id, ability_system.get_level(skill_id),
 			tier, int(result.get("hits", 0)), float(result.get("damage", 0.0))])
 
 
-## 范围脉冲：对 attack_range 内所有存活敌人造成伤害（铁卫近战范围定位的灰盒版）。
-## 烈焰核心附加燃烧，汲取手套吸血。返回命中数量，便于测试。
+## 自动攻击。烈焰核心附加燃烧，汲取手套吸血。返回命中数量，便于测试。
+## pulse（铁卫）：对 attack_range 内所有存活敌人造成伤害；bolt（元素术士）：射击 attack_range 内最近的敌人。
 func auto_attack() -> int:
-	var hits: int = 0
 	var damage: float = attack_damage * stats.damage_multiplier()
-	var range_sq: float = attack_range * attack_range
 	var burn: bool = stats.has_equipment("flame_core")
+	var victims: Array = _pulse_victims() if attack_kind == "pulse" else _bolt_victims()
+	for enemy: Variant in victims:
+		enemy.take_damage(damage)
+		if burn and enemy.is_alive and "status" in enemy:
+			enemy.status.apply_burn(FLAME_CORE_BURN_DPS * stats.damage_multiplier(), 3.0)
+	var hits: int = victims.size()
+	if hits > 0:
+		stats.on_damage_dealt(hits, damage * hits, true)
+		if attack_kind == "pulse":
+			SkillVfx.pulse_ring(_fx_parent, global_position, attack_range,
+					Color(1.0, 0.5, 0.2, 0.18) if burn else Color(0.7, 0.85, 1.0, 0.15), 0.18)
+		else:
+			var to: Vector3 = (victims[0] as Node3D).global_position
+			SkillVfx.dash_trail(_fx_parent, global_position + Vector3(0, 1.3, 0), to + Vector3(0, 1.0, 0), 0.18,
+					Color(1.0, 0.55, 0.2, 0.8) if burn else Color(0.6, 0.75, 1.0, 0.8))
+	return hits
+
+
+func _pulse_victims() -> Array:
+	var result: Array = []
+	var range_sq: float = attack_range * attack_range
 	for enemy: Node in get_tree().get_nodes_in_group("enemies"):
 		if not (enemy is Node3D) or not enemy.is_alive:
 			continue
 		var offset: Vector3 = (enemy as Node3D).global_position - global_position
 		offset.y = 0.0
 		if offset.length_squared() <= range_sq:
-			enemy.take_damage(damage)
-			if burn and enemy.is_alive and "status" in enemy:
-				enemy.status.apply_burn(FLAME_CORE_BURN_DPS * stats.damage_multiplier(), 3.0)
-			hits += 1
-	if hits > 0:
-		stats.on_damage_dealt(hits, damage * hits, true)
-		SkillVfx.pulse_ring(_fx_parent, global_position, attack_range,
-				Color(1.0, 0.5, 0.2, 0.18) if burn else Color(0.7, 0.85, 1.0, 0.15), 0.18)
-	return hits
+			result.append(enemy)
+	return result
 
 
-## 自动施放：技能好了且 6 米内有敌人就放（反射光环等被围时再放）。
+func _bolt_victims() -> Array:
+	var best: Node3D = null
+	var best_d: float = attack_range * attack_range
+	for enemy: Node in get_tree().get_nodes_in_group("enemies"):
+		if not (enemy is Node3D) or not enemy.is_alive:
+			continue
+		var d: float = ((enemy as Node3D).global_position - global_position).length_squared()
+		if d < best_d:
+			best_d = d
+			best = enemy
+	return [best] if best != null else []
+
+
+## 自动施放：技能好了且附近有敌人就放（铁卫 6 米、术士 12 米；反射光环被围时再放）。
 func _auto_cast(enemies: Array) -> void:
+	var r: float = 6.0 if attack_kind == "pulse" else 12.0
 	var near: int = 0
 	for e: Node in enemies:
-		if e is Node3D and (e as Node3D).global_position.distance_squared_to(global_position) < 36.0:
+		if e is Node3D and (e as Node3D).global_position.distance_squared_to(global_position) < r * r:
 			near += 1
 	if near == 0:
 		return
-	for id: String in SkillFactory.SKILL_IDS:
+	for id: String in ability_system.pool():
 		if id == "reflect_aura" and near < 5:
 			continue
 		if ability_system.can_cast(id):
@@ -482,7 +560,7 @@ func _update_hurt_flash(delta: float) -> void:
 ## 铁卫低模：身体读顶点色，"Team" 表面用槽位颜色。没有模型时保留灰盒胶囊。
 func _apply_model() -> void:
 	_base_color = SLOT_COLORS[net_slot % SLOT_COLORS.size()]
-	var model: Mesh = ModelLibrary.mesh("iron_guard")
+	var model: Mesh = ModelLibrary.mesh(CharacterCatalog.get_def(character_id).model)
 	if model == null:
 		_team_mat = (_mesh.get_surface_override_material(0) as StandardMaterial3D).duplicate()
 		_mesh.set_surface_override_material(0, _team_mat)
@@ -507,3 +585,9 @@ func _shake(strength: float) -> void:
 		SkillVfx.record(["shake", strength, net_slot])  # 只震该玩家自己的屏幕
 		return
 	SkillVfx.shake(get_tree(), strength, net_slot)
+
+
+## 陨石术落地：表现层播放爆炸。
+func _on_strike_landed(strike: Dictionary, hits: int) -> void:
+	if hits > 0:
+		SkillVfx.meteor_impact(_fx_parent, strike.center, strike.radius, strike.get("second_wave", false))

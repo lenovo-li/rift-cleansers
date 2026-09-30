@@ -743,6 +743,8 @@ func _replay_fx(ev: Array) -> void:
 			SkillVfx.frost_burst(scene, ev[1], ev[2])
 		"spikes":
 			SkillVfx.spike_ring(scene, ev[1], ev[2], ev[3], ev[4])
+		"pose":
+			SkillVfx.pose(scene, ev[1], ev[2], ev[3])
 		"rune":
 			SkillVfx.rune(scene, ev[1], ev[2], ev[3], ev[4], ev[5], ev[6])
 		"spulse":

@@ -14,6 +14,7 @@ var _status: Label
 
 func _ready() -> void:
 	UiTheme.install(get_tree())
+	Settings.apply()
 	if NetConfig.parse_cmdline():
 		_start.call_deferred()
 		return
@@ -80,6 +81,7 @@ func _ready() -> void:
 	_button(box, "加入房间", _on_join)
 	_button(box, "天赋树", func() -> void: add_child(TalentPanel.build(NetConfig.character_id)))
 	_button(box, "本地排行榜", _show_leaderboard)
+	_button(box, "设置", func() -> void: add_child(SettingsPanel.new()))
 	_button(box, "退出", func() -> void: get_tree().quit())
 	_status = Label.new()
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

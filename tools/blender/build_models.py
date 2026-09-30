@@ -31,25 +31,32 @@ RED_GLOW = (1.0, 0.15, 0.10)
 def iron_guard():
     """铁卫：大塔盾 + 单手锤，宽肩、厚甲、队伍色披风和盾面。约 1.9 米。"""
     for x in (0.2, -0.2):
+        lp.group("leg_l" if x > 0 else "leg_r")
         lp.cyl((x, 0, 0.4), 0.13, 0.8, STEEL_DARK)          # 腿
         lp.box((x, 0.06, 0.07), (0.22, 0.32, 0.14), LEATHER)  # 靴
+    lp.group("body")
     lp.box((0, 0, 0.88), (0.56, 0.34, 0.22), LEATHER)       # 腰带
     lp.box((0, 0, 1.2), (0.66, 0.42, 0.55), STEEL)          # 胸甲
     lp.box((0, 0.22, 1.22), (0.3, 0.04, 0.3), TEAM, team=True)  # 胸前纹章
     lp.box((0, -0.24, 1.05), (0.6, 0.06, 0.95), TEAM, rot=(8, 0, 0), team=True)  # 披风
     for x in (0.44, -0.44):
+        lp.group("arm_l" if x > 0 else "arm_r")
         lp.ball((x, 0, 1.45), (0.2, 0.2, 0.15), GOLD)       # 肩甲
         lp.cyl((x, 0, 1.12), 0.09, 0.5, STEEL_DARK)         # 手臂
+    lp.group("head")
     lp.ball((0, 0.02, 1.68), (0.19, 0.19, 0.2), STEEL, subdiv=2)  # 头盔
     lp.box((0, 0.18, 1.66), (0.26, 0.04, 0.05), BLACK)      # 面罩缝
     lp.cone((0, 0, 1.92), 0.06, 0.18, GOLD)                 # 盔顶
     # 左手塔盾（朝前）
+    lp.group("arm_l")
     lp.box((0.52, 0.3, 1.0), (0.12, 0.62, 0.95), STEEL, rot=(0, 0, 70))
     lp.box((0.55, 0.36, 1.0), (0.04, 0.44, 0.7), TEAM, rot=(0, 0, 70), team=True)
     lp.ball((0.58, 0.42, 1.02), (0.08, 0.08, 0.08), GOLD)
     # 右手战锤
+    lp.group("arm_r")
     lp.cyl((-0.48, 0.22, 0.95), 0.035, 0.8, LEATHER, rot=(60, 0, 0))
     lp.box((-0.48, 0.55, 1.18), (0.2, 0.2, 0.3), STEEL_DARK, rot=(60, 0, 0))
+    lp.group("body")
 
 
 def zombie():
@@ -439,38 +446,47 @@ def elementalist():
     lp.box((0, 0, 1.25), (0.46, 0.3, 0.45), robe)                          # 上身
     lp.box((0, 0.16, 1.28), (0.12, 0.04, 0.4), GOLD)                       # 前襟金线
     for x in (0.3, -0.3):
+        lp.group("arm_l" if x > 0 else "arm_r")
         lp.cyl((x, 0.05, 1.2), 0.08, 0.5, robe, rot=(20, 0, 0))            # 袖子
         lp.ball((x, 0.14, 0.97), (0.06, 0.06, 0.06), SKIN)                 # 手
+    lp.group("head")
     lp.ball((0, 0.02, 1.62), (0.14, 0.14, 0.15), SKIN)                     # 头
     lp.box((0, 0.13, 1.55), (0.14, 0.05, 0.12), (0.85, 0.85, 0.88))        # 胡子
     lp.cyl((0, 0, 1.76), 0.34, 0.05, CLOTH_DARK, verts=12)                 # 帽檐
     lp.cyl((0, 0, 1.8), 0.19, 0.06, TEAM, verts=12, team=True)             # 帽带
     lp.cone((0.04, -0.02, 2.05), 0.18, 0.5, CLOTH_DARK, rot=(-12, 8, 0), verts=8)  # 尖帽
     # 法杖（右手）+ 三色宝珠
+    lp.group("arm_r")
     lp.cyl((-0.36, 0.2, 1.0), 0.03, 1.8, LEATHER)
     lp.ball((-0.36, 0.2, 1.95), (0.1, 0.1, 0.1), (1.0, 0.45, 0.1), subdiv=2)
     lp.ball((-0.28, 0.2, 1.85), (0.06, 0.06, 0.06), (0.5, 0.85, 1.0))
     lp.ball((-0.44, 0.2, 1.85), (0.06, 0.06, 0.06), (0.75, 0.7, 1.0))
+    lp.group("body")
 
 
 def shadow_walker():
     """影行者：兜帽斗篷、面巾、双持短刃，身形瘦长前倾。围巾和腰带用队伍色。约 1.8 米。"""
     cloak = (0.16, 0.14, 0.2)
     for x in (0.14, -0.14):
+        lp.group("leg_l" if x > 0 else "leg_r")
         lp.cyl((x, 0, 0.42), 0.09, 0.84, CLOTH_DARK)                     # 细腿
         lp.box((x, 0.05, 0.06), (0.16, 0.28, 0.12), BLACK)               # 软靴
+    lp.group("body")
     lp.box((0, 0, 0.9), (0.4, 0.26, 0.12), TEAM, team=True)             # 腰带
     lp.box((0, 0.02, 1.18), (0.44, 0.28, 0.5), cloak, rot=(-8, 0, 0))   # 上身
     lp.cyl((0, -0.12, 0.95), 0.34, 0.9, cloak, radius2=0.18, verts=8)   # 斗篷下摆
     lp.box((0, 0.12, 1.46), (0.34, 0.2, 0.08), TEAM, team=True)         # 围巾
+    lp.group("head")
     lp.ball((0, 0.04, 1.6), (0.15, 0.15, 0.17), SKIN)                    # 头
     lp.box((0, 0.15, 1.56), (0.22, 0.04, 0.08), BLACK)                   # 面巾
     lp.cone((0, -0.02, 1.72), 0.21, 0.42, cloak, rot=(-15, 0, 0), verts=8)  # 兜帽
     for x, s in ((0.3, 1), (-0.3, -1)):
+        lp.group("arm_l" if x > 0 else "arm_r")
         lp.cyl((x, 0.1, 1.15), 0.06, 0.46, cloak, rot=(35, 0, 0))        # 手臂前伸
         lp.ball((x, 0.28, 0.98), (0.05, 0.05, 0.05), SKIN)
         lp.box((x, 0.5, 0.92), (0.04, 0.44, 0.07), STEEL, rot=(-20, 0, s * 10))  # 短刃
         lp.box((x, 0.3, 0.97), (0.1, 0.04, 0.04), GOLD)                   # 护手
+    lp.group("body")
 
 
 def cleric():
@@ -484,15 +500,19 @@ def cleric():
     lp.box((0, 0.2, 1.24), (0.04, 0.02, 0.16), GOLD)                     # 圣徽竖
     lp.box((0, 0.2, 1.28), (0.12, 0.02, 0.04), GOLD)                     # 圣徽横
     for x in (0.32, -0.32):
+        lp.group("arm_l" if x > 0 else "arm_r")
         lp.cyl((x, 0.04, 1.15), 0.09, 0.5, robe, rot=(15, 0, 0))         # 袖子
         lp.ball((x, 0.12, 0.92), (0.06, 0.06, 0.06), SKIN)
+    lp.group("head")
     lp.ball((0, 0.02, 1.64), (0.15, 0.15, 0.16), SKIN)                   # 头
     lp.cyl((0, 0, 1.84), 0.13, 0.22, robe, radius2=0.08, verts=8)        # 法冠
     lp.box((0, 0.1, 1.86), (0.04, 0.02, 0.14), GOLD)
     # 右手圣锤（锤头发光金色）
+    lp.group("arm_r")
     lp.cyl((-0.36, 0.2, 0.95), 0.03, 1.1, LEATHER)
     lp.box((-0.36, 0.2, 1.52), (0.26, 0.16, 0.16), GOLD)
     lp.ball((-0.36, 0.2, 1.52), (0.1, 0.1, 0.1), (1.0, 0.95, 0.6))
+    lp.group("body")
 
 
 MODELS = {
@@ -506,6 +526,17 @@ MODELS = {
     "frost_wastes": (frost_kit, 4.0), "sand_ruins": (desert_kit, 4.0), "dark_forest": (forest_kit, 4.0),
 }
 KITS = ("decor", "ashen_city", "frost_wastes", "sand_ruins", "dark_forest")
+
+# 可动角色：额外导出 <名字>_rig.glb，每个 lp.group 分组一个网格，原点在关节（Blender 坐标，+x 为角色左侧）。
+# 长袍角色没有 leg 分组，Godot 端按有无分组自动跳过。
+RIGS = {
+    "iron_guard": {"body": (0, 0, 0.9), "head": (0, 0, 1.5), "arm_l": (0.44, 0, 1.4), "arm_r": (-0.44, 0, 1.4),
+                   "leg_l": (0.2, 0, 0.82), "leg_r": (-0.2, 0, 0.82)},
+    "elementalist": {"body": (0, 0, 0.9), "head": (0, 0, 1.48), "arm_l": (0.3, 0, 1.4), "arm_r": (-0.3, 0, 1.4)},
+    "shadow_walker": {"body": (0, 0, 0.9), "head": (0, 0, 1.45), "arm_l": (0.3, 0, 1.36), "arm_r": (-0.3, 0, 1.36),
+                      "leg_l": (0.14, 0, 0.84), "leg_r": (-0.14, 0, 0.84)},
+    "cleric": {"body": (0, 0, 0.9), "head": (0, 0, 1.5), "arm_l": (0.32, 0, 1.38), "arm_r": (-0.32, 0, 1.38)},
+}
 
 
 def main():
@@ -525,6 +556,11 @@ def main():
         print("[models] %s: %d tris" % (name, tris))
         if preview:
             lp.render_preview(os.path.join(PREVIEW_DIR, name + ".png"), distance=height * 2.4, height=height)
+        if name in RIGS:
+            lp.reset_scene()
+            fn()
+            parts = lp.export_rig(os.path.join(OUT_DIR, name + "_rig.glb"), RIGS[name])
+            print("[models] %s_rig: %s" % (name, ", ".join(parts)))
 
 
 main()

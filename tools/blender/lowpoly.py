@@ -11,11 +11,22 @@ import random
 import bpy
 
 _parts = []
+_part_groups = []  # 与 _parts 一一对应：零件所属的骨骼分组（角色拆件导出用）
+_group = "body"
 
 
 def reset_scene():
+    global _group
     bpy.ops.wm.read_factory_settings(use_empty=True)
     _parts.clear()
+    _part_groups.clear()
+    _group = "body"
+
+
+def group(name):
+    """之后创建的零件归入 name 分组（body / head / arm_l / arm_r / leg_l / leg_r）。只影响 export_rig。"""
+    global _group
+    _group = name
 
 
 def _material(name):
@@ -42,6 +53,7 @@ def _finish(obj, color, team, flat=True):
         for poly in mesh.polygons:
             poly.use_smooth = False
     _parts.append(obj)
+    _part_groups.append(_group)
     return obj
 
 
@@ -167,6 +179,32 @@ def export_separate(path, groups):
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_yup=True,
                               export_apply=True, export_vertex_color="ACTIVE", export_materials="EXPORT")
+
+
+def export_rig(path, joints):
+    """按 group() 分组合并零件，每组的原点放在关节 joints[组名]（Blender 坐标），一起导出到 path。
+    Godot 里每个分组是一个以关节为原点的网格节点，绕原点旋转即可摆动四肢。"""
+    groups = {}
+    for obj, g in zip(_parts, _part_groups):
+        groups.setdefault(g, []).append(obj)
+    scene = bpy.context.scene
+    for name, parts in groups.items():
+        bpy.ops.object.select_all(action="DESELECT")
+        for p in parts:
+            p.select_set(True)
+        bpy.context.view_layer.objects.active = parts[0]
+        if len(parts) > 1:
+            bpy.ops.object.join()
+        obj = bpy.context.active_object
+        obj.name = name
+        obj.data.name = name
+        scene.cursor.location = joints.get(name, (0.0, 0.0, 0.0))
+        bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_yup=True,
+                              export_apply=True, export_vertex_color="ACTIVE", export_normals=True,
+                              export_materials="EXPORT")
+    return sorted(groups)
 
 
 def take_parts():

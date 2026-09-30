@@ -106,6 +106,10 @@ var _anim_punch: float = 0.0
 var _anim_down: float = 0.0
 var _ghost_timer: float = 0.0
 var _last_hurt_flash: float = 0.0
+## 拆件模型的四肢动画；没有 <model>_rig.glb 时为 null（整块模型只做整体动作）
+var _rig: PlayerRig = null
+## 整块模型网格：残影、剪影用（拆件后 "Mesh" 节点本身没有网格）
+var ghost_mesh: Mesh = null
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _fx_parent: Node = null
 
@@ -193,6 +197,8 @@ func _animate_body(delta: float) -> void:
 	_mesh.rotation = Vector3(_anim_lean - (0.35 if dashing else 0.0),
 			0.0, _anim_roll + sin(_anim_phase) * 0.05 * run + _anim_down * 1.45)
 	_mesh.scale = Vector3(sxz, sy, sxz * (1.0 + stretch))
+	if _rig != null:
+		_rig.update(delta, _anim_phase, 0.0 if dashing else run, _anim_punch, _anim_down)
 	if not VfxKit.enabled():
 		return
 	# 落步扬尘（每落一脚一次，速度够快才有）
@@ -200,9 +206,9 @@ func _animate_body(delta: float) -> void:
 		ParticleFx.burst(_fx_parent, "dust", global_position + Vector3(0, 0.05, 0), 0.25, Color(0.7, 0.62, 0.5, 0.45))
 	# 高速位移残影
 	_ghost_timer -= delta
-	if dashing and _ghost_timer <= 0.0 and _mesh.mesh != null:
+	if dashing and _ghost_timer <= 0.0 and ghost_mesh != null:
 		_ghost_timer = 0.035
-		SkillVfx.ghost_at(_fx_parent, _mesh.mesh, global_position, -global_transform.basis.z, _base_color.lightened(0.3), 0.25)
+		SkillVfx.ghost_at(_fx_parent, ghost_mesh, global_position, -global_transform.basis.z, _base_color.lightened(0.3), 0.25)
 
 
 func _physics_process(delta: float) -> void:
@@ -682,13 +688,37 @@ func _apply_model() -> void:
 		_mesh.set_surface_override_material(0, _team_mat)
 		return
 	_has_model = true
-	_mesh.mesh = model
+	ghost_mesh = model
 	_mesh.position = Vector3.ZERO
 	_body_mat = ModelLibrary.material().duplicate()
 	_team_mat = ModelLibrary.material(_base_color).duplicate()
-	var team_surface: int = ModelLibrary.surface_index(model, "Team")
-	for i in model.get_surface_count():
-		_mesh.set_surface_override_material(i, _team_mat if i == team_surface else _body_mat)
+	var model_id: String = CharacterCatalog.get_def(character_id).model
+	var parts: Dictionary = ModelLibrary.rig(model_id)
+	if not parts.is_empty():
+		# 拆件模型：根节点不显示网格，四肢各自是子节点（PlayerRig 驱动）
+		_mesh.mesh = null
+		_rig = PlayerRig.new()
+		_rig.build(_mesh, parts, _surface_materials)
+		return
+	_mesh.mesh = model
+	var mats: Array = _surface_materials(model)
+	for i in mats.size():
+		_mesh.set_surface_override_material(i, mats[i])
+
+
+## 网格每个表面对应的材质："Team" 表面用队伍色，其余读顶点色。
+func _surface_materials(m: Mesh) -> Array:
+	var team_surface: int = ModelLibrary.surface_index(m, "Team")
+	var mats: Array = []
+	for i in m.get_surface_count():
+		mats.append(_team_mat if i == team_surface else _body_mat)
+	return mats
+
+
+## 播放身体动作（PlayerRig.ACTIONS）。没有拆件模型时忽略。联机时由 SkillVfx.pose 事件在各端调用。
+func play_pose(action: String, duration: float = -1.0) -> void:
+	if _rig != null:
+		_rig.play(action, duration)
 
 
 ## 受击闪红（客户端根据快照血量变化调用）。

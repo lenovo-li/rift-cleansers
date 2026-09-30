@@ -564,8 +564,12 @@ static func shake(tree: SceneTree, strength: float, _slot: int = -1) -> void:
 	shake_local(tree, strength)
 
 
+## 设置里关闭震屏时为 false（Settings.apply 写入）。
+static var shake_enabled: bool = true
+
+
 static func shake_local(tree: SceneTree, strength: float) -> void:
-	if tree == null or tree.root == null:
+	if tree == null or tree.root == null or not shake_enabled:
 		return
 	var cam: Camera3D = tree.root.get_viewport().get_camera_3d()
 	if cam and cam.has_method("shake"):
@@ -926,12 +930,22 @@ static func afterimage(parent: Node, slot: int, a: Vector3, b: Vector3, color: C
 	if not VfxKit.enabled() or parent == null or not parent.is_inside_tree():
 		return
 	var player: Node3D = _player_by_slot(parent.get_tree(), slot)
-	var src: MeshInstance3D = player.get_node_or_null("Mesh") as MeshInstance3D if player != null else null
-	if src == null or src.mesh == null:
+	var mesh: Mesh = player.get("ghost_mesh") as Mesh if player != null else null
+	if mesh == null:
 		return
 	for i in count:
 		var t: float = float(i) / maxf(1.0, count - 1.0)
-		ghost_at(parent, src.mesh, a.lerp(b, t), b - a, color, 0.25 + 0.2 * t)
+		ghost_at(parent, mesh, a.lerp(b, t), b - a, color, 0.25 + 0.2 * t)
+
+
+## 角色身体动作（PlayerRig.ACTIONS）：录制后各端让对应槽位的玩家摆出姿势。
+static func pose(parent: Node, slot: int, action: String, duration: float = -1.0) -> void:
+	record(["pose", slot, action, duration])
+	if parent == null or not parent.is_inside_tree():
+		return
+	var player: Node3D = _player_by_slot(parent.get_tree(), slot)
+	if player != null and player.has_method("play_pose"):
+		player.play_pose(action, duration)
 
 
 ## 单个残影（不录制）。玩家高速移动时本地也会调用。

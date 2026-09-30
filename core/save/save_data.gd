@@ -14,7 +14,7 @@ static var _loaded: bool = false
 
 static func defaults() -> Dictionary:
 	return {"version": VERSION, "runs": 0, "wins": 0, "total_kills": 0, "shards": 0,
-		"leaderboard": [], "talents": {}}
+		"leaderboard": [], "talents": {}, "settings": {}}
 
 
 static func data() -> Dictionary:

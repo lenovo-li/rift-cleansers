@@ -2,7 +2,13 @@ extends Control
 ## 灰盒 HUD：生命/护盾/怒气/经验条、时间、技能栏（冷却）、装备与被动列表、Boss 血条、提示消息。
 ## 全部用代码搭建，数据每帧从玩家、会话、生成器读取。
 
-const SKILL_KEYS: Array[String] = ["空格", "Q", "E", "R", "F", "C"]
+const SKILL_KEYS: Array[String] = ["空格", "Q", "E", "R", "F", "C"]  # 默认键（技能栏数量）；显示用 key_label()
+
+
+## 技能栏第 i 格当前绑定的按键名（设置里可改键）。
+static func key_label(i: int) -> String:
+	var code: int = Settings.key_of("skill_%d" % i)
+	return "空格" if code == KEY_SPACE else Settings.key_name(code)
 const BAR_WIDTH: float = 360.0
 
 var player: Node = null
@@ -155,7 +161,8 @@ func _build_skill_bar() -> void:
 		var box: VBoxContainer = VBoxContainer.new()
 		panel.add_child(box)
 		var key: Label = _label(box, 14)
-		key.text = "[%s]" % SKILL_KEYS[i]
+		key.text = "[%s]" % key_label(i)
+		key.name = "key_label_%d" % i
 		var name_label: Label = _label(box, 16)
 		var cd: ProgressBar = ProgressBar.new()
 		cd.custom_minimum_size = Vector2(100, 8)
@@ -198,8 +205,8 @@ func _process(delta: float) -> void:
 	_exp_bar.value = session.get_player_exp()
 	var t: float = session.get_game_time()
 	var dodge: String = "就绪" if player.dodge_cooldown_remaining <= 0.0 else "%.1fs" % player.dodge_cooldown_remaining
-	_info_label.text = "Lv%d   %d:%02d   击杀 %d   闪避[Shift] %s%s" % [level, int(t / 60.0), int(t) % 60,
-			spawner.kills if spawner else 0, dodge, "   [自动施放]" if player.auto_cast else ""]
+	_info_label.text = "Lv%d   %d:%02d   击杀 %d   闪避[%s] %s%s" % [level, int(t / 60.0), int(t) % 60,
+			spawner.kills if spawner else 0, Settings.key_name(Settings.key_of("dash")), dodge, "   [自动施放]" if player.auto_cast else ""]
 	_update_skills()
 	_update_items(stats)
 	_update_boss()
@@ -229,6 +236,11 @@ func _update_team() -> void:
 
 
 func _update_skills() -> void:
+	# 刷新按键标签（设置里改键后会变）
+	for i in _skill_panels.size():
+		var label: Label = _skill_panels[i].panel.find_child("key_label_%d" % i, false, false) as Label
+		if label != null:
+			label.text = "[%s]" % key_label(i)
 	var abilities: AbilitySystem = player.ability_system
 	var pool: Array[String] = abilities.pool()
 	for i in mini(pool.size(), _skill_panels.size()):

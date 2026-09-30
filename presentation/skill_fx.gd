@@ -16,7 +16,23 @@ const SHADOW: Color = Color(0.62, 0.32, 1.0)
 const BLOOD: Color = Color(1.0, 0.15, 0.28)
 
 
+## 技能 -> 身体动作（PlayerRig.ACTIONS）。持续型技能（旋风斩）按技能时长播放。
+const POSES: Dictionary = {
+	"shield_bash": "bash", "whirlwind": "spin", "taunt": "roar", "charge": "bash", "ground_slam": "slam",
+	"reflect_aura": "raise",
+	"fireball": "cast", "ice_lance": "cast", "frost_nova": "raise", "chain_lightning": "cast", "meteor": "raise",
+	"storm_field": "raise",
+	"shadow_step": "swing", "fan_of_knives": "swing_l", "death_mark": "cast", "blade_flurry": "spin",
+	"smoke_bomb": "slam", "execute": "swing",
+	"holy_nova": "raise", "smite": "cast", "sanctuary": "slam", "divine_shield": "raise", "blessing": "raise",
+	"divine_intervention": "raise",
+}
+
+
 static func play(p: Node, caster: Node3D, id: String, r: Dictionary, origin: Vector3, facing: Vector3, tier: int) -> void:
+	var action: String = POSES.get(id, "cast")
+	var dur: float = float(r.get("duration", -1.0)) if action == "spin" else -1.0
+	SkillVfx.pose(p, int(caster.get("net_slot")), action, dur)
 	match id:
 		"shield_bash", "whirlwind", "taunt", "charge", "ground_slam", "reflect_aura":
 			_iron_guard(p, caster, id, r, origin, facing, tier)
@@ -315,6 +331,11 @@ static func auto_attack(p: Node, caster: Node3D, kind: String, bolt_fx: String, 
 		return
 	var at: Vector3 = caster.global_position
 	var first: Vector3 = (victims[0] as Node3D).global_position
+	var slot: int = int(caster.get("net_slot"))
+	match kind:
+		"pulse": SkillVfx.pose(p, slot, "bash", 0.3)
+		"slash": SkillVfx.pose(p, slot, "swing" if randf() < 0.5 else "swing_l", 0.28)
+		_: SkillVfx.pose(p, slot, "cast", 0.3)
 	match kind:
 		"pulse":
 			SkillVfx.shield_pulse(p, at, radius, Color(1.0, 0.5, 0.2) if burn else Color(0.6, 0.8, 1.0), 6)

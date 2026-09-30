@@ -20,6 +20,7 @@ var _fade_timer: float = 0.0
 func _ready() -> void:
 	_player = AudioStreamPlayer.new()
 	_player.volume_db = -80.0
+	_player.bus = Settings.MUSIC_BUS
 	_player.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(_player)
 	_play(State.EXPLORE)

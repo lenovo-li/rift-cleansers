@@ -19,10 +19,15 @@ const REVIVE_TIME: float = 3.0
 var net: NetSession = null
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _game_over_panel: Control = null
+var _music: Node = null
+var _music_timer: float = 0.0
 
 
 func _ready() -> void:
 	_rng.randomize()
+	_music = (load("res://presentation/music_manager.gd") as GDScript).new()
+	_music.name = "Music"
+	add_child(_music)
 	_session.game_over.connect(_on_game_over)
 	_session.level_up.connect(_on_level_up)
 	_spawner.boss_spawned.connect(_on_boss_spawned)
@@ -86,6 +91,14 @@ func register_player(p: CharacterBody3D) -> void:
 	p.died.connect(func(_reason: String) -> void: _on_player_down(p))
 	p.equipment_added.connect(func(id: String) -> void:
 		_toast_to(p.net_slot, "获得装备：%s — %s" % [ItemCatalog.equipment_name(id), ItemCatalog.equipment_desc(id)]))
+
+
+## 每秒按敌人数量和 Boss 是否在场切换音乐（客户端的数量和 Boss 信息来自主机快照，同样可用）。
+func _process(delta: float) -> void:
+	_music_timer -= delta
+	if _music_timer <= 0.0 and _session.is_running:
+		_music_timer = 1.0
+		_music.update_state(_spawner.get_enemy_count(), not _spawner.get_boss_info().is_empty())
 
 
 func _physics_process(delta: float) -> void:
@@ -195,6 +208,7 @@ func _on_reaction(reaction: String, pos: Vector3) -> void:
 
 
 func _on_game_over(reason: String, victory: bool) -> void:
+	_music.stop()
 	print("[GameScene] Game Over: %s (victory=%s, level=%d, kills=%d, time=%.0fs)" % [
 		reason, victory, _session.get_player_level(), _spawner.kills, _session.get_game_time()])
 	if net != null:

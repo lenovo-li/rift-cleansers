@@ -48,6 +48,7 @@ func _ready() -> void:
 		record_runs = false
 	register_player(_player)
 	SkillVfx.reset_counters()
+	SkillVfx.warmup(self, _player.global_position)  # 预编译特效着色器，避免第一次施放卡顿
 	_player.hurt.connect(func(amount: float) -> void:
 		DamageNumbers.spawn(self, _player.global_position, amount, DamageNumbers.Kind.PLAYER)
 		_hud.flash_hurt(amount))

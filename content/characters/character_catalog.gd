@@ -60,6 +60,7 @@ const CHARACTERS: Dictionary = {
 		"attack_range": 10.0,
 		"attack_interval": 0.8,
 		"bolt_color": Color(1.0, 0.9, 0.45, 0.85),
+		"bolt_fx": "holy",
 	},
 }
 

@@ -723,9 +723,30 @@ func _replay_fx(ev: Array) -> void:
 		"whirl":
 			var caster: Node3D = players_by_slot.get(int(ev[1]))
 			if caster != null:
-				SkillVfx.whirlwind(scene, caster, ev[2], ev[3], ev[4])
+				SkillVfx.whirlwind(scene, caster, ev[2], ev[3], ev[4], ev[5] if ev.size() > 5 else "whirl",
+						ev[6] if ev.size() > 6 else 1)
 		"zone":
-			SkillVfx.ground_zone(scene, ev[1], ev[2], ev[3], ev[4], ev[5])
+			SkillVfx.ground_zone(scene, ev[1], ev[2], ev[3], ev[4], ev[5], ev[6] if ev.size() > 6 else "")
+		"missile":
+			SkillVfx.missile(scene, ev[1], ev[2], ev[3], ev[4], ev[5], ev[6] if ev.size() > 6 else 1)
+		"crack":
+			SkillVfx.crack_decal(scene, ev[1], ev[2], ev[3], ev[4])
+		"meteor":
+			SkillVfx.meteor_fall(scene, ev[1], ev[2], ev[3], ev[4] if ev.size() > 4 else 1)
+		"buff":
+			SkillVfx.buff(scene, ev[1], ev[2], ev[3], ev[4], ev[5] if ev.size() > 5 else 1)
+		"ghost":
+			SkillVfx.afterimage(scene, ev[1], ev[2], ev[3], ev[4], ev[5])
+		"xslash":
+			SkillVfx.execute_slash(scene, ev[1], ev[2], ev[3], ev[4])
+		"frost":
+			SkillVfx.frost_burst(scene, ev[1], ev[2])
+		"spikes":
+			SkillVfx.spike_ring(scene, ev[1], ev[2], ev[3], ev[4])
+		"rune":
+			SkillVfx.rune(scene, ev[1], ev[2], ev[3], ev[4], ev[5], ev[6])
+		"spulse":
+			SkillVfx.shield_pulse(scene, ev[1], ev[2], ev[3], ev[4])
 		"ring":
 			SkillVfx.pulse_ring(scene, ev[1], ev[2], ev[3], ev[4])
 		"trail":

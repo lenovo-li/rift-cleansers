@@ -44,6 +44,8 @@ var attack_kind: String = "pulse"
 ## 暴击率（影行者），自动攻击和技能共用，暴击 2 倍伤害。
 var crit_chance: float = 0.0
 var _bolt_color: Color = Color(0.6, 0.75, 1.0, 0.8)
+## 远程普攻的飞行物外观（SkillVfx.missile 的 kind）：元素术士 crystal，牧师 holy
+var _bolt_fx: String = "crystal"
 ## 治疗与护盾倍率（天赋）
 var heal_mult: float = 1.0
 ## 天赋等级 {天赋 id: 等级}。本地玩家在 _ready 读存档；主机上的远程玩家由 NetSession 在加入场景树前写入。
@@ -93,6 +95,17 @@ var _base_color: Color = Color(0.2, 0.6, 1.0)
 var _body_mat: StandardMaterial3D = null
 var _team_mat: StandardMaterial3D = null
 var _has_model: bool = false
+## 程序化身体动作（纯表现，各端按自己看到的位移计算，不走网络）
+var _mesh_base: Vector3 = Vector3.ZERO
+var _anim_prev_pos: Vector3 = Vector3.ZERO
+var _anim_vel: Vector3 = Vector3.ZERO
+var _anim_phase: float = 0.0
+var _anim_lean: float = 0.0
+var _anim_roll: float = 0.0
+var _anim_punch: float = 0.0
+var _anim_down: float = 0.0
+var _ghost_timer: float = 0.0
+var _last_hurt_flash: float = 0.0
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _fx_parent: Node = null
 
@@ -113,6 +126,7 @@ func _ready() -> void:
 	attack_interval = cdef.attack_interval
 	crit_chance = cdef.get("crit_chance", 0.0)
 	_bolt_color = cdef.get("bolt_color", Color(0.6, 0.75, 1.0, 0.8))
+	_bolt_fx = cdef.get("bolt_fx", "crystal")
 	stats = CharacterStats.new(max_health)
 	ability_system = AbilitySystem.new()
 	for id: String in cdef.skills:
@@ -129,9 +143,66 @@ func _ready() -> void:
 	if _mesh:
 		_apply_model()
 	_fx_parent = get_parent()
+	if _mesh:
+		_mesh_base = _mesh.position
+	_anim_prev_pos = global_position
 	if control == ControlMode.PUPPET:
 		collision_layer = 0  # 客户端上的他人只是显示
 	net_target_position = global_position
+
+
+func _process(delta: float) -> void:
+	_animate_body(delta)
+
+
+## 程序化身体动作：按实际位移速度计算——跑动时上下颠、前倾、左右轻摆，落步扬尘；
+## 冲刺（闪避/冲锋）时拉长并留残影；受击缩一下；倒地侧躺。静止时轻微呼吸。
+func _animate_body(delta: float) -> void:
+	if _mesh == null or delta <= 0.0:
+		return
+	var moved: Vector3 = (global_position - _anim_prev_pos) * Vector3(1, 0, 1)
+	_anim_prev_pos = global_position
+	if moved.length() > 6.0:
+		moved = Vector3.ZERO  # 瞬移 / 快照跳变
+	_anim_vel = _anim_vel.lerp(moved / delta, clampf(delta * 15.0, 0.0, 1.0))
+	var speed: float = _anim_vel.length()
+	var run: float = clampf(speed / maxf(move_speed, 1.0), 0.0, 1.0)
+	var dashing: bool = speed > move_speed * 1.8
+	# 步频随速度变化；每半个周期落一次脚
+	var prev_phase: float = _anim_phase
+	_anim_phase += delta * (4.0 + 7.0 * run) if run > 0.05 else delta * 1.5
+	var local_vel: Vector3 = global_transform.basis.inverse() * _anim_vel
+	# 前方是 -Z：向前跑时 local_vel.z < 0，绕 X 轴负向旋转 = 头向前倾
+	var lean_target: float = 0.0 if dashing else clampf(local_vel.z / maxf(move_speed, 1.0), -1.0, 1.0) * 0.16
+	var roll_target: float = clampf(local_vel.x / maxf(move_speed, 1.0), -1.0, 1.0) * -0.1
+	_anim_lean = lerpf(_anim_lean, lean_target, clampf(delta * 10.0, 0.0, 1.0))
+	_anim_roll = lerpf(_anim_roll, roll_target, clampf(delta * 10.0, 0.0, 1.0))
+	# 受击：hurt_flash 刚被点亮时缩一下
+	if _hurt_flash > _last_hurt_flash + 0.01:
+		_anim_punch = 1.0
+	_last_hurt_flash = _hurt_flash
+	_anim_punch = move_toward(_anim_punch, 0.0, delta * 6.0)
+	_anim_down = move_toward(_anim_down, 1.0 if is_dead else 0.0, delta * 4.0)
+	var bob: float = absf(sin(_anim_phase)) * 0.12 * run
+	var breathe: float = sin(_anim_phase * 1.3) * 0.015 * (1.0 - run)
+	var stretch: float = 0.25 if dashing else 0.0
+	var squash: float = _anim_punch * 0.18
+	var sy: float = 1.0 + breathe + stretch * 0.4 - squash - bob * 0.3
+	var sxz: float = 1.0 - breathe * 0.5 - stretch * 0.25 + squash * 0.6
+	_mesh.position = _mesh_base + Vector3(0, bob + _anim_down * 0.2, 0)
+	_mesh.rotation = Vector3(_anim_lean - (0.35 if dashing else 0.0),
+			0.0, _anim_roll + sin(_anim_phase) * 0.05 * run + _anim_down * 1.45)
+	_mesh.scale = Vector3(sxz, sy, sxz * (1.0 + stretch))
+	if not VfxKit.enabled():
+		return
+	# 落步扬尘（每落一脚一次，速度够快才有）
+	if run > 0.6 and not dashing and int(prev_phase / PI) != int(_anim_phase / PI):
+		ParticleFx.burst(_fx_parent, "dust", global_position + Vector3(0, 0.05, 0), 0.25, Color(0.7, 0.62, 0.5, 0.45))
+	# 高速位移残影
+	_ghost_timer -= delta
+	if dashing and _ghost_timer <= 0.0 and _mesh.mesh != null:
+		_ghost_timer = 0.035
+		SkillVfx.ghost_at(_fx_parent, _mesh.mesh, global_position, -global_transform.basis.z, _base_color.lightened(0.3), 0.25)
 
 
 func _physics_process(delta: float) -> void:
@@ -305,82 +376,73 @@ func cast_skill(skill_id: String) -> Dictionary:
 	return result
 
 
+## 技能结算后的位移、状态和手感（音效 / 震屏 / 顿帧）；视觉特效交给 SkillFx 按段位编排。
 func _apply_skill_result(skill_id: String, result: Dictionary, ctx: SkillContext) -> void:
 	var tier: int = int(result.get("tier", 1))
+	var hits: int = int(result.get("hits", 0))
 	match skill_id:
 		"shield_bash":
-			SkillVfx.shield_bash_tiered(_fx_parent, ctx.origin, ctx.flat_facing(), ShieldBash.BASE_RANGE * (1.5 if tier >= 5 else 1.0),
-					tier, result.get("hit_points", []), result.get("chain_links", []))
-			if int(result.hits) > 0:
+			if hits > 0:
 				_shake(0.2 + 0.05 * tier)
 				HitStop.trigger(get_tree(), 0.03 + 0.005 * tier)
 				SfxManager.play(_fx_parent, "heavy")
-		"whirlwind":
-			SkillVfx.whirlwind(_fx_parent, self, float(result.radius), float(result.duration))
 		"taunt":
-			SkillVfx.shockwave(_fx_parent, ctx.origin, float(result.radius), Color(1.0, 0.25, 0.2, 1.0), 0.5)
-			SkillVfx.burst(_fx_parent, "magic", global_position + Vector3(0, 1.5, 0), 1.0, Color(1.0, 0.35, 0.25))
 			if float(result.get("shield", 0.0)) > 0.0:
 				stats.add_shield(float(result.shield))
 		"charge":
 			var end: Vector3 = result.end_position
 			end = Vector3(clampf(end.x, -ARENA_HALF, ARENA_HALF), 0.0, clampf(end.z, -ARENA_HALF, ARENA_HALF))
+			result.end_position = end
 			_start_dash((end - global_position) / CHARGE_TIME, CHARGE_TIME)
 			_invulnerable_time = CHARGE_TIME
-			SkillVfx.dash_trail(_fx_parent, ctx.origin, end, Charge.HALF_WIDTH * 2.0,
-					Color(1.0, 0.5, 0.1, 0.45) if tier >= 8 else Color(0.5, 0.8, 1.0, 0.4))
-			if tier >= 5:
-				SkillVfx.shockwave(_fx_parent, end, Charge.IMPACT_RADIUS, Color(1.0, 0.8, 0.3, 1.0), 0.35)
-			SkillVfx.burst(_fx_parent, "dust", end, 0.8)
-			if int(result.hits) > 0:
+			if hits > 0:
 				SfxManager.play(_fx_parent, "heavy")
 				HitStop.trigger(get_tree(), 0.04)
-			_shake(0.2)
+			_shake(0.2 + (0.1 if tier >= 5 else 0.0))
 		"ground_slam":
-			SkillVfx.shockwave(_fx_parent, ctx.origin, float(result.radius), Color(1.0, 0.75, 0.4, 1.0), 0.45)
-			SkillVfx.burst(_fx_parent, "dust", ctx.origin, 1.0 + 0.1 * tier)
-			if tier >= 8:
-				SkillVfx.shockwave(_fx_parent, ctx.origin, float(result.radius) * 1.4, Color(1.0, 0.5, 0.2, 1.0), 0.6)
 			SfxManager.play(_fx_parent, "slam")
 			HitStop.trigger(get_tree(), 0.06)
-			_shake(0.35)
+			_shake(0.35 + (0.15 if tier >= 8 else 0.0))
 		"reflect_aura":
 			stats.set_aura(float(result.aura_duration), float(result.reflect), float(result.reduction))
-			SkillVfx.whirlwind(_fx_parent, self, ReflectAura.AURA_RADIUS, float(result.aura_duration), Color(1.0, 0.85, 0.3, 0.35))
-		# ---------- 元素术士 ----------
 		"fireball":
-			for p: Vector3 in result.get("impacts", []):
-				SkillVfx.dash_trail(_fx_parent, global_position + Vector3(0, 1.3, 0), p + Vector3(0, 0.6, 0), 0.45,
-						Color(1.0, 0.5, 0.15, 0.85))
-				SkillVfx.shockwave(_fx_parent, p, float(result.radius), Color(1.0, 0.45, 0.1, 1.0), 0.3)
-				SkillVfx.burst(_fx_parent, "fire", p + Vector3(0, 0.6, 0), 0.9 + 0.1 * tier)
-			if int(result.hits) > 0:
+			if hits > 0:
 				SfxManager.play(_fx_parent, "explode")
 		"ice_lance":
-			for e: Vector3 in result.get("ends", []):
-				SkillVfx.dash_trail(_fx_parent, global_position + Vector3(0, 0.9, 0), e + Vector3(0, 0.9, 0),
-						IceLance.HALF_WIDTH * 1.4, Color(0.55, 0.9, 1.0, 0.75))
-				SkillVfx.burst(_fx_parent, "shard", e + Vector3(0, 1, 0), 0.8)
-			if int(result.hits) > 0:
+			if hits > 0:
 				SfxManager.play(_fx_parent, "shatter")
 		"frost_nova":
-			SkillVfx.shockwave(_fx_parent, ctx.origin, float(result.radius), Color(0.5, 0.85, 1.0, 1.0), 0.45)
-			SkillVfx.burst(_fx_parent, "shard", ctx.origin + Vector3(0, 0.8, 0), 1.2 + 0.1 * tier)
 			SfxManager.play(_fx_parent, "shatter")
 			_shake(0.2)
 		"chain_lightning":
-			for link: Array in result.get("links", []):
-				SkillVfx.arc(_fx_parent, link[0], link[1], Color(0.7, 0.75, 1.0, 1.0))
-			if int(result.hits) > 0:
+			if hits > 0:
 				SfxManager.play(_fx_parent, "heavy")
-		"meteor":
-			# 预警：地面红圈 delay 秒后砸下（落地由 strike_landed 播放）
-			SkillVfx.telegraph_circle(_fx_parent, result.center, float(result.radius), float(result.delay))
-		"storm_field":
-			SkillVfx.whirlwind(_fx_parent, self, float(result.radius), float(result.duration), Color(0.6, 0.65, 1.0, 0.35))
-			SkillVfx.burst(_fx_parent, "magic", global_position + Vector3(0, 1.5, 0), 1.2, Color(0.65, 0.7, 1.0))
-		_:
-			_apply_support_skill_result(skill_id, result, ctx, tier)
+		"shadow_step":
+			var path: Array = result.get("path", [])
+			if path.size() >= 2:
+				var end: Vector3 = result.end_position
+				end = Vector3(clampf(end.x, -ARENA_HALF, ARENA_HALF), 0.0, clampf(end.z, -ARENA_HALF, ARENA_HALF))
+				if MapBase.current:
+					end = MapBase.current.find_free(end, 0.6)
+				global_position = end
+				_invulnerable_time = maxf(_invulnerable_time, 0.25)
+				if hits > 0:
+					SfxManager.play(_fx_parent, "heavy")
+					HitStop.trigger(get_tree(), 0.03)
+		"smoke_bomb":
+			_invulnerable_time = maxf(_invulnerable_time, float(result.invulnerable))
+		"execute":
+			if result.has("center"):
+				if result.executed:
+					HitStop.trigger(get_tree(), 0.06)
+					_shake(0.25 + (0.15 if tier >= 8 else 0.0))
+				SfxManager.play(_fx_parent, "heavy")
+		"smite":
+			if hits > 0:
+				SfxManager.play(_fx_parent, "slam")
+		"divine_intervention":
+			SfxManager.play(_fx_parent, "evolve")
+	SkillFx.play(_fx_parent, self, skill_id, result, ctx.origin, ctx.flat_facing(), tier)
 	for zone: GroundZone in ctx.new_zones:
 		if zone.anchor == null:
 			var color: Color = Color(0.6, 0.45, 0.2, 0.3)
@@ -389,78 +451,10 @@ func _apply_skill_result(skill_id: String, result: Dictionary, ctx: SkillContext
 				"frost": color = Color(0.5, 0.85, 1.0, 0.3)
 				"smoke": color = Color(0.35, 0.3, 0.45, 0.45)
 				"holy": color = Color(1.0, 0.9, 0.45, 0.3)
-			SkillVfx.ground_zone(_fx_parent, zone.a, zone.b, zone.half_width, zone.remaining, color)
+			SkillVfx.ground_zone(_fx_parent, zone.a, zone.b, zone.half_width, zone.remaining, color, zone.kind)
 	SfxManager.play_whoosh(_fx_parent)
 	print("[PlayerM1] %s Lv%d (Tier%d) hits=%d damage=%.0f" % [skill_id, ability_system.get_level(skill_id),
-			tier, int(result.get("hits", 0)), float(result.get("damage", 0.0))])
-
-
-## 影行者 / 牧师技能的位移与表现。
-func _apply_support_skill_result(skill_id: String, result: Dictionary, ctx: SkillContext, tier: int) -> void:
-	match skill_id:
-		"shadow_step":
-			var path: Array = result.get("path", [])
-			if path.size() < 2:
-				return
-			var end: Vector3 = result.end_position
-			end = Vector3(clampf(end.x, -ARENA_HALF, ARENA_HALF), 0.0, clampf(end.z, -ARENA_HALF, ARENA_HALF))
-			if MapBase.current:
-				end = MapBase.current.find_free(end, 0.6)
-			for i in range(1, path.size()):
-				SkillVfx.dash_trail(_fx_parent, path[i - 1] + Vector3(0, 0.8, 0), path[i] + Vector3(0, 0.8, 0), 0.5,
-						Color(0.55, 0.3, 0.9, 0.6))
-				SkillVfx.pulse_ring(_fx_parent, path[i], float(result.radius), Color(0.6, 0.3, 1.0, 0.45), 0.25)
-			global_position = end
-			_invulnerable_time = maxf(_invulnerable_time, 0.25)
-			if int(result.hits) > 0:
-				SfxManager.play(_fx_parent, "heavy")
-				HitStop.trigger(get_tree(), 0.03)
-		"fan_of_knives":
-			for p: Vector3 in result.get("points", []):
-				SkillVfx.dash_trail(_fx_parent, global_position + Vector3(0, 1.0, 0), p + Vector3(0, 1.0, 0), 0.15,
-						Color(0.85, 0.85, 0.95, 0.8))
-			if float(result.half_angle) >= PI:
-				SkillVfx.pulse_ring(_fx_parent, global_position, float(result.radius), Color(0.8, 0.8, 0.95, 0.25), 0.2)
-			else:
-				SkillVfx.shield_bash(_fx_parent, global_position, result.aim, float(result.radius), Color(0.8, 0.8, 0.95, 0.3))
-		"death_mark":
-			for p: Vector3 in result.get("marked", []):
-				SkillVfx.burst(_fx_parent, "magic", p + Vector3(0, 2.2, 0), 0.8, Color(0.8, 0.1, 0.3))
-				SkillVfx.pulse_ring(_fx_parent, p, 1.2, Color(0.85, 0.1, 0.3, 0.6), 0.5)
-		"blade_flurry":
-			SkillVfx.whirlwind(_fx_parent, self, float(result.radius), float(result.duration), Color(0.75, 0.75, 0.9, 0.3))
-		"smoke_bomb":
-			_invulnerable_time = maxf(_invulnerable_time, float(result.invulnerable))
-			SkillVfx.burst(_fx_parent, "dust", global_position, 1.6, Color(0.3, 0.28, 0.35))
-		"execute":
-			if result.has("center"):
-				var c: Vector3 = result.center
-				SkillVfx.shockwave(_fx_parent, c, 2.0 if not result.executed else 3.0, Color(0.9, 0.15, 0.25, 1.0), 0.3)
-				SkillVfx.burst(_fx_parent, "spark", c + Vector3(0, 1.0, 0), 1.2 if result.executed else 0.7)
-				if result.executed:
-					HitStop.trigger(get_tree(), 0.06)
-					_shake(0.25)
-				SfxManager.play(_fx_parent, "heavy")
-		"holy_nova":
-			SkillVfx.shockwave(_fx_parent, ctx.origin, float(result.radius), Color(1.0, 0.9, 0.5, 1.0), 0.4)
-			SkillVfx.burst(_fx_parent, "star", ctx.origin + Vector3(0, 1.0, 0), 1.0 + 0.1 * tier, Color(1.0, 0.9, 0.5))
-		"smite":
-			for p: Vector3 in result.get("impacts", []):
-				SkillVfx.pillar(_fx_parent, p, 0.6, 9.0, Color(1.0, 0.92, 0.55, 0.8))
-				SkillVfx.shockwave(_fx_parent, p, float(result.radius), Color(1.0, 0.85, 0.4, 1.0), 0.3)
-			if int(result.hits) > 0:
-				SfxManager.play(_fx_parent, "slam")
-		"sanctuary":
-			SkillVfx.burst(_fx_parent, "star", ctx.origin + Vector3(0, 0.5, 0), 1.2, Color(1.0, 0.9, 0.45))
-		"divine_shield", "blessing", "divine_intervention":
-			var key: String = "shielded" if skill_id == "divine_shield" else ("blessed" if skill_id == "blessing" else "healed")
-			var color: Color = Color(0.6, 0.85, 1.0) if skill_id == "divine_shield" else Color(1.0, 0.85, 0.35)
-			for p: Vector3 in result.get(key, []):
-				SkillVfx.pulse_ring(_fx_parent, p, 1.6, Color(color, 0.55), 0.45)
-				SkillVfx.burst(_fx_parent, "star", p + Vector3(0, 1.4, 0), 0.9, color)
-			if skill_id == "divine_intervention":
-				SkillVfx.shockwave(_fx_parent, ctx.origin, DivineIntervention.RANGE, Color(1.0, 0.9, 0.5, 1.0), 0.6)
-				SfxManager.play(_fx_parent, "evolve")
+			tier, hits, float(result.get("damage", 0.0))])
 
 
 ## 自动攻击。烈焰核心附加燃烧，汲取手套吸血。返回命中数量，便于测试。
@@ -483,17 +477,7 @@ func auto_attack() -> int:
 	var hits: int = victims.size()
 	if hits > 0:
 		stats.on_damage_dealt(hits, dealt_total, true)
-		if attack_kind == "pulse":
-			SkillVfx.pulse_ring(_fx_parent, global_position, attack_range,
-					Color(1.0, 0.5, 0.2, 0.18) if burn else Color(0.7, 0.85, 1.0, 0.15), 0.18)
-		elif attack_kind == "slash":
-			var to_s: Vector3 = ((victims[0] as Node3D).global_position - global_position) * Vector3(1, 0, 1)
-			SkillVfx.shield_bash(_fx_parent, global_position, to_s.normalized() if to_s.length() > 0.05 else facing,
-					attack_range * 0.8, Color(0.75, 0.4, 1.0, 0.35))
-		else:
-			var to: Vector3 = (victims[0] as Node3D).global_position
-			SkillVfx.dash_trail(_fx_parent, global_position + Vector3(0, 1.3, 0), to + Vector3(0, 1.0, 0), 0.18,
-					Color(1.0, 0.55, 0.2, 0.8) if burn else _bolt_color)
+		SkillFx.auto_attack(_fx_parent, self, attack_kind, _bolt_fx, victims, attack_range, burn, _bolt_color)
 	return hits
 
 
@@ -723,5 +707,13 @@ func _shake(strength: float) -> void:
 func _on_strike_landed(strike: Dictionary, hits: int) -> void:
 	if strike.get("kind", "") == "knives":
 		SkillVfx.pulse_ring(_fx_parent, strike.center, strike.radius, Color(0.8, 0.8, 0.95, 0.25), 0.2)
-	elif hits > 0:
-		SkillVfx.meteor_impact(_fx_parent, strike.center, strike.radius, strike.get("second_wave", false))
+		# 刀扇 8 段第二轮：一圈飞刀从身上再次甩出
+		SkillVfx.whirlwind(_fx_parent, self, float(strike.radius) * 0.6, 0.35, Color(1.0, 0.5, 0.6, 0.5), "blades", 8)
+		SkillVfx.rune(_fx_parent, strike.center, float(strike.radius) * 0.5, Color(1.0, 0.3, 0.45, 0.8), "expand", 0.35)
+	else:
+		# 陨石落地总是爆炸（没砸到敌人也要看到落点）
+		var meteor: Skill = ability_system.get_skill("meteor")
+		SkillFx.meteor_landed(_fx_parent, strike.center, strike.radius, strike.get("second_wave", false),
+				meteor.get_tier() if meteor != null else 1)
+		if hits > 0:
+			SfxManager.play(_fx_parent, "explode")

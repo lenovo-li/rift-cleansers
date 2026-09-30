@@ -34,6 +34,14 @@ func setup(source: Node, dir: Vector3, damage: float, color: Color) -> void:
 	add_child(mi)
 
 
+func _ready() -> void:
+	add_to_group("enemy_projectiles")
+
+
+func direction() -> Vector3:
+	return _dir
+
+
 func _physics_process(delta: float) -> void:
 	_life -= delta
 	if _life <= 0.0:

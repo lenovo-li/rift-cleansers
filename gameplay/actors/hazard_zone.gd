@@ -23,6 +23,7 @@ func setup(p_radius: float, p_slow: float, p_duration: float, color: Color) -> v
 
 
 func _ready() -> void:
+	add_to_group("danger")  # 机器人躲避（PlayerBot._evade）
 	var mi: MeshInstance3D = MeshInstance3D.new()
 	var cyl: CylinderMesh = CylinderMesh.new()
 	cyl.top_radius = radius

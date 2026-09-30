@@ -20,6 +20,7 @@ func setup(p_radius: float, p_damage: float, p_fuse: float, p_source_name: Strin
 
 
 func _ready() -> void:
+	add_to_group("danger")  # 机器人躲避（PlayerBot._evade）
 	add_child(_disc(radius, Color(1, 0.3, 0.1, 0.18), 0.03))
 	_fill = _disc(radius, Color(1, 0.35, 0.1, 0.45), 0.05)
 	_fill.scale = Vector3(0.05, 1, 0.05)
@@ -37,6 +38,11 @@ func _physics_process(delta: float) -> void:
 			p.take_damage(damage, source_name)
 		SkillVfx.pulse_ring(get_parent(), global_position, radius, Color(1, 0.5, 0.1, 0.6), 0.25)
 	queue_free()
+
+
+## 距离爆炸还剩多少秒（机器人判断来不及走出去时翻滚）。
+func time_left() -> float:
+	return fuse - _elapsed
 
 
 static func _disc(r: float, color: Color, y: float) -> MeshInstance3D:

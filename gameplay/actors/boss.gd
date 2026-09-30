@@ -122,6 +122,13 @@ func _show_telegraph(visible_now: bool) -> void:
 		SkillVfx.record(["telegraph", center, _charge_dir, def.special_range, CHARGE_WINDUP])
 
 
+## 冲锋预警中（或正在冲锋）时返回 {origin, dir, length}，否则空字典（机器人横移躲避用）。
+func charge_warning() -> Dictionary:
+	if _charge_state == 0:
+		return {}
+	return {"origin": global_position, "dir": _charge_dir, "length": def.special_range}
+
+
 ## Boss 不会被击退打断冲锋。
 func apply_knockback(impulse: Vector3) -> void:
 	if _charge_state == 0:

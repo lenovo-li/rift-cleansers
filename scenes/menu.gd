@@ -31,8 +31,8 @@ func _ready() -> void:
 	box.anchor_bottom = 0.5
 	box.offset_left = -320
 	box.offset_right = 320
-	box.offset_top = -360
-	box.add_theme_constant_override("separation", 12)
+	box.offset_top = -420
+	box.add_theme_constant_override("separation", 8)
 	add_child(box)
 	var title: Label = Label.new()
 	title.text = "裂界清扫者"
@@ -75,17 +75,23 @@ func _ready() -> void:
 	box.add_child(_desc)
 	_update_char_buttons()
 	_button(box, "单人游戏", _on_single)
+	var p2p_row: HBoxContainer = HBoxContainer.new()
+	p2p_row.add_theme_constant_override("separation", 12)
+	box.add_child(p2p_row)
+	_button(p2p_row, "P2P 创建房间", _on_p2p_host).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_button(p2p_row, "P2P 加入房间", _on_p2p_join).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_port_edit = _field(box, "端口", str(NetConfig.DEFAULT_PORT))
-	_button(box, "创建房间（主机）", _on_host)
+	_button(box, "局域网创建房间", _on_host)
 	_addr_edit = _field(box, "主机 IP", NetConfig.address)
-	_button(box, "加入房间", _on_join)
+	_button(box, "局域网加入房间", _on_join)
 	_button(box, "天赋树", func() -> void: add_child(TalentPanel.build(NetConfig.character_id)))
 	_button(box, "本地排行榜", _show_leaderboard)
 	_button(box, "设置", func() -> void: add_child(SettingsPanel.new()))
 	_button(box, "退出", func() -> void: get_tree().quit())
 	_status = Label.new()
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_status.text = "局域网联机原型：主机需要放行 UDP 端口；无加密与鉴权，只在可信网络使用"
+	_status.text = "P2P：不在同一个网络也能联机，双方互发一次连接码即可（加密直连，不经过服务器）\n" + \
+			"局域网：主机需要放行 UDP 端口；无加密与鉴权，只在可信网络使用"
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(_status)
 
@@ -104,13 +110,14 @@ func _field(parent: Node, label: String, value: String) -> LineEdit:
 	return e
 
 
-func _button(parent: Node, text: String, cb: Callable) -> void:
+func _button(parent: Node, text: String, cb: Callable) -> Button:
 	var b: Button = Button.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(0, 52)
 	b.add_theme_font_size_override("font_size", 24)
 	b.pressed.connect(cb)
 	parent.add_child(b)
+	return b
 
 
 func _read_common() -> void:
@@ -158,6 +165,25 @@ func _on_join() -> void:
 	NetConfig.mode = NetConfig.Mode.CLIENT
 	NetConfig.address = _addr_edit.text.strip_edges()
 	_start()
+
+
+## P2P 房主：直接进游戏，游戏里弹出邀请面板（暂停中）。
+func _on_p2p_host() -> void:
+	_read_common()
+	NetConfig.mode = NetConfig.Mode.HOST
+	NetConfig.p2p = true
+	_start()
+
+
+## P2P 好友：先在菜单里交换连接码，连上房主后再进游戏。
+func _on_p2p_join() -> void:
+	_read_common()
+	var panel: P2PPanel = P2PPanel.build(false)
+	panel.joined.connect(func() -> void:
+		NetConfig.mode = NetConfig.Mode.CLIENT
+		NetConfig.p2p = true
+		_start())
+	add_child(panel)
 
 
 ## 排行榜浮层：前 10 局 + 累计统计，点击任意处关闭。

@@ -22,6 +22,7 @@ var net: NetSession = null
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _game_over_panel: Control = null
 var _pause_menu: PauseMenu = null
+var _invite_panel: P2PPanel = null
 var _music: Node = null
 var _music_timer: float = 0.0
 ## 地图随机事件（主机 / 单人）
@@ -85,6 +86,10 @@ func _ready() -> void:
 			Settings.key_name(Settings.key_of("move_down")), Settings.key_name(Settings.key_of("move_right"))])
 	_hud.show_toast("%s 移动  %s  %s 闪避  T 自动施放  %s 菜单  F3 联机调试" % [move, "  ".join(keys),
 			Settings.key_name(Settings.key_of("dash")), Settings.key_name(Settings.key_of("pause"))], 5.0)
+	# P2P 房主刚开房（还没有好友）：直接弹出邀请面板；之后可以在菜单里继续邀请
+	if NetConfig.is_host() and NetConfig.p2p and NetConfig.p2p_dir.is_empty() and not NetConfig.bot \
+			and net != null and net.players_by_slot.size() <= 1:
+		_open_invite_panel()
 
 
 func _setup_network() -> void:
@@ -283,15 +288,30 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## Esc：暂停菜单（继续 / 设置 / 回主菜单）。结算和选升级时不弹。
 func _open_pause_menu() -> void:
-	if _pause_menu != null or _game_over_panel != null or _upgrade_panel.is_open():
+	if _pause_menu != null or _invite_panel != null or _game_over_panel != null or _upgrade_panel.is_open():
 		return
 	var solo: bool = not NetConfig.is_online()
 	_pause_menu = PauseMenu.build(solo)
+	_pause_menu.show_invite = NetConfig.is_host() and NetConfig.p2p
 	_pause_menu.resume_requested.connect(_close_pause_menu)
 	_pause_menu.quit_requested.connect(_quit_to_menu)
+	_pause_menu.invite_requested.connect(func() -> void:
+		_close_pause_menu()
+		_open_invite_panel())
 	$UI.add_child(_pause_menu)
 	if solo:
 		get_tree().paused = true
+
+
+## P2P 房主：邀请面板（打开时暂停游戏，好友连上后关闭继续）。
+func _open_invite_panel() -> void:
+	if _invite_panel != null or _game_over_panel != null:
+		return
+	_invite_panel = P2PPanel.build(true)
+	_invite_panel.closed.connect(func() -> void: _invite_panel = null)
+	$UI.add_child(_invite_panel)
+	if net != null and net.players_by_slot.size() > 1:
+		net.broadcast_toast("房主正在邀请好友，游戏暂停中")
 
 
 func _close_pause_menu() -> void:

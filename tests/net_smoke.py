@@ -1,7 +1,8 @@
 """M2 联机冒烟测试：启动主机 + 客户端两个无头 Godot 进程（都由机器人操作），
 客户端中途被杀掉再用同一令牌重连，最后对比双方记录的状态。
 
-用法: python tests/net_smoke.py [--godot 路径] [--lag 50] [--seconds 60]
+用法: python tests/net_smoke.py [--godot 路径] [--lag 50] [--seconds 60] [--p2p]
+--p2p 改用 WebRTC P2P（信令通过临时目录里的文件交换），验证和 ENet 相同的流程。
 --lag 是每一端的单向发送延迟（两端都加，往返约 2×lag + 本机开销）。
 退出码 0 = 全部检查通过。
 """
@@ -43,17 +44,21 @@ def main():
     ap.add_argument("--lag", type=int, default=50)
     ap.add_argument("--seconds", type=int, default=60)
     ap.add_argument("--host-map", default="", help="主机用的地图；客户端保持默认，验证换图握手")
+    ap.add_argument("--p2p", action="store_true", help="用 WebRTC P2P 代替 ENet")
     opt = ap.parse_args()
     tmp = tempfile.mkdtemp(prefix="net_smoke_")
+    sig = os.path.join(tmp, "signal").replace("\\", "/")
     host_rep, c1_rep, c2_rep = (os.path.join(tmp, n) for n in ("host.json", "client1.json", "client2.json"))
     common = ["--bot", "--port=%d" % PORT, "--lag=%d" % opt.lag]
+    host_mode = ["--p2p-host", "--p2p-dir=" + sig] if opt.p2p else ["--host"]
+    join_mode = ["--p2p-join", "--p2p-dir=" + sig] if opt.p2p else ["--join=127.0.0.1"]
     kill_at, gap = opt.seconds * 0.4, 6.0
 
     host_map = ["--map=" + opt.host_map] if opt.host_map else []
-    host, hlog = launch(opt.godot, ["--host", "--name=主机", "--net-report=" + host_rep,
+    host, hlog = launch(opt.godot, host_mode + ["--name=主机", "--net-report=" + host_rep,
                                     "--quit-after=%d" % (opt.seconds + 5)] + common + host_map, os.path.join(tmp, "host.log"))
     time.sleep(3.0)
-    c1, c1log = launch(opt.godot, ["--join=127.0.0.1", "--name=客户端", "--token=" + TOKEN,
+    c1, c1log = launch(opt.godot, join_mode + ["--name=客户端", "--token=" + TOKEN,
                                    "--net-report=" + c1_rep] + common, os.path.join(tmp, "client1.log"))
     time.sleep(kill_at)
     c1.kill()
@@ -61,17 +66,18 @@ def main():
     disconnect_wall = time.time()
     time.sleep(gap)
     remaining = opt.seconds - kill_at - gap
-    c2, c2log = launch(opt.godot, ["--join=127.0.0.1", "--name=客户端", "--token=" + TOKEN,
+    c2, c2log = launch(opt.godot, join_mode + ["--name=客户端", "--token=" + TOKEN,
                                    "--net-report=" + c2_rep, "--quit-after=%d" % remaining] + common,
                        os.path.join(tmp, "client2.log"))
     c2.wait(timeout=remaining + 30)
     host.wait(timeout=60)
     for f in (hlog, c1log, c2log):
         f.close()
-    return check(load(host_rep), load(c1_rep), load(c2_rep), disconnect_wall, tmp)
+    # P2P 靠 4 秒心跳判定掉线（ENet 约 3 秒），检查窗口放宽一点
+    return check(load(host_rep), load(c1_rep), load(c2_rep), disconnect_wall, tmp, 7.0 if opt.p2p else 5.0)
 
 
-def check(host, c1, c2, disconnect_wall, tmp):
+def check(host, c1, c2, disconnect_wall, tmp, takeover_by=5.0):
     fails, info = [], []
 
     def expect(cond, msg):
@@ -123,7 +129,7 @@ def check(host, c1, c2, disconnect_wall, tmp):
     if host and host[-1]["time"] > 540:
         expect(bool(boss_err), "Boss 登场后客户端收到 Boss 状态")
 
-    during = [r for r in host if disconnect_wall + 1.5 < r["wall"] < disconnect_wall + 5]
+    during = [r for r in host if disconnect_wall + 1.5 < r["wall"] < disconnect_wall + takeover_by]
     expect(any(r["players"].get("1", {}).get("ai") for r in during), "掉线期间主机把槽位 1 交给 AI 托管")
     # 只看客户端 2 在线期间（测试结束时客户端先退出，之后主机又会转为 AI 托管）
     after = [r for r in host if w2 and w2[0]["wall"] + 2 < r["wall"] < w2[-1]["wall"] - 1]

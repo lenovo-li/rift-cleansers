@@ -25,6 +25,8 @@ const HELLO_RETRY: float = 1.0
 ## ENet 默认要 5-30 秒才判定掉线；缩短到约 3 秒，AI 托管能及时接手。
 const PEER_TIMEOUT_MIN_MS: int = 1500
 const PEER_TIMEOUT_MAX_MS: int = 3000
+## P2P：这么久没收到对端任何包就当作掉线（客户端每帧都发输入，主机每 50ms 发玩家状态）。
+const HEARTBEAT_TIMEOUT_MS: int = 4000
 
 ## 跨场景重载保留（重新开始时连接不断开，客户端用同一令牌回到同一槽位）。
 static var _slot_by_token: Dictionary = {}  # token -> slot
@@ -48,6 +50,8 @@ var _timers: Dictionary = {"player": 0.0, "enemy": 0.0, "world": 0.0, "hello": 0
 var _outbox: Array = []  # 模拟延迟：[到期毫秒, peer, 方法, 参数]
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _pickup_views: Dictionary = {}  # 客户端：pickup id -> 节点
+var _last_heard: Dictionary = {}    # P2P 心跳：peer id -> 最后收包毫秒（客户端只记主机 1）
+var _leaving: bool = false
 
 # 调试统计
 var ping_ms: float = 0.0
@@ -76,10 +80,14 @@ func setup(p_scene: Node3D, p_local: CharacterBody3D, p_session: GameSession, p_
 	_rng.randomize()
 	var mp: MultiplayerAPI = multiplayer
 	var existing: MultiplayerPeer = mp.multiplayer_peer
-	var connected: bool = existing is ENetMultiplayerPeer \
+	# 默认的 OfflineMultiplayerPeer 也报告「已连接」，所以要看类型
+	var connected: bool = (existing is ENetMultiplayerPeer or existing is WebRTCMultiplayerPeer) \
 			and existing.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED
 	if is_host():
-		if not connected:
+		if not connected and NetConfig.p2p:
+			mp.multiplayer_peer = P2PLink.create_host_peer()
+			print("[net] hosting P2P (WebRTC, lag=%dms)" % NetConfig.lag_ms)
+		elif not connected:
 			var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
 			var err: Error = peer.create_server(NetConfig.port, NetConfig.MAX_CLIENTS)
 			if err != OK:
@@ -87,6 +95,8 @@ func setup(p_scene: Node3D, p_local: CharacterBody3D, p_session: GameSession, p_
 				return
 			mp.multiplayer_peer = peer
 			print("[net] hosting on port %d (lag=%dms)" % [NetConfig.port, NetConfig.lag_ms])
+		if NetConfig.p2p and not NetConfig.p2p_dir.is_empty():
+			add_child(P2PFileSignal.new())
 		mp.peer_connected.connect(func(id: int) -> void:
 			print("[net] peer connected %d" % id)
 			_set_peer_timeout(id))
@@ -102,7 +112,12 @@ func setup(p_scene: Node3D, p_local: CharacterBody3D, p_session: GameSession, p_
 		enemy_views.name = "EnemyViews"
 		scene.add_child(enemy_views)
 		local_player.control = local_player.ControlMode.PREDICTED
-		if not connected:
+		if not connected and NetConfig.p2p:
+			if NetConfig.p2p_dir.is_empty():
+				_leave.call_deferred("P2P 连接已断开")  # 正常流程在菜单里连好才进来
+			else:
+				add_child(P2PFileSignal.new())  # 测试：连接完成前 _physics_process 不收发
+		elif not connected:
 			var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
 			var err: Error = peer.create_client(NetConfig.address, NetConfig.port)
 			if err != OK:
@@ -129,6 +144,9 @@ func _exit_tree() -> void:
 
 ## 客户端断线：机器人测试直接退出，否则回菜单。
 func _leave(reason: String) -> void:
+	if _leaving:
+		return
+	_leaving = true
 	print("[net] %s" % reason)
 	toast_received.emit(reason)
 	if NetConfig.bot:
@@ -158,16 +176,40 @@ func _register_player(slot: int, player: CharacterBody3D, display: String) -> vo
 
 
 func _physics_process(delta: float) -> void:
-	if multiplayer.multiplayer_peer == null:
+	var mp_peer: MultiplayerPeer = multiplayer.multiplayer_peer
+	if mp_peer == null or mp_peer is OfflineMultiplayerPeer:
+		return  # P2P 测试时连接由 P2PFileSignal 稍后建立
+	if is_client() and mp_peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
 		return
 	_flush_outbox()
 	_update_rates(delta)
 	for k: String in _timers:
 		_timers[k] += delta
 	if is_host():
+		_check_heartbeats()
 		_host_tick(delta)
 	else:
 		_client_tick()
+
+
+## WebRTC 发现对端进程消失要 10 秒以上；这里用收包时间自己判断（ENet 有自己的超时，见 PEER_TIMEOUT_*）。
+func _check_heartbeats() -> void:
+	if not multiplayer.multiplayer_peer is WebRTCMultiplayerPeer:
+		return
+	var now: int = Time.get_ticks_msec()
+	for peer: int in _last_heard.keys():
+		if now - int(_last_heard[peer]) > HEARTBEAT_TIMEOUT_MS:
+			_last_heard.erase(peer)
+			print("[net] peer %d silent for %d ms, dropping" % [peer, HEARTBEAT_TIMEOUT_MS])
+			var rtc: WebRTCMultiplayerPeer = multiplayer.multiplayer_peer
+			if rtc.has_peer(peer):
+				rtc.remove_peer(peer)
+			_on_peer_disconnected(peer)
+
+
+## 收到对端的包时调用（主机按 peer 记录，客户端记录主机）。
+func _heard(peer: int) -> void:
+	_last_heard[peer] = Time.get_ticks_msec()
 
 
 ## 所有发送都走这里，便于模拟延迟和统计带宽。peer = 0 表示发给所有已就绪的客户端。
@@ -242,6 +284,10 @@ func _client_tick() -> void:
 			_send(1, &"rpc_hello", [NetConfig.reconnect_token, NetConfig.player_name, NetConfig.character_id,
 					NetConfig.map_id, Talents.ranks(NetConfig.character_id)])
 		return
+	if multiplayer.multiplayer_peer is WebRTCMultiplayerPeer and not _leaving \
+			and Time.get_ticks_msec() - int(_last_heard.get(1, Time.get_ticks_msec())) > HEARTBEAT_TIMEOUT_MS:
+		_leave("与主机断开连接（%d 秒没有收到数据）" % (HEARTBEAT_TIMEOUT_MS / 1000))
+		return
 	var p: CharacterBody3D = local_player
 	if p.ai_controlled and p.bot != null:
 		p.bot.think(p, get_tree().get_nodes_in_group("enemy_views"))
@@ -286,6 +332,7 @@ func rpc_hello(token: String, display: String, char_id: String = CharacterCatalo
 		_slot_by_peer.erase(stale)  # 旧连接还没超时就重连了：旧 peer 之后的掉线事件不再影响这个槽位
 	_slot_by_peer[peer] = slot
 	_peer_by_slot[slot] = peer
+	_heard(peer)
 	var player: CharacterBody3D = players_by_slot.get(slot)
 	if player == null:
 		var cid: String = char_id if CharacterCatalog.is_valid(char_id) else CharacterCatalog.DEFAULT_ID
@@ -335,12 +382,17 @@ func rpc_action(kind: int, value: int) -> void:
 func rpc_ping(client_ms: int) -> void:
 	var peer: int = multiplayer.get_remote_sender_id()
 	if _slot_by_peer.has(peer):
+		_heard(peer)
 		_send(peer, &"rpc_pong", [client_ms])
 
 
 func _sender_player() -> CharacterBody3D:
-	var slot: int = int(_slot_by_peer.get(multiplayer.get_remote_sender_id(), -1))
-	return players_by_slot.get(slot) if slot > 0 else null
+	var peer: int = multiplayer.get_remote_sender_id()
+	var slot: int = int(_slot_by_peer.get(peer, -1))
+	if slot <= 0:
+		return null
+	_heard(peer)
+	return players_by_slot.get(slot)
 
 
 func _free_slot() -> int:
@@ -368,6 +420,7 @@ func _spawn_remote(slot: int, display: String, char_id: String, talents: Diction
 func _on_peer_disconnected(peer: int) -> void:
 	var slot: int = int(_slot_by_peer.get(peer, -1))
 	_slot_by_peer.erase(peer)
+	_last_heard.erase(peer)
 	if slot < 0 or int(_peer_by_slot.get(slot, 0)) != peer:
 		return
 	_peer_by_slot.erase(slot)
@@ -525,6 +578,7 @@ func rpc_map(map_id: String) -> void:
 @rpc("authority", "call_remote", "reliable")
 func rpc_welcome(slot: int, state: Dictionary) -> void:
 	_count_in([slot, state])
+	_heard(1)
 	my_slot = slot
 	welcomed = true
 	_register_player(slot, local_player, NetConfig.player_name)
@@ -538,6 +592,7 @@ func rpc_welcome(slot: int, state: Dictionary) -> void:
 @rpc("authority", "call_remote", "unreliable_ordered", 1)
 func rpc_players(states: Array) -> void:
 	_count_in(states)
+	_heard(1)
 	if welcomed:
 		_apply_players(states, false)
 
@@ -552,6 +607,7 @@ func rpc_enemies(buf: PackedByteArray) -> void:
 @rpc("authority", "call_remote", "unreliable_ordered", 3)
 func rpc_world(state: Array) -> void:
 	_count_in(state)
+	_heard(1)
 	if welcomed:
 		_apply_world(state)
 

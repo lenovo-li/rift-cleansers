@@ -1,6 +1,7 @@
 class_name NetConfig extends RefCounted
 ## 联机启动参数（菜单或命令行设置，跨场景重载保留）。
 ## 命令行（写在 -- 之后）：--host  --join=IP  --port=N  --lag=毫秒（单向模拟延迟）
+##   --p2p-host / --p2p-join  --p2p-dir=目录（P2P 测试：信令走文件）
 ##   --name=名字  --token=重连令牌  --char=角色 id  --map=地图 id  --bot（本地玩家由机器人控制，测试用）
 
 enum Mode { SINGLE, HOST, CLIENT }
@@ -19,6 +20,10 @@ static var bot: bool = false
 static var character_id: String = "iron_guard"
 ## 地图（MapCatalog）。联机时以主机为准：客户端 hello 带上自己的地图，不一致时主机回复 rpc_map 让客户端换图重进。
 static var map_id: String = "ashen_city"
+## P2P（WebRTC，复制粘贴连接码）而不是 ENet 直连。客户端的连接在菜单里就建好了。
+static var p2p: bool = false
+## 测试用：P2P 信令改为通过这个目录里的文件交换（--p2p-dir=路径），不需要人工复制粘贴。
+static var p2p_dir: String = ""
 static var _parsed: bool = false
 
 
@@ -63,6 +68,14 @@ static func parse_cmdline() -> bool:
 				map_id = m
 		elif arg == "--bot":
 			bot = true
+		elif arg == "--p2p-host":
+			mode = Mode.HOST
+			p2p = true
+		elif arg == "--p2p-join":
+			mode = Mode.CLIENT
+			p2p = true
+		elif arg.begins_with("--p2p-dir="):
+			p2p_dir = arg.get_slice("=", 1)
 	if reconnect_token.is_empty():
 		reconnect_token = generate_token()
 	return mode != Mode.SINGLE
@@ -78,3 +91,5 @@ static func reset() -> void:
 	mode = Mode.SINGLE
 	lag_ms = 0
 	bot = false
+	p2p = false
+	p2p_dir = ""

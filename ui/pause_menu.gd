@@ -4,8 +4,11 @@ class_name PauseMenu extends Control
 
 signal resume_requested
 signal quit_requested
+signal invite_requested
 
 var pauses_game: bool = true
+## P2P 房主：显示「邀请好友」。
+var show_invite: bool = false
 var _settings: SettingsPanel = null
 
 
@@ -38,6 +41,8 @@ func _ready() -> void:
 	title.add_theme_font_size_override("font_size", 36 if pauses_game else 24)
 	box.add_child(title)
 	_button(box, "继续", func() -> void: resume_requested.emit())
+	if show_invite:
+		_button(box, "邀请好友（P2P）", func() -> void: invite_requested.emit())
 	_button(box, "设置", _open_settings)
 	_button(box, "返回主菜单", func() -> void: quit_requested.emit())
 

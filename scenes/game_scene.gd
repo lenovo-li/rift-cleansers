@@ -65,7 +65,12 @@ func _ready() -> void:
 	_director.player_count_provider = func() -> int: return PlayerQuery.all(get_tree()).size()
 	_session.player_count_provider = _director.player_count_provider
 	_session.start_game()
-	_hud.show_toast("WASD 移动  空格 盾击  E 嘲讽  Shift 闪避  T 自动施放  F3 联机调试", 5.0)
+	var keys: PackedStringArray = []
+	var pool: Array[String] = _player.ability_system.pool()
+	for i in pool.size():
+		if _player.ability_system.get_skill(pool[i]) != null:
+			keys.append("%s %s" % [_hud.SKILL_KEYS[i], SkillFactory.display_name(pool[i])])
+	_hud.show_toast("WASD 移动  %s  Shift 闪避  T 自动施放  F3 联机调试" % "  ".join(keys), 5.0)
 
 
 func _setup_network() -> void:

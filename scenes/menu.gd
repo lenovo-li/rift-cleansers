@@ -13,6 +13,7 @@ var _status: Label
 
 
 func _ready() -> void:
+	UiTheme.install(get_tree())
 	if NetConfig.parse_cmdline():
 		_start.call_deferred()
 		return
@@ -34,7 +35,7 @@ func _ready() -> void:
 	add_child(box)
 	var title: Label = Label.new()
 	title.text = "裂界清扫者"
-	title.add_theme_font_size_override("font_size", 56)
+	title.add_theme_font_size_override("font_size", 48)  # 像素字体取 12 的倍数最清晰
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
 	_name_edit = _field(box, "名字", NetConfig.player_name)
@@ -105,7 +106,7 @@ func _button(parent: Node, text: String, cb: Callable) -> void:
 	var b: Button = Button.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(0, 52)
-	b.add_theme_font_size_override("font_size", 22)
+	b.add_theme_font_size_override("font_size", 24)
 	b.pressed.connect(cb)
 	parent.add_child(b)
 

@@ -1,7 +1,7 @@
-"""生成游戏主题资源：字体纹理 + 按钮九宫格背景（纯 Python，PIL-free）。
+"""生成游戏主题的九宫格按钮和面板背景（纯 Python，PIL-free）。
+字体使用 assets/fonts/fusion-pixel-12px-proportional-zh_hans.ttf（OFL-1.1，见 third_party_licenses/fusion_pixel_font）。
 用法: python tools/ui/generate_theme.py
-输出: assets/ui/font_bitmap.png（8x8 点阵字体 ASCII 32-126）
-      assets/ui/button_normal.png（九宫格按钮背景，深灰边框）
+输出: assets/ui/button_normal.png（九宫格按钮背景，深灰边框）
       assets/ui/button_hover.png（悬停时亮蓝边框）
       assets/ui/button_pressed.png（按下时深色）
       assets/ui/panel_bg.png（半透明面板背景）
@@ -154,12 +154,11 @@ def make_panel():
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    make_font()
     make_button("button_normal", [50, 50, 60, 255], [35, 35, 45, 255])
     make_button("button_hover", [80, 120, 200, 255], [40, 40, 50, 255])
     make_button("button_pressed", [30, 30, 40, 255], [20, 20, 30, 255])
     make_panel()
-    print("[theme] 5 files generated in %s" % OUT)
+    print("[theme] 4 files generated in %s" % OUT)
 
 
 if __name__ == "__main__":

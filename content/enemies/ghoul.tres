@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="EnemyDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://content/enemies/enemy_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+enemy_id = "ghoul"
+display_name = "吐酸食尸鬼"
+behavior = 2
+max_health = 60.0
+move_speed = 2.8
+attack_damage = 9.0
+attack_cooldown = 2.8
+attack_range = 10.0
+exp_reward = 4.0
+body_scale = 1.0
+color = Color(0.3, 0.8, 0.6, 1)
+special_range = 7.0
+special_value = 12.0
+special_cooldown = 0.0

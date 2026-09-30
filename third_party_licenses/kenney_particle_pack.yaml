@@ -1,0 +1,15 @@
+asset_name: Kenney Particle Pack
+author: Kenney
+source_url: https://kenney.nl/assets/particle-pack
+license: CC0 1.0 Universal (Public Domain)
+license_url: https://creativecommons.org/publicdomain/zero/1.0/
+download_date: 2026-09-28
+modified: false
+credit_required: false
+used_in:
+  - 粒子爆发预设 (presentation/particle_fx.gd)：spark_05, dirt_02, smoke_04, smoke_07, flame_03, trace_04, star_06, magic_03
+files_location: assets/particles/kenney_particle-pack/
+notes: |
+  包含80张512x512粒子贴图，提供透明和黑色背景两种版本。
+  本项目使用透明背景版本 (PNG Transparent)。
+  CC0许可允许商用、修改、分发，无需署名。

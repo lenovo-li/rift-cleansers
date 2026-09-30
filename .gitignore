@@ -43,3 +43,6 @@ user://
 # 备份目录
 *_backup_*/
 archive/
+
+# Python
+__pycache__/

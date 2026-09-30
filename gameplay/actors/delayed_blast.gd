@@ -1,0 +1,64 @@
+extends Node3D
+## 延时爆炸：先在地面显示逐渐填满的红圈（可读的预警），fuse 秒后对圈内所有玩家造成伤害。
+## 用于爆裂小鬼的死亡爆炸——近战击杀后有时间走出圈外。
+
+var radius: float = 2.5
+var damage: float = 25.0
+var fuse: float = 0.7
+var source_name: String = "爆炸"
+## 预警圈颜色（地图环境危险换成主题色）
+var color: Color = Color(1, 0.35, 0.1, 0.45)
+var _elapsed: float = 0.0
+var _fill: MeshInstance3D = null
+## 客户端回放用：只显示、不结算伤害。
+var visual_only: bool = false
+
+
+func setup(p_radius: float, p_damage: float, p_fuse: float, p_source_name: String) -> void:
+	radius = p_radius
+	damage = p_damage
+	fuse = p_fuse
+	source_name = p_source_name
+
+
+func _ready() -> void:
+	add_to_group("danger")  # 机器人躲避（PlayerBot._evade）
+	add_child(_disc(radius, Color(color, 0.18), 0.03))
+	_fill = _disc(radius, color, 0.05)
+	_fill.scale = Vector3(0.05, 1, 0.05)
+	add_child(_fill)
+
+
+func _physics_process(delta: float) -> void:
+	_elapsed += delta
+	var k: float = clampf(_elapsed / fuse, 0.05, 1.0)
+	_fill.scale = Vector3(k, 1, k)
+	if _elapsed < fuse:
+		return
+	if not visual_only:
+		for p: Node3D in PlayerQuery.alive_in_radius(get_tree(), global_position, radius):
+			p.take_damage(damage, source_name)
+		SkillVfx.pulse_ring(get_parent(), global_position, radius, Color(1, 0.5, 0.1, 0.6), 0.25)
+	queue_free()
+
+
+## 距离爆炸还剩多少秒（机器人判断来不及走出去时翻滚）。
+func time_left() -> float:
+	return fuse - _elapsed
+
+
+static func _disc(r: float, color: Color, y: float) -> MeshInstance3D:
+	var mi: MeshInstance3D = MeshInstance3D.new()
+	var cyl: CylinderMesh = CylinderMesh.new()
+	cyl.top_radius = r
+	cyl.bottom_radius = r
+	cyl.height = 0.03
+	cyl.radial_segments = 24
+	mi.mesh = cyl
+	var mat: StandardMaterial3D = StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mi.material_override = mat
+	mi.position.y = y
+	return mi

@@ -63,3 +63,15 @@ notes: 额外说明
 - [ ] 不允许商用的资源已替换或获得授权
 - [ ] Steamworks SDK仅在Steam版本使用
 - [ ] 字体文件已确认游戏内嵌入许可
+
+## Fusion Pixel Font（融合像素字体）
+
+- **名称**：Fusion Pixel Font 12px proportional zh_hans
+- **版本**：2026.09.25
+- **许可证**：SIL Open Font License 1.1
+- **来源**：https://github.com/TakWolf/fusion-pixel-font
+- **用途**：全局 UI 默认字体（中文 + 拉丁字母）
+- **署名要求**：发行时附带 OFL.txt 及来源字体许可证
+- **修改**：否
+
+许可证全文见：`fusion_pixel_font/OFL.txt`，详细记录见 `fusion_pixel_font.yaml`。

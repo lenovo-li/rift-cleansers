@@ -1,0 +1,16 @@
+asset_name: Fusion Pixel Font 12px proportional (zh_hans)
+author: TakWolf（融合 Ark Pixel / Cubic 11 / Galmuri 等字体）
+source_url: https://github.com/TakWolf/fusion-pixel-font
+version: 2026.09.25
+license: SIL Open Font License 1.1
+license_url: https://openfontlicense.org
+download_date: 2026-09-30
+modified: false
+credit_required: true（随发行物附带 OFL.txt 与各来源字体许可证）
+used_in:
+  - 全局 UI 主题默认字体 (assets/ui/main_theme.tres，由 ui/ui_theme.gd 关闭抗锯齿)
+files_location: assets/fonts/fusion-pixel-12px-proportional-zh_hans.ttf
+license_files: third_party_licenses/fusion_pixel_font/（OFL.txt 及 ark-pixel、cubic-11、galmuri 的许可证）
+notes: |
+  OFL 允许免费商用、修改、嵌入游戏，禁止单独售卖字体本身。
+  字体名 "Fusion Pixel" 为保留名称，若修改字体文件需要改名。

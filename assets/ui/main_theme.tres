@@ -1,0 +1,46 @@
+[gd_resource type="Theme" load_steps=6 format=3 uid="uid://dxvnmh0r8j7qn"]
+
+[ext_resource type="FontFile" path="res://assets/fonts/fusion-pixel-12px-proportional-zh_hans.ttf" id="1"]
+[ext_resource type="Texture2D" path="res://assets/ui/button_normal.png" id="2"]
+[ext_resource type="Texture2D" path="res://assets/ui/button_hover.png" id="3"]
+[ext_resource type="Texture2D" path="res://assets/ui/button_pressed.png" id="4"]
+[ext_resource type="Texture2D" path="res://assets/ui/panel_bg.png" id="5"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_normal"]
+texture = ExtResource("2")
+texture_margin_left = 4.0
+texture_margin_top = 4.0
+texture_margin_right = 4.0
+texture_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_hover"]
+texture = ExtResource("3")
+texture_margin_left = 4.0
+texture_margin_top = 4.0
+texture_margin_right = 4.0
+texture_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_pressed"]
+texture = ExtResource("4")
+texture_margin_left = 4.0
+texture_margin_top = 4.0
+texture_margin_right = 4.0
+texture_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_panel"]
+texture = ExtResource("5")
+texture_margin_left = 8.0
+texture_margin_top = 8.0
+texture_margin_right = 8.0
+texture_margin_bottom = 8.0
+
+[resource]
+default_font = ExtResource("1")
+default_font_size = 16
+Button/styles/normal = SubResource("StyleBoxTexture_normal")
+Button/styles/hover = SubResource("StyleBoxTexture_hover")
+Button/styles/pressed = SubResource("StyleBoxTexture_pressed")
+Button/styles/disabled = SubResource("StyleBoxTexture_normal")
+Button/styles/focus = SubResource("StyleBoxTexture_hover")
+PanelContainer/styles/panel = SubResource("StyleBoxTexture_panel")
+Panel/styles/panel = SubResource("StyleBoxTexture_panel")

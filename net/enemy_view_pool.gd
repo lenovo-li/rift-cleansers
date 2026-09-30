@@ -43,7 +43,7 @@ func remove(id: int, killed: bool = false) -> void:
 		return
 	var mi: MeshInstance3D = v.node
 	if killed:
-		SkillVfx.death(get_parent(), v.target, mi.mesh, float(v.height), (v.base as StandardMaterial3D).albedo_color, bool(v.elite))
+		SkillVfx.death(get_parent(), v.target, mi.mesh, float(v.height), v.color, bool(v.elite), mi.scale.x)
 		SfxManager.play(get_parent(), "explode" if v.elite else "death")
 	mi.queue_free()
 	_views.erase(id)
@@ -54,15 +54,14 @@ func _create(r: Dictionary) -> Dictionary:
 	var elite: bool = not String(r.elite).is_empty()
 	var s: float = def.body_scale * (Enemy.ELITE_SCALE if elite else 1.0)
 	var mi: MeshInstance3D = MeshInstance3D.new()
-	mi.mesh = Enemy._cached_mesh(s)
-	var base: StandardMaterial3D = Enemy.shared_material(Enemy.ELITE_COLORS[r.elite] if elite else def.color)
-	mi.material_override = base
+	Enemy.apply_look(mi, def, r.elite)
+	var base: Material = mi.material_override
 	mi.add_to_group("enemy_views")
 	add_child(mi)
-	mi.global_position = r.pos + Vector3(0, 0.8 * s, 0)
+	mi.global_position = r.pos + mi.position
 	var is_boss: bool = r.type == "corrupted_knight"
 	return {"node": mi, "target": r.pos, "hp": r.hp, "seen": Time.get_ticks_msec(), "flash": 0.0,
-		"base": base, "height": 0.8 * s, "is_boss": is_boss, "elite": elite or is_boss,
+		"base": base, "height": mi.position.y, "is_boss": is_boss, "color": Enemy.look_color(def, r.elite), "elite": elite or is_boss,
 		"max_hp": def.max_health * (Enemy.ELITE_HEALTH_MULT if elite else 1.0)}
 
 

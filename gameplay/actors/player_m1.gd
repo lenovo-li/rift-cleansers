@@ -76,7 +76,10 @@ var _invulnerable_time: float = 0.0
 var _hurt_flash: float = 0.0
 var _mesh: MeshInstance3D = null
 var _base_color: Color = Color(0.2, 0.6, 1.0)
+## 每个玩家自己的两份材质：身体（顶点色 × 染色）和队伍色部件（槽位颜色 × 染色）。灰盒时只有 _team_mat。
 var _body_mat: StandardMaterial3D = null
+var _team_mat: StandardMaterial3D = null
+var _has_model: bool = false
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _fx_parent: Node = null
 
@@ -93,9 +96,7 @@ func _ready() -> void:
 	shield_bash = ability_system.get_skill("shield_bash") as ShieldBash
 	_mesh = get_node_or_null("Mesh") as MeshInstance3D
 	if _mesh:
-		_body_mat = (_mesh.get_surface_override_material(0) as StandardMaterial3D).duplicate()
-		_mesh.set_surface_override_material(0, _body_mat)
-		_base_color = SLOT_COLORS[net_slot % SLOT_COLORS.size()]
+		_apply_model()
 	_fx_parent = get_parent()
 	if control == ControlMode.PUPPET:
 		collision_layer = 0  # 客户端上的他人只是显示
@@ -410,6 +411,8 @@ func die() -> void:
 ## 槽位确定后刷新身体颜色。
 func refresh_color() -> void:
 	_base_color = SLOT_COLORS[net_slot % SLOT_COLORS.size()]
+	if _has_model:
+		_team_mat.albedo_color = _base_color
 
 
 ## 被队友救起（多人）：恢复 30% 生命和短暂无敌。
@@ -459,17 +462,39 @@ func get_max_health() -> float:
 
 
 func _update_hurt_flash(delta: float) -> void:
-	if _body_mat == null:
+	if _team_mat == null:
 		return
+	var tint: Color = Color.WHITE
 	if is_dead:
-		_body_mat.albedo_color = Color(0.35, 0.35, 0.35).lerp(Color(0.4, 1.0, 0.5), revive_progress)
+		tint = Color(0.35, 0.35, 0.35).lerp(Color(0.4, 1.0, 0.5), revive_progress)
 	elif _hurt_flash > 0.0:
 		_hurt_flash -= delta
-		_body_mat.albedo_color = Color(1, 0.3, 0.3)
+		tint = Color(1, 0.3, 0.3)
 	elif _invulnerable_time > 0.0:
-		_body_mat.albedo_color = Color(0.7, 0.9, 1.0)
+		tint = Color(0.7, 0.9, 1.0)
+	if _has_model:
+		_body_mat.albedo_color = tint
+		_team_mat.albedo_color = _base_color * tint
 	else:
-		_body_mat.albedo_color = _base_color
+		_team_mat.albedo_color = _base_color if tint == Color.WHITE else tint
+
+
+## 铁卫低模：身体读顶点色，"Team" 表面用槽位颜色。没有模型时保留灰盒胶囊。
+func _apply_model() -> void:
+	_base_color = SLOT_COLORS[net_slot % SLOT_COLORS.size()]
+	var model: Mesh = ModelLibrary.mesh("iron_guard")
+	if model == null:
+		_team_mat = (_mesh.get_surface_override_material(0) as StandardMaterial3D).duplicate()
+		_mesh.set_surface_override_material(0, _team_mat)
+		return
+	_has_model = true
+	_mesh.mesh = model
+	_mesh.position = Vector3.ZERO
+	_body_mat = ModelLibrary.material().duplicate()
+	_team_mat = ModelLibrary.material(_base_color).duplicate()
+	var team_surface: int = ModelLibrary.surface_index(model, "Team")
+	for i in model.get_surface_count():
+		_mesh.set_surface_override_material(i, _team_mat if i == team_surface else _body_mat)
 
 
 ## 受击闪红（客户端根据快照血量变化调用）。

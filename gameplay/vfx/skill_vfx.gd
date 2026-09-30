@@ -241,12 +241,13 @@ static func arc(parent: Node, a: Vector3, b: Vector3, color: Color) -> void:
 
 ## 敌人死亡：原地留下一个溶解中的残影 + 碎屑。同时存在的残影有上限，超出时只放碎屑。
 ## 不录制：联机客户端收到 "dead" 事件时用自己的敌人视图网格播放同一效果。
-static func death(parent: Node, pos: Vector3, mesh: Mesh, height: float, color: Color, elite: bool) -> void:
+static func death(parent: Node, pos: Vector3, mesh: Mesh, height: float, color: Color, elite: bool, scale: float = 1.0) -> void:
 	if parent == null or not parent.is_inside_tree():
 		return
-	ParticleFx.burst(parent, "debris", pos + Vector3(0, height, 0), 1.3 if elite else 0.8, color.darkened(0.2))
+	var mid: Vector3 = pos + Vector3(0, maxf(height, 0.8 * scale), 0)
+	ParticleFx.burst(parent, "debris", mid, 1.3 if elite else 0.8, color.darkened(0.2))
 	if elite:
-		ParticleFx.burst(parent, "star", pos + Vector3(0, height, 0), 1.2, color)
+		ParticleFx.burst(parent, "star", mid, 1.2, color)
 	if mesh == null or _ghosts >= MAX_GHOSTS or DisplayServer.get_name() == "headless":
 		return
 	if _dissolve_mat == null:
@@ -259,11 +260,13 @@ static func death(parent: Node, pos: Vector3, mesh: Mesh, height: float, color: 
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(mi)
 	mi.global_position = pos + Vector3(0, height, 0)
-	mi.set_instance_shader_parameter("base_color", color)
+	mi.scale = Vector3.ONE * scale
+	# 低模（ArrayMesh）自带顶点色，不再叠加代表色；灰盒胶囊没有顶点色，用代表色
+	mi.set_instance_shader_parameter("base_color", color if mesh is PrimitiveMesh else Color.WHITE)
 	_ghosts += 1
 	var tw: Tween = mi.create_tween().set_parallel(true)
 	tw.tween_method(func(v: float) -> void: mi.set_instance_shader_parameter("progress", v), 0.0, 1.0, 0.35)
-	tw.tween_property(mi, "scale", Vector3(1.15, 0.7, 1.15), 0.35)
+	tw.tween_property(mi, "scale", Vector3(1.15, 0.7, 1.15) * scale, 0.35)
 	tw.chain().tween_callback(func() -> void:
 		_ghosts -= 1
 		mi.queue_free())

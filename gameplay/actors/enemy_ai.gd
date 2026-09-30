@@ -89,10 +89,8 @@ func _ready() -> void:
 	add_to_group("enemies")
 	var s: float = def.body_scale * (ELITE_SCALE if elite else 1.0)
 	_mesh = get_node("Mesh") as MeshInstance3D
-	_mesh.mesh = _cached_mesh(s)
-	_mesh.position = Vector3(0, 0.8 * s, 0)
-	_base_material = shared_material(ELITE_COLORS[elite_mod] if elite else def.color)
-	_mesh.material_override = _base_material
+	apply_look(_mesh, def, elite_mod)
+	_base_material = _mesh.material_override
 	var col: CollisionShape3D = get_node("Collision") as CollisionShape3D
 	col.shape = _cached_shape(s)
 	col.position = Vector3(0, 0.8 * s, 0)
@@ -303,7 +301,8 @@ func die() -> void:
 	is_alive = false
 	current_health = 0.0
 	remove_from_group("enemies")
-	SkillVfx.death(effects_parent, global_position, _mesh.mesh, _mesh.position.y, (_base_material as StandardMaterial3D).albedo_color, is_elite() or self is Boss)
+	SkillVfx.death(effects_parent, global_position, _mesh.mesh, _mesh.position.y, look_color(def, elite_mod),
+			is_elite() or self is Boss, _mesh.scale.x)
 	SfxManager.play(effects_parent, "explode" if is_elite() or self is Boss else "death")
 	match def.behavior:
 		EnemyDef.Behavior.DASHER:
@@ -348,6 +347,29 @@ func _update_flash(delta: float) -> void:
 			_mesh.material_override = _base_material
 
 
+## 外观：有低模就用低模（原点在脚底，按体型缩放，精英染色并微微发光）；没有就退回灰盒胶囊。
+## 客户端的敌人视图（EnemyViewPool）也用这个函数，保证两边看起来一样。
+static func apply_look(mi: MeshInstance3D, d: EnemyDef, mod: String) -> void:
+	var elite: bool = not mod.is_empty()
+	var s: float = d.body_scale * (ELITE_SCALE if elite else 1.0)
+	var model: Mesh = ModelLibrary.mesh(d.enemy_id)
+	if model != null:
+		mi.mesh = model
+		mi.position = Vector3.ZERO
+		mi.scale = Vector3.ONE * s
+		mi.material_override = ModelLibrary.material(ELITE_COLORS[mod] if elite else Color.WHITE, 0.35 if elite else 0.0)
+	else:
+		mi.mesh = _cached_mesh(s)
+		mi.position = Vector3(0, 0.8 * s, 0)
+		mi.scale = Vector3.ONE
+		mi.material_override = shared_material(look_color(d, mod))
+
+
+## 死亡碎屑、溶解残影用的代表色。
+static func look_color(d: EnemyDef, mod: String) -> Color:
+	return ELITE_COLORS[mod] if not mod.is_empty() else d.color
+
+
 ## 受击闪白（无光照纯白，比变红更醒目）。
 static func flash_material() -> StandardMaterial3D:
 	if not _materials.has("flash"):
@@ -363,6 +385,7 @@ static func clear_caches() -> void:
 	_materials.clear()
 	_meshes.clear()
 	_shapes.clear()
+	ModelLibrary.clear()
 
 
 static func shared_material(color: Color) -> StandardMaterial3D:

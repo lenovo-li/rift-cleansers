@@ -10,7 +10,7 @@
 [ext_resource type="Script" uid="uid://bt367d0brehs3" path="res://gameplay/loot/loot_manager.gd" id="8"]
 [ext_resource type="Script" uid="uid://dwa44kw1dfo0b" path="res://ui/hud.gd" id="9"]
 [ext_resource type="Script" uid="uid://73k7abm04hlm" path="res://ui/upgrade_panel.gd" id="10"]
-[ext_resource type="Script" path="res://gameplay/map/ashen_city.gd" id="11"]
+[ext_resource type="Script" path="res://gameplay/map/map_base.gd" id="11"]
 [ext_resource type="Shader" path="res://presentation/shaders/ash_ground.gdshader" id="12"]
 
 [sub_resource type="Environment" id="env"]

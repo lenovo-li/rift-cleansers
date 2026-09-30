@@ -81,8 +81,8 @@ func _add(enemy: Enemy, center: Variant, radius: float) -> void:
 	var pos: Vector3 = origin + Vector3(cos(angle) * r, 0.0, sin(angle) * r)
 	pos.x = clampf(pos.x, -ARENA_HALF, ARENA_HALF)
 	pos.z = clampf(pos.z, -ARENA_HALF, ARENA_HALF)
-	if AshenCity.instance:
-		pos = AshenCity.instance.find_free(pos, 1.2)
+	if MapBase.current:
+		pos = MapBase.current.find_free(pos, 1.2)
 	enemy.global_position = pos
 	if _director and not (enemy is Boss):
 		_director.on_enemy_spawned()

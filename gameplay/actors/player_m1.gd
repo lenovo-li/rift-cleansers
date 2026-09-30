@@ -394,8 +394,8 @@ func _apply_support_skill_result(skill_id: String, result: Dictionary, ctx: Skil
 				return
 			var end: Vector3 = result.end_position
 			end = Vector3(clampf(end.x, -ARENA_HALF, ARENA_HALF), 0.0, clampf(end.z, -ARENA_HALF, ARENA_HALF))
-			if AshenCity.instance:
-				end = AshenCity.instance.find_free(end, 0.6)
+			if MapBase.current:
+				end = MapBase.current.find_free(end, 0.6)
 			for i in range(1, path.size()):
 				SkillVfx.dash_trail(_fx_parent, path[i - 1] + Vector3(0, 0.8, 0), path[i] + Vector3(0, 0.8, 0), 0.5,
 						Color(0.55, 0.3, 0.9, 0.6))

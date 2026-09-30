@@ -6,6 +6,8 @@ var radius: float = 2.5
 var damage: float = 25.0
 var fuse: float = 0.7
 var source_name: String = "爆炸"
+## 预警圈颜色（地图环境危险换成主题色）
+var color: Color = Color(1, 0.35, 0.1, 0.45)
 var _elapsed: float = 0.0
 var _fill: MeshInstance3D = null
 ## 客户端回放用：只显示、不结算伤害。
@@ -21,8 +23,8 @@ func setup(p_radius: float, p_damage: float, p_fuse: float, p_source_name: Strin
 
 func _ready() -> void:
 	add_to_group("danger")  # 机器人躲避（PlayerBot._evade）
-	add_child(_disc(radius, Color(1, 0.3, 0.1, 0.18), 0.03))
-	_fill = _disc(radius, Color(1, 0.35, 0.1, 0.45), 0.05)
+	add_child(_disc(radius, Color(color, 0.18), 0.03))
+	_fill = _disc(radius, color, 0.05)
 	_fill.scale = Vector3(0.05, 1, 0.05)
 	add_child(_fill)
 

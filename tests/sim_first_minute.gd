@@ -25,9 +25,11 @@ func _init() -> void:
 	seed(sim_seed)
 
 	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--map="):
+			NetConfig.map_id = arg.get_slice("=", 1)
 		if arg.begins_with("--char="):
 			NetConfig.character_id = arg.get_slice("=", 1)
-	print("[sim] character=%s" % NetConfig.character_id)
+	print("[sim] character=%s map=%s" % [NetConfig.character_id, NetConfig.map_id])
 	var scene: Node = (load("res://scenes/game_scene.tscn") as PackedScene).instantiate()
 	scene.auto_pick_upgrades = true  # 升级面板会暂停场景树，模拟里直接选第一项
 	scene.record_runs = false

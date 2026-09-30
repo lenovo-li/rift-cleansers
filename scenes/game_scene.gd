@@ -221,7 +221,7 @@ func _on_game_over(reason: String, victory: bool) -> void:
 	get_tree().paused = true
 	var record: Dictionary = {}
 	if record_runs:
-		record = SaveData.record_run(_player.character_id, "ashen_city", victory, _session.get_game_time(),
+		record = SaveData.record_run(_player.character_id, NetConfig.map_id, victory, _session.get_game_time(),
 				_session.get_player_level(), _spawner.kills)
 	var can_restart: bool = not NetConfig.is_client()
 	_game_over_panel = GameOverPanel.build(victory, reason, _session, _spawner.kills, can_restart, record)

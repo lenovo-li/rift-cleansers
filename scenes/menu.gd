@@ -5,6 +5,8 @@ const GAME_SCENE: String = "res://scenes/game_scene.tscn"
 
 var _name_edit: LineEdit
 var _char_buttons: Array[Button] = []
+var _map_buttons: Array[Button] = []
+var _desc: Label
 var _addr_edit: LineEdit
 var _port_edit: LineEdit
 var _status: Label
@@ -25,9 +27,9 @@ func _ready() -> void:
 	box.anchor_right = 0.5
 	box.anchor_top = 0.5
 	box.anchor_bottom = 0.5
-	box.offset_left = -260
-	box.offset_right = 260
-	box.offset_top = -280
+	box.offset_left = -320
+	box.offset_right = 320
+	box.offset_top = -360
 	box.add_theme_constant_override("separation", 12)
 	add_child(box)
 	var title: Label = Label.new()
@@ -46,10 +48,30 @@ func _ready() -> void:
 	for id: String in CharacterCatalog.ids():
 		var btn: Button = Button.new()
 		btn.text = CharacterCatalog.get_def(id).name
-		btn.custom_minimum_size = Vector2(140, 40)
+		btn.custom_minimum_size = Vector2(110, 40)
 		btn.pressed.connect(_on_char_select.bind(id))
 		char_row.add_child(btn)
 		_char_buttons.append(btn)
+	var map_row: HBoxContainer = HBoxContainer.new()
+	map_row.add_theme_constant_override("separation", 8)
+	box.add_child(map_row)
+	var map_label: Label = Label.new()
+	map_label.text = "地图"
+	map_label.custom_minimum_size.x = 80
+	map_row.add_child(map_label)
+	for id: String in MapCatalog.ids():
+		var btn: Button = Button.new()
+		btn.text = MapCatalog.get_def(id).name
+		btn.custom_minimum_size = Vector2(110, 40)
+		btn.tooltip_text = MapCatalog.get_def(id).desc
+		btn.pressed.connect(_on_map_select.bind(id))
+		map_row.add_child(btn)
+		_map_buttons.append(btn)
+	_desc = Label.new()
+	_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_desc.add_theme_font_size_override("font_size", 16)
+	box.add_child(_desc)
+	_update_char_buttons()
 	_button(box, "单人游戏", _on_single)
 	_port_edit = _field(box, "端口", str(NetConfig.DEFAULT_PORT))
 	_button(box, "创建房间（主机）", _on_host)
@@ -100,11 +122,20 @@ func _on_char_select(id: String) -> void:
 	_update_char_buttons()
 
 
+func _on_map_select(id: String) -> void:
+	NetConfig.map_id = id
+	_update_char_buttons()
+
+
+## 已选的角色/地图按钮置灰，下方显示两者说明。
 func _update_char_buttons() -> void:
 	for i in _char_buttons.size():
-		var btn: Button = _char_buttons[i]
-		var id: String = CharacterCatalog.ids()[i]
-		btn.disabled = (id == NetConfig.character_id)
+		_char_buttons[i].disabled = (CharacterCatalog.ids()[i] == NetConfig.character_id)
+	for i in _map_buttons.size():
+		_map_buttons[i].disabled = (MapCatalog.ids()[i] == NetConfig.map_id)
+	if _desc != null:
+		_desc.text = "%s\n%s：%s" % [CharacterCatalog.get_def(NetConfig.character_id).desc,
+				MapCatalog.get_def(NetConfig.map_id).name, MapCatalog.get_def(NetConfig.map_id).desc]
 
 
 func _on_single() -> void:

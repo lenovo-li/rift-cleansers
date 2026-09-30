@@ -55,7 +55,7 @@ func _spawn(kind: String, item_id: String, amount: float, pos: Vector3) -> void:
 	add_child(p)
 	var clamped: Vector3 = Vector3(clampf(pos.x, -95.0, 95.0), 0.0, clampf(pos.z, -95.0, 95.0))
 	# 灰烬王城：落在墙体里就螺旋外扩找空地
-	p.global_position = AshenCity.instance.find_free(clamped, 0.5) if AshenCity.instance else clamped
+	p.global_position = MapBase.current.find_free(clamped, 0.5) if MapBase.current else clamped
 
 
 func _owned_by_everyone() -> Dictionary:

@@ -42,14 +42,16 @@ def main():
     ap.add_argument("--godot", default=DEFAULT_GODOT)
     ap.add_argument("--lag", type=int, default=50)
     ap.add_argument("--seconds", type=int, default=60)
+    ap.add_argument("--host-map", default="", help="主机用的地图；客户端保持默认，验证换图握手")
     opt = ap.parse_args()
     tmp = tempfile.mkdtemp(prefix="net_smoke_")
     host_rep, c1_rep, c2_rep = (os.path.join(tmp, n) for n in ("host.json", "client1.json", "client2.json"))
     common = ["--bot", "--port=%d" % PORT, "--lag=%d" % opt.lag]
     kill_at, gap = opt.seconds * 0.4, 6.0
 
+    host_map = ["--map=" + opt.host_map] if opt.host_map else []
     host, hlog = launch(opt.godot, ["--host", "--name=主机", "--net-report=" + host_rep,
-                                    "--quit-after=%d" % (opt.seconds + 5)] + common, os.path.join(tmp, "host.log"))
+                                    "--quit-after=%d" % (opt.seconds + 5)] + common + host_map, os.path.join(tmp, "host.log"))
     time.sleep(3.0)
     c1, c1log = launch(opt.godot, ["--join=127.0.0.1", "--name=客户端", "--token=" + TOKEN,
                                    "--net-report=" + c1_rep] + common, os.path.join(tmp, "client1.log"))

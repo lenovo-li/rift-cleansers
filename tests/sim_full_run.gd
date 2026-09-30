@@ -23,9 +23,11 @@ func _init() -> void:
 			sim_seed = int(arg.get_slice("=", 1))
 	seed(sim_seed)
 	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--map="):
+			NetConfig.map_id = arg.get_slice("=", 1)
 		if arg.begins_with("--char="):
 			NetConfig.character_id = arg.get_slice("=", 1)
-	print("[sim] character=%s" % NetConfig.character_id)
+	print("[sim] character=%s map=%s" % [NetConfig.character_id, NetConfig.map_id])
 	_scene = (load("res://scenes/game_scene.tscn") as PackedScene).instantiate()
 	_scene.auto_pick_upgrades = true
 	_scene.record_runs = false

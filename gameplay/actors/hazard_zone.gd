@@ -2,8 +2,10 @@ extends Node3D
 ## 膨胀怪死亡后留下的减速毒区：玩家站在里面会被减速并持续受伤。地面上有明确的色块提示。
 
 const TICK: float = 0.5
-const DPS: float = 10.0
 
+## 也用作地图环境危险（冰原寒霜、森林孢子），由 MapBase 改写伤害与死因。
+var dps: float = 10.0
+var source_name: String = "膨胀怪毒区"
 var radius: float = 3.5
 var slow_factor: float = 0.5
 var duration: float = 4.0
@@ -50,5 +52,5 @@ func _physics_process(delta: float) -> void:
 		return
 	_tick_timer -= TICK
 	for p: Node3D in PlayerQuery.alive_in_radius(get_tree(), global_position, radius):
-		p.take_damage(DPS * TICK, "膨胀怪毒区")
+		p.take_damage(dps * TICK, source_name)
 		p.apply_slow(slow_factor, 1.0)

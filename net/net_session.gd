@@ -239,7 +239,8 @@ func _client_tick() -> void:
 	if not welcomed:
 		if _timers.hello >= HELLO_RETRY:
 			_timers.hello = 0.0
-			_send(1, &"rpc_hello", [NetConfig.reconnect_token, NetConfig.player_name, NetConfig.character_id])
+			_send(1, &"rpc_hello", [NetConfig.reconnect_token, NetConfig.player_name, NetConfig.character_id,
+					NetConfig.map_id])
 		return
 	var p: CharacterBody3D = local_player
 	if p.ai_controlled and p.bot != null:
@@ -262,12 +263,16 @@ func send_action(kind: Action, value: int) -> void:
 # ---------- 主机收到的 RPC ----------
 
 @rpc("any_peer", "call_remote", "reliable")
-func rpc_hello(token: String, display: String, char_id: String = CharacterCatalog.DEFAULT_ID) -> void:
+func rpc_hello(token: String, display: String, char_id: String = CharacterCatalog.DEFAULT_ID,
+		map_id: String = MapCatalog.DEFAULT_ID) -> void:
 	if not is_host():
 		return
 	var peer: int = multiplayer.get_remote_sender_id()
 	if _slot_by_peer.has(peer):
 		return  # 重复的 hello（客户端重试）
+	if map_id != NetConfig.map_id:
+		_send(peer, &"rpc_map", [NetConfig.map_id])  # 先换图，换好后客户端会再发 hello
+		return
 	var slot: int = int(_slot_by_token.get(token, -1))
 	var reconnect: bool = slot >= 0 and players_by_slot.has(slot)
 	if not reconnect:
@@ -505,6 +510,16 @@ func rpc_reject(reason: String) -> void:
 	_leave("主机拒绝加入：%s" % reason)
 
 
+## 主机的地图和本地不同：换成主机的地图重新载入场景（连接保留，重载后重新 hello）。
+@rpc("authority", "call_remote", "reliable")
+func rpc_map(map_id: String) -> void:
+	if welcomed or not MapCatalog.is_valid(map_id) or map_id == NetConfig.map_id:
+		return
+	print("[net] host map is %s, reloading" % map_id)
+	NetConfig.map_id = map_id
+	get_tree().reload_current_scene.call_deferred()
+
+
 @rpc("authority", "call_remote", "reliable")
 func rpc_welcome(slot: int, state: Dictionary) -> void:
 	_count_in([slot, state])
@@ -726,13 +741,15 @@ func _replay_fx(ev: Array) -> void:
 			pr.global_position = ev[1]
 		"hazard":
 			var hz: Node3D = HazardScript.new()
-			hz.setup(ev[2], 0.0, ev[3], Color(0.6, 0.65, 0.1, 0.35))
+			hz.setup(ev[2], 0.0, ev[3], ev[4] if ev.size() > 4 else Color(0.6, 0.65, 0.1, 0.35))
 			hz.visual_only = true
 			scene.add_child(hz)
 			hz.global_position = ev[1]
 		"blast":
 			var bl: Node3D = BlastScript.new()
 			bl.setup(ev[2], 0.0, ev[3], "")
+			if ev.size() > 4:
+				bl.color = ev[4]
 			bl.visual_only = true
 			scene.add_child(bl)
 			bl.global_position = ev[1]

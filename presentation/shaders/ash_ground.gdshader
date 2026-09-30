@@ -6,6 +6,8 @@ uniform vec4 stone_color : source_color = vec4(0.36, 0.34, 0.31, 1.0);
 uniform vec4 ash_color : source_color = vec4(0.18, 0.16, 0.15, 1.0);
 uniform vec4 ember_color : source_color = vec4(0.55, 0.22, 0.08, 1.0);
 uniform float tile_size = 2.0;
+// 石板缝强度：1 = 灰烬王城的石板路，接近 0 = 雪地/沙地/林地这类没有砖缝的地面
+uniform float grout_strength = 1.0;
 uniform float plaza_radius = 20.0;
 uniform sampler2D noise_tex : filter_linear, repeat_enable;
 
@@ -27,7 +29,7 @@ void fragment() {
 	vec2 f = fract(p);
 	float edge = min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y));
 	float grout = smoothstep(0.02, 0.06, edge);
-	float tile_shade = 0.85 + hash(cell) * 0.3;
+	float tile_shade = 1.0 + (hash(cell) - 0.5) * 0.3 * grout_strength;
 	float n = texture(noise_tex, world_pos.xz * 0.02).r;
 	float n2 = texture(noise_tex, world_pos.xz * 0.11 + vec2(0.3)).r;
 	float dist = length(world_pos.xz);
@@ -35,9 +37,9 @@ void fragment() {
 	float ash = smoothstep(0.35, 0.75, n + clamp((dist - plaza_radius) / 70.0, 0.0, 0.35));
 	vec3 col = stone_color.rgb * tile_shade;
 	col = mix(col, ash_color.rgb, ash * 0.85);
-	col *= mix(0.55, 1.0, grout);
+	col *= mix(mix(1.0, 0.55, grout_strength), 1.0, grout);
 	// 零星余烬裂纹（石缝里微微发红）
-	float ember = (1.0 - grout) * smoothstep(0.72, 0.9, n2) * ash;
+	float ember = (1.0 - grout) * smoothstep(0.72, 0.9, n2) * ash * max(grout_strength, 0.35);
 	ALBEDO = col;
 	EMISSION = ember_color.rgb * ember * 1.5;
 	ROUGHNESS = 0.95;

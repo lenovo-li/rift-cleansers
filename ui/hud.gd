@@ -32,6 +32,7 @@ var _level_flash: ColorRect
 
 
 func _ready() -> void:
+	theme = load("res://assets/ui/main_theme.tres")
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# 最底层：暗角和升级闪光，不挡其他 HUD

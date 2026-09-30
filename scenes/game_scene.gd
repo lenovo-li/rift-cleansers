@@ -21,15 +21,25 @@ const REVIVE_TIME: float = 3.0
 var net: NetSession = null
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _game_over_panel: Control = null
+var _pause_menu: PauseMenu = null
 var _music: Node = null
 var _music_timer: float = 0.0
+## 地图随机事件（主机 / 单人）
+var events: EventDirector = null
 
 
 func _ready() -> void:
 	_rng.randomize()
+	Settings.apply()  # 命令行直接开局时菜单没跑过，这里再应用一次
 	_music = (load("res://presentation/music_manager.gd") as GDScript).new()
 	_music.name = "Music"
 	add_child(_music)
+	if not NetConfig.is_client():
+		events = EventDirector.new()
+		events.name = "EventDirector"
+		add_child(events)
+		events.initialize(NetConfig.map_id, _session, _loot, _spawner)
+		events.event_triggered.connect(func(_kind: int, text: String) -> void: _broadcast_toast(text))
 	_session.game_over.connect(_on_game_over)
 	_session.level_up.connect(_on_level_up)
 	_spawner.boss_spawned.connect(_on_boss_spawned)
@@ -70,8 +80,11 @@ func _ready() -> void:
 	var pool: Array[String] = _player.ability_system.pool()
 	for i in pool.size():
 		if _player.ability_system.get_skill(pool[i]) != null:
-			keys.append("%s %s" % [_hud.SKILL_KEYS[i], SkillFactory.display_name(pool[i])])
-	_hud.show_toast("WASD 移动  %s  Shift 闪避  T 自动施放  F3 联机调试" % "  ".join(keys), 5.0)
+			keys.append("%s %s" % [_hud.key_label(i), SkillFactory.display_name(pool[i])])
+	var move: String = "".join([Settings.key_name(Settings.key_of("move_up")), Settings.key_name(Settings.key_of("move_left")),
+			Settings.key_name(Settings.key_of("move_down")), Settings.key_name(Settings.key_of("move_right"))])
+	_hud.show_toast("%s 移动  %s  %s 闪避  T 自动施放  %s 菜单  F3 联机调试" % [move, "  ".join(keys),
+			Settings.key_name(Settings.key_of("dash")), Settings.key_name(Settings.key_of("pause"))], 5.0)
 
 
 func _setup_network() -> void:
@@ -225,6 +238,7 @@ func _on_game_over(reason: String, victory: bool) -> void:
 		net.broadcast_game_over(reason, victory)
 	if _upgrade_panel.is_open():
 		_upgrade_panel.close()
+	_close_pause_menu()
 	get_tree().paused = true
 	var record: Dictionary = {}
 	if record_runs:
@@ -262,8 +276,31 @@ func _unhandled_input(event: InputEvent) -> void:
 					net.send_action(NetSession.Action.AUTO_CAST, int(_player.auto_cast))
 			KEY_F3:
 				_hud.toggle_debug()
-			KEY_ESCAPE:
-				_quit_to_menu()
+	if event.is_action_pressed("pause"):
+		get_viewport().set_input_as_handled()
+		_open_pause_menu()
+
+
+## Esc：暂停菜单（继续 / 设置 / 回主菜单）。结算和选升级时不弹。
+func _open_pause_menu() -> void:
+	if _pause_menu != null or _game_over_panel != null or _upgrade_panel.is_open():
+		return
+	var solo: bool = not NetConfig.is_online()
+	_pause_menu = PauseMenu.build(solo)
+	_pause_menu.resume_requested.connect(_close_pause_menu)
+	_pause_menu.quit_requested.connect(_quit_to_menu)
+	$UI.add_child(_pause_menu)
+	if solo:
+		get_tree().paused = true
+
+
+func _close_pause_menu() -> void:
+	if _pause_menu == null:
+		return
+	_pause_menu.queue_free()
+	_pause_menu = null
+	if not NetConfig.is_online():
+		get_tree().paused = false
 
 
 ## 客户端：技能键交给主机结算；闪避本地预测（dodge_requested 信号负责上传）。

@@ -1,7 +1,7 @@
-"""程序化合成 3 首可无缝循环的背景音乐（纯 Python 标准库，无外部依赖，原创无版权问题）。
+"""程序化合成 4 套背景音乐（每套 3 首：explore/battle/boss），每张地图一套。
 用法: python tools/audio/synth_music.py
-输出: assets/audio/music/{explore,battle,boss}.wav（22050 Hz 单声道 16 位）
-风格：D 小调暗黑氛围。探索 = 低沉长音 + 稀疏拨弦；战斗 = 加鼓和低音固定音型；Boss = 更快、更刺耳的主旋律。
+输出: assets/audio/music/<map_id>_{explore,battle,boss}.wav（22050 Hz 单声道 16 位）
+地图主题：灰烬王城（D 小调暗黑）、霜冻冰原（E 小调空灵）、沙海遗迹（A 小调神秘）、幽暗森林（F# 小调诡异）
 每首长度都是整数小节，音符在小节内收尾，所以首尾相接不会有爆音。
 """
 import math
@@ -14,8 +14,29 @@ RATE = 22050
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT = os.path.join(ROOT, "assets", "audio", "music")
 
-# D 小调音阶（MIDI 音高）
-D_MINOR = [62, 64, 65, 67, 69, 70, 72]
+# 四张地图的音乐主题（调式根音 + 音阶 + 和弦进行 + BPM 范围）
+THEMES = {
+    "ashen_city": {
+        "root": 62, "scale": [0, 2, 3, 5, 7, 8, 10],  # D 小调
+        "progression": [[0, 7, 12, 15], [-4, 3, 8, 12], [-7, 0, 5, 8], [-5, 2, 7, 11]],  # i-VI-iv-V
+        "explore_bpm": 70, "battle_bpm": 128, "boss_bpm": 150,
+    },
+    "frost_wastes": {
+        "root": 64, "scale": [0, 2, 3, 5, 7, 8, 10],  # E 小调
+        "progression": [[0, 7, 12, 15], [-3, 4, 9, 12], [-5, 2, 7, 10], [2, 9, 14, 17]],  # i-bVII-bVI-III
+        "explore_bpm": 60, "battle_bpm": 120, "boss_bpm": 145,
+    },
+    "sand_ruins": {
+        "root": 57, "scale": [0, 2, 3, 5, 7, 8, 11],  # A 小调和声（升 7 级）
+        "progression": [[0, 7, 12, 16], [-5, 2, 7, 12], [-3, 4, 7, 12], [-1, 2, 7, 11]],  # i-iv-bVI-V7
+        "explore_bpm": 75, "battle_bpm": 132, "boss_bpm": 155,
+    },
+    "dark_forest": {
+        "root": 66, "scale": [0, 2, 3, 5, 7, 8, 10],  # F# 小调
+        "progression": [[0, 7, 12, 15], [-2, 5, 9, 12], [-5, 2, 7, 10], [-3, 4, 7, 12]],  # i-bVII-iv-bVI
+        "explore_bpm": 65, "battle_bpm": 124, "boss_bpm": 148,
+    },
+}
 
 
 def freq(midi):
@@ -124,36 +145,45 @@ def make_hat(rng):
     return fn
 
 
-# 和弦进行（小节级）：Dm - B♭ - Gm - A（A 是小调里的属和弦，给紧张感）
+# 保留旧接口的默认主题（灰烬王城）
+D_MINOR = [62, 64, 65, 67, 69, 70, 72]
 PROGRESSION = [[50, 57, 62, 65], [46, 53, 58, 62], [43, 50, 55, 58], [45, 52, 57, 61]]
 
 
-def explore(rng):
-    bpm, bars = 70, 16
+def explore(rng, theme=None):
+    if theme is None:
+        theme = THEMES["ashen_city"]
+    bpm, bars = theme["explore_bpm"], 16
     beat = 60.0 / bpm
     tr = Track(bars * 4 * beat)
+    progression = [[theme["root"] + n for n in ch] for ch in theme["progression"]]
+    scale = [theme["root"] + n for n in theme["scale"]]
     for bar in range(bars):
-        chord = PROGRESSION[bar % 4]
+        chord = progression[bar % 4]
         t0 = bar * 4 * beat
         for note in chord:
             tr.add(t0, 4 * beat, pad(note), 0.05)
         for step in range(8):
             if rng.random() < 0.45:
-                tr.add(t0 + step * beat / 2, beat * 1.5, pluck(rng.choice(D_MINOR) + 12), 0.18)
+                tr.add(t0 + step * beat / 2, beat * 1.5, pluck(rng.choice(scale) + 12), 0.18)
     return tr
 
 
-def battle(rng):
-    bpm, bars = 128, 16
+def battle(rng, theme=None):
+    if theme is None:
+        theme = THEMES["ashen_city"]
+    bpm, bars = theme["battle_bpm"], 16
     beat = 60.0 / bpm
     tr = Track(bars * 4 * beat)
+    progression = [[theme["root"] + n for n in ch] for ch in theme["progression"]]
+    scale = [theme["root"] + n for n in theme["scale"]]
     snare, hat = make_snare(rng), make_hat(rng)
     for bar in range(bars):
-        chord = PROGRESSION[bar % 4]
+        chord = progression[bar % 4]
         t0 = bar * 4 * beat
         for note in chord[1:]:
             tr.add(t0, 4 * beat, pad(note), 0.035)
-        for step in range(8):  # 八分音符低音固定音型
+        for step in range(8):
             note = chord[0] - 12 + (12 if step % 4 == 3 else 0)
             tr.add(t0 + step * beat / 2, beat / 2, bass(note), 0.35)
         for b in range(4):
@@ -161,22 +191,26 @@ def battle(rng):
             if b % 2 == 1:
                 tr.add(t0 + b * beat, 0.25, snare, 0.35)
             tr.add(t0 + b * beat + beat / 2, 0.06, hat, 0.12)
-        if bar % 2 == 1:  # 每两小节一句拨弦动机
+        if bar % 2 == 1:
             for i, off in enumerate((0, 2, 4, 3)):
-                tr.add(t0 + (2 + i * 0.5) * beat, beat, pluck(D_MINOR[off] + 12), 0.2)
+                tr.add(t0 + (2 + i * 0.5) * beat, beat, pluck(scale[off] + 12), 0.2)
     return tr
 
 
-def boss(rng):
-    bpm, bars = 150, 16
+def boss(rng, theme=None):
+    if theme is None:
+        theme = THEMES["ashen_city"]
+    bpm, bars = theme["boss_bpm"], 16
     beat = 60.0 / bpm
     tr = Track(bars * 4 * beat)
+    progression = [[theme["root"] + n for n in ch] for ch in theme["progression"]]
+    scale = [theme["root"] + n for n in theme["scale"]]
     snare, hat = make_snare(rng), make_hat(rng)
-    motif = [0, 0, 5, 4, 3, 1, 2, 0]  # 音阶序号，八分音符
+    motif = [0, 0, 5, 4, 3, 1, 2, 0]
     for bar in range(bars):
-        chord = PROGRESSION[bar % 4]
+        chord = progression[bar % 4]
         t0 = bar * 4 * beat
-        for step in range(16):  # 十六分音符低音
+        for step in range(16):
             tr.add(t0 + step * beat / 4, beat / 4, bass(chord[0] - 12), 0.3)
         for b in range(4):
             tr.add(t0 + b * beat, 0.4, kick, 0.65)
@@ -185,21 +219,22 @@ def boss(rng):
                 tr.add(t0 + b * beat, 0.25, snare, 0.45)
             for h in range(2):
                 tr.add(t0 + b * beat + h * beat / 2 + beat / 4, 0.06, hat, 0.1)
-        if bar >= 4:  # 前 4 小节只有节奏，之后主旋律进入
+        if bar >= 4:
             shift = 1 if bar % 4 == 3 else 0
             for i, deg in enumerate(motif):
-                note = D_MINOR[(deg + shift) % len(D_MINOR)] + (12 if bar >= 12 else 0)
+                note = scale[(deg + shift) % len(scale)] + (12 if bar >= 12 else 0)
                 tr.add(t0 + i * beat / 2, beat / 2 * 0.9, lead(note), 0.09)
     return tr
 
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    for name, fn in (("explore", explore), ("battle", battle), ("boss", boss)):
-        track = fn(random.Random(hash(name) & 0xFFFF))
-        path = os.path.join(OUT, name + ".wav")
-        track.save(path)
-        print("[music] %s: %.1f s, %d KB" % (name, track.n / RATE, os.path.getsize(path) // 1024))
+    for map_id, theme in THEMES.items():
+        for name, fn in (("explore", explore), ("battle", battle), ("boss", boss)):
+            track = fn(random.Random(hash(map_id + name) & 0xFFFF), theme)
+            path = os.path.join(OUT, "%s_%s.wav" % (map_id, name))
+            track.save(path)
+            print("[music] %s_%s: %.1f s, %d KB" % (map_id, name, track.n / RATE, os.path.getsize(path) // 1024))
 
 
 if __name__ == "__main__":

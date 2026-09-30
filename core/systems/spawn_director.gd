@@ -17,6 +17,8 @@ const BOSS_PHASE_CAP: int = 120
 @export var spawn_interval: float = 1.0
 ## 压力测试用：>0 时忽略时间线，直接把存活数维持在该值。
 @export var stress_cap: int = 0
+## 地图 ID（从 NetConfig 自动读取）；SpawnDirector.pick_enemy_type 按地图读敌人池。
+var map_id: String = ""
 
 var alive_count: int = 0
 ## 多人：返回玩家人数，存活上限 ×(1 + 0.5 × (人数-1))。
@@ -31,6 +33,7 @@ var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 func initialize(session: GameSession, rng_seed: int = -1) -> void:
 	game_session = session
+	map_id = NetConfig.map_id
 	if rng_seed >= 0:
 		_rng.seed = rng_seed
 	else:
@@ -67,7 +70,7 @@ func _spawn_wave(t: float) -> void:
 				mod = ELITE_MODS[_rng.randi() % ELITE_MODS.size()]
 			elif _rng.randf() < get_elite_chance(t):
 				mod = ELITE_MODS[_rng.randi() % ELITE_MODS.size()]
-		spawn_requested.emit(pick_enemy_type(t, _rng.randf()), mod)
+		spawn_requested.emit(pick_enemy_type(t, _rng.randf(), map_id), mod)
 
 
 func _player_scale() -> float:
@@ -106,9 +109,9 @@ static func get_elite_chance(t: float) -> float:
 	return 0.02
 
 
-## 按时间段的种类权重抽取敌人（roll ∈ [0,1)）。
-static func pick_enemy_type(t: float, roll: float) -> String:
-	var weights: Dictionary = get_type_weights(t)
+## 按时间段的种类权重抽取敌人（roll ∈ [0,1)）。读当前地图的敌人池；无池时用默认权重。
+static func pick_enemy_type(t: float, roll: float, map_id: String = "") -> String:
+	var weights: Dictionary = get_type_weights(t, map_id)
 	var total: float = 0.0
 	for w: float in weights.values():
 		total += w
@@ -120,7 +123,18 @@ static func pick_enemy_type(t: float, roll: float) -> String:
 	return weights.keys()[-1]
 
 
-static func get_type_weights(t: float) -> Dictionary:
+static func get_type_weights(t: float, map_id: String = "") -> Dictionary:
+	if not map_id.is_empty():
+		var map: Dictionary = MapCatalog.get_def(map_id)
+		if map.has("enemies"):
+			var pools: Dictionary = map.enemies
+			if t < 180.0 and pools.has("early"):
+				return pools.early
+			elif t < 420.0 and pools.has("mid"):
+				return pools.mid
+			elif pools.has("late"):
+				return pools.late
+	# 默认池（兼容旧地图和测试）
 	if t < 60.0:
 		return {"zombie": 1.0}
 	if t < 180.0:

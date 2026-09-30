@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="EnemyDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://content/enemies/enemy_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+enemy_id = "sand_scarab"
+display_name = "沙甲虫"
+behavior = 1
+max_health = 30.0
+move_speed = 4.8
+attack_damage = 12.0
+attack_cooldown = 1.0
+attack_range = 1.2
+exp_reward = 3.0
+body_scale = 0.7
+color = Color(0.75, 0.55, 0.35, 1)
+special_range = 9.0
+special_value = 28.0
+special_cooldown = 2.8

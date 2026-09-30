@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="EnemyDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://content/enemies/enemy_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+enemy_id = "ember_guard"
+display_name = "余烬守卫"
+behavior = 0
+max_health = 100.0
+move_speed = 2.8
+attack_damage = 11.0
+attack_cooldown = 1.2
+attack_range = 1.6
+exp_reward = 5.0
+body_scale = 1.3
+color = Color(1.0, 0.5, 0.2, 1)
+special_range = 0.0
+special_value = 0.0
+special_cooldown = 0.0

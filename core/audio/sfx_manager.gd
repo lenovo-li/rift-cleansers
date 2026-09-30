@@ -57,6 +57,7 @@ static func play(parent: Node, category: String) -> AudioStreamPlayer:
 	var player: AudioStreamPlayer = AudioStreamPlayer.new()
 	player.stream = streams.pick_random()
 	player.volume_db = float(cfg[2])
+	player.bus = Settings.SFX_BUS
 	var pitch: Vector2 = cfg[3]
 	player.pitch_scale = randf_range(pitch.x, pitch.y)
 	_voices += 1

@@ -56,6 +56,43 @@ static func surface_index(m: Mesh, name: String) -> int:
 	return -1
 
 
+static var _rigs: Dictionary = {}  # 模型名 -> {分组名: [Mesh, 关节位置]}
+
+
+## 可动角色拆件（<model>_rig.glb，build_models.py 的 RIGS）：{分组名: [网格, 关节位置]}。
+## 网格顶点相对关节，放在关节处的节点下绕原点旋转即可摆动。没有拆件文件时返回空字典。
+static func rig(model: String) -> Dictionary:
+	if _rigs.has(model):
+		return _rigs[model]
+	var found: Dictionary = {}
+	var path: String = MODEL_DIR + model + "_rig.glb"
+	if ResourceLoader.exists(path):
+		var packed: PackedScene = load(path) as PackedScene
+		var root: Node = packed.instantiate() if packed else null
+		if root != null:
+			for mi: Node in root.find_children("*", "MeshInstance3D", true, false):
+				var m3: MeshInstance3D = mi as MeshInstance3D
+				# glTF 导入时对象名可能落在父节点上，按网格资源名或节点名取分组名
+				var key: String = String(m3.mesh.resource_name) if m3.mesh and not m3.mesh.resource_name.is_empty() else String(m3.name)
+				if key.contains("_rig_"):
+					key = key.get_slice("_rig_", 1)  # "iron_guard_rig_arm_l" -> "arm_l"
+				found[key] = [m3.mesh, m3.global_transform.origin if m3.is_inside_tree() else _world_origin(m3)]
+			root.free()
+	_rigs[model] = found
+	return found
+
+
+## 未进场景树的节点：沿父链累加变换求世界坐标。
+static func _world_origin(n: Node3D) -> Vector3:
+	var t: Transform3D = n.transform
+	var p: Node = n.get_parent()
+	while p is Node3D:
+		t = (p as Node3D).transform * t
+		p = p.get_parent()
+	return t.origin
+
+
 static func clear() -> void:
 	_meshes.clear()
 	_materials.clear()
+	_rigs.clear()

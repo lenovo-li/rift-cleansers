@@ -14,6 +14,8 @@ const BASE_DODGE_COOLDOWN: float = 3.0
 const MAX_SHIELD: float = 200.0
 const HEALTH_REGEN: float = 4.0  # 每秒
 
+## 格挡率（天赋「堡垒」会提高）
+var block_chance: float = BLOCK_CHANCE
 var max_health: float = 1000.0
 var health: float = 1000.0
 var shield: float = 0.0
@@ -116,7 +118,7 @@ func receive_damage(amount: float, block_roll: float) -> Dictionary:
 	var result: Dictionary = {"taken": 0.0, "blocked": false, "reflect": 0.0}
 	if not is_alive():
 		return result
-	if block_roll < BLOCK_CHANCE:
+	if block_roll < block_chance:
 		result.blocked = true
 		if has_passive("block_recovery"):
 			add_shield(10.0)

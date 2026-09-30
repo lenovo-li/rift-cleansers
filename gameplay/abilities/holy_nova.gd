@@ -29,7 +29,7 @@ func cast(ctx: SkillContext) -> Dictionary:
 	var tier: int = get_tier()
 	var radius: float = BASE_RADIUS * (1.3 if tier >= 3 else 1.0) * ctx.area_mult
 	var damage: float = BASE_DAMAGE * (2.0 if tier >= 8 else 1.0)
-	var heal: float = BASE_HEAL * (2.0 if tier >= 5 else 1.0)
+	var heal: float = BASE_HEAL * (2.0 if tier >= 5 else 1.0) * ctx.heal_mult
 	var hits: int = 0
 	var total: float = 0.0
 	for t: Variant in ctx.targets_in_radius(ctx.origin, radius):

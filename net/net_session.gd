@@ -240,7 +240,7 @@ func _client_tick() -> void:
 		if _timers.hello >= HELLO_RETRY:
 			_timers.hello = 0.0
 			_send(1, &"rpc_hello", [NetConfig.reconnect_token, NetConfig.player_name, NetConfig.character_id,
-					NetConfig.map_id])
+					NetConfig.map_id, Talents.ranks(NetConfig.character_id)])
 		return
 	var p: CharacterBody3D = local_player
 	if p.ai_controlled and p.bot != null:
@@ -264,7 +264,7 @@ func send_action(kind: Action, value: int) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func rpc_hello(token: String, display: String, char_id: String = CharacterCatalog.DEFAULT_ID,
-		map_id: String = MapCatalog.DEFAULT_ID) -> void:
+		map_id: String = MapCatalog.DEFAULT_ID, talents: Dictionary = {}) -> void:
 	if not is_host():
 		return
 	var peer: int = multiplayer.get_remote_sender_id()
@@ -288,7 +288,8 @@ func rpc_hello(token: String, display: String, char_id: String = CharacterCatalo
 	_peer_by_slot[slot] = peer
 	var player: CharacterBody3D = players_by_slot.get(slot)
 	if player == null:
-		player = _spawn_remote(slot, display, char_id if CharacterCatalog.is_valid(char_id) else CharacterCatalog.DEFAULT_ID)
+		var cid: String = char_id if CharacterCatalog.is_valid(char_id) else CharacterCatalog.DEFAULT_ID
+		player = _spawn_remote(slot, display, cid, Talents.sanitize(cid, talents))
 		_pending_upgrades[slot] = session.get_player_level() - 1  # 中途加入：补齐已错过的升级
 	else:
 		player.ai_controlled = false
@@ -349,10 +350,11 @@ func _free_slot() -> int:
 	return -1
 
 
-func _spawn_remote(slot: int, display: String, char_id: String) -> CharacterBody3D:
+func _spawn_remote(slot: int, display: String, char_id: String, talents: Dictionary = {}) -> CharacterBody3D:
 	var p: CharacterBody3D = PlayerScene.instantiate()
 	p.name = "Player_%d" % slot
 	p.character_id = char_id
+	p.set_talents(talents)
 	p.control = p.ControlMode.REMOTE
 	p.net_slot = slot
 	scene.add_child(p)

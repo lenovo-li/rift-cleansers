@@ -24,7 +24,7 @@ func get_cooldown() -> float:
 
 func cast(ctx: SkillContext) -> Dictionary:
 	var tier: int = get_tier()
-	var ratio: float = 0.5 if tier >= 8 else (0.35 if tier >= 3 else 0.25)
+	var ratio: float = (0.5 if tier >= 8 else (0.35 if tier >= 3 else 0.25)) * ctx.heal_mult
 	var healed: Array[Vector3] = []
 	var revived: int = 0
 	for a: Variant in ctx.allies_in_radius(ctx.origin, RANGE * ctx.area_mult, tier >= 5):

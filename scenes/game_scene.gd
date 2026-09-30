@@ -60,6 +60,7 @@ func _ready() -> void:
 	await get_tree().process_frame
 	if NetConfig.is_client():
 		return  # 时间、等级、刷怪都来自主机
+	_session.exp_bonus = Talents.bonus(_player.talent_ranks, _player.character_id, "wisdom")
 	_director.initialize(_session)
 	_director.player_count_provider = func() -> int: return PlayerQuery.all(get_tree()).size()
 	_session.player_count_provider = _director.player_count_provider

@@ -77,6 +77,7 @@ func _ready() -> void:
 	_button(box, "创建房间（主机）", _on_host)
 	_addr_edit = _field(box, "主机 IP", NetConfig.address)
 	_button(box, "加入房间", _on_join)
+	_button(box, "天赋树", func() -> void: add_child(TalentPanel.build(NetConfig.character_id)))
 	_button(box, "本地排行榜", _show_leaderboard)
 	_button(box, "退出", func() -> void: get_tree().quit())
 	_status = Label.new()
@@ -160,7 +161,7 @@ func _on_join() -> void:
 func _show_leaderboard() -> void:
 	var overlay: Button = Button.new()
 	overlay.flat = true
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var dim: ColorRect = ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.85)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)

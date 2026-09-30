@@ -24,6 +24,8 @@ var crit_chance: float = 0.0
 var crit_mult: float = 2.0
 var rng: RandomNumberGenerator = null
 var crits: int = 0
+## 治疗与护盾倍率（牧师天赋「虔诚」）
+var heal_mult: float = 1.0
 
 
 ## 存活的队友。

@@ -31,6 +31,6 @@ func cast(ctx: SkillContext) -> Dictionary:
 		var st: CharacterStats = a.stats
 		st.set_blessing(duration, bonus)
 		if tier >= 8:
-			a.heal(st.max_health * 0.1)
+			a.heal(st.max_health * 0.1 * ctx.heal_mult)
 		blessed.append(a.global_position)
 	return {"hits": 0, "damage": 0.0, "tier": tier, "bonus": bonus, "duration": duration, "blessed": blessed}

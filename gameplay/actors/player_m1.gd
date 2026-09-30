@@ -44,6 +44,11 @@ var attack_kind: String = "pulse"
 ## 暴击率（影行者），自动攻击和技能共用，暴击 2 倍伤害。
 var crit_chance: float = 0.0
 var _bolt_color: Color = Color(0.6, 0.75, 1.0, 0.8)
+## 治疗与护盾倍率（天赋）
+var heal_mult: float = 1.0
+## 天赋等级 {天赋 id: 等级}。本地玩家在 _ready 读存档；主机上的远程玩家由 NetSession 在加入场景树前写入。
+var talent_ranks: Dictionary = {}
+var _talents_set: bool = false
 var entity_id: int = 0
 var attack_timer: float = 0.0
 var stats: CharacterStats = null
@@ -115,6 +120,10 @@ func _ready() -> void:
 	for id: String in cdef.starting:
 		ability_system.add_skill(SkillFactory.create(id))
 	ability_system.strike_landed.connect(_on_strike_landed)
+	if control == ControlMode.LOCAL or control == ControlMode.PREDICTED:
+		if not _talents_set:
+			talent_ranks = Talents.ranks(character_id)
+	Talents.apply(self, character_id, talent_ranks)
 	shield_bash = ability_system.get_skill("shield_bash") as ShieldBash
 	_mesh = get_node_or_null("Mesh") as MeshInstance3D
 	if _mesh:
@@ -275,6 +284,7 @@ func make_context(enemies: Array) -> SkillContext:
 	ctx.allies = PlayerQuery.all(get_tree())
 	ctx.crit_chance = crit_chance
 	ctx.rng = _rng
+	ctx.heal_mult = heal_mult
 	return ctx
 
 
@@ -626,6 +636,12 @@ func is_invulnerable() -> bool:
 
 
 ## 主机收到的远程输入（REMOTE）。
+## 远程玩家加入场景树前调用（主机校验过的天赋等级）。
+func set_talents(ranks_dict: Dictionary) -> void:
+	talent_ranks = ranks_dict
+	_talents_set = true
+
+
 func apply_net_input(seq: int, move: Vector3, p_facing: Vector3) -> void:
 	if seq <= net_input_seq:
 		return

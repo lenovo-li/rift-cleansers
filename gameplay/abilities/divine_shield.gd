@@ -29,7 +29,7 @@ func shield_amount() -> float:
 
 func cast(ctx: SkillContext) -> Dictionary:
 	var tier: int = get_tier()
-	var amount: float = shield_amount()
+	var amount: float = shield_amount() * ctx.heal_mult
 	var shielded: Array[Vector3] = []
 	for a: Variant in ctx.allies_in_radius(ctx.origin, RANGE * ctx.area_mult):
 		var st: CharacterStats = a.stats

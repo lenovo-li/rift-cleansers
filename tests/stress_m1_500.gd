@@ -23,6 +23,7 @@ func _init() -> void:
 			_seconds = float(arg.get_slice("=", 1))
 	Engine.max_fps = 0
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	Talents.enabled = false  # 不受玩家存档的天赋影响
 	_scene = (load("res://scenes/game_scene.tscn") as PackedScene).instantiate()
 	_scene.auto_pick_upgrades = true
 	_scene.record_runs = false

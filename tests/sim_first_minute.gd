@@ -30,6 +30,7 @@ func _init() -> void:
 		if arg.begins_with("--char="):
 			NetConfig.character_id = arg.get_slice("=", 1)
 	print("[sim] character=%s map=%s" % [NetConfig.character_id, NetConfig.map_id])
+	Talents.enabled = false  # 不受玩家存档的天赋影响
 	var scene: Node = (load("res://scenes/game_scene.tscn") as PackedScene).instantiate()
 	scene.auto_pick_upgrades = true  # 升级面板会暂停场景树，模拟里直接选第一项
 	scene.record_runs = false

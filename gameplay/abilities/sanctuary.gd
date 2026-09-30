@@ -32,7 +32,7 @@ func cast(ctx: SkillContext) -> Dictionary:
 			BASE_DPS * (3.0 if tier >= 8 else 1.0) * ctx.damage_mult, duration)
 	zone.slow_factor = 0.25
 	zone.slow_duration = 0.6
-	zone.heal_per_second = BASE_HEAL * (2.0 if tier >= 5 else 1.0)
+	zone.heal_per_second = BASE_HEAL * (2.0 if tier >= 5 else 1.0) * ctx.heal_mult
 	zone.heavy = tier >= 8
 	zone.kind = "holy"
 	ctx.new_zones.append(zone)

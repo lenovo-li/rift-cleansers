@@ -28,6 +28,7 @@ func _init() -> void:
 		if arg.begins_with("--char="):
 			NetConfig.character_id = arg.get_slice("=", 1)
 	print("[sim] character=%s map=%s" % [NetConfig.character_id, NetConfig.map_id])
+	Talents.enabled = false  # 不受玩家存档的天赋影响
 	_scene = (load("res://scenes/game_scene.tscn") as PackedScene).instantiate()
 	_scene.auto_pick_upgrades = true
 	_scene.record_runs = false

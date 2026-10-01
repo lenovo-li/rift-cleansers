@@ -68,7 +68,7 @@ func _process(delta: float) -> void:
 				global_position += d / dist * minf(dist, 14.0 * delta)
 	# 任意存活玩家都能拾取；装备只给还没有这件的玩家（队友可以让给对方）
 	for p: Node3D in PlayerQuery.alive_in_radius(get_tree(), global_position, COLLECT_RADIUS):
-		if kind == "equipment" and p.stats.has_equipment(item_id):
+		if kind == "equipment" and (p.stats.has_equipment(item_id) or not ItemCatalog.can_use(item_id, p.character_id)):
 			continue
 		collected.emit(self, p)
 		queue_free()

@@ -59,6 +59,12 @@ static func equipment_desc(id: String) -> String:
 	return EQUIPMENT.get(id, {}).get("desc", "")
 
 
+## 该角色能否使用（拾取）这件装备：通用装备谁都能用，专属装备只给对应角色。
+static func can_use(id: String, char_id: String) -> bool:
+	var owner: String = EQUIPMENT.get(id, {}).get("char", "")
+	return owner.is_empty() or owner == char_id
+
+
 ## 角色能掉落的装备：通用 + 该角色专属。char_id 为空时返回全部（测试用）。
 static func equipment_pool(char_id: String = "") -> Array[String]:
 	var pool: Array[String] = []

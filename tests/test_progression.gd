@@ -140,6 +140,43 @@ func test_drop_picks_unowned_equipment() -> String:
 		owned[id] = true
 	if not DropSystem.pick_equipment(owned, [], "iron_guard", rng).is_empty():
 		return "全部拥有后不应再掉装备"
+	for id: String in owned:
+		if not ItemCatalog.can_use(id, "iron_guard"):
+			return "铁卫掉落了其他角色的专属装备：%s" % id
+	if ItemCatalog.can_use("arcane_tome", "iron_guard") or not ItemCatalog.can_use("arcane_tome", "elementalist"):
+		return "专属装备的使用限制错误"
+	if ItemCatalog.equipment_pool().size() != ItemCatalog.EQUIPMENT.size():
+		return "不传角色时应返回全部装备"
+	return ""
+
+
+## 新装备的属性效果。
+func test_new_equipment_effects() -> String:
+	var s: CharacterStats = CharacterStats.new(1000.0)
+	var base: float = s.damage_multiplier()
+	s.add_equipment("war_drum")
+	if not is_equal_approx(s.damage_multiplier(), base * 1.15):
+		return "战鼓伤害 +15% 未生效"
+	s.add_equipment("iron_skin")
+	var r: Dictionary = s.receive_damage(100.0, 1.0)
+	if not is_equal_approx(float(r.taken), 90.0):
+		return "铁皮减伤 10% 未生效：%s" % r.taken
+	s.add_equipment("thorn_mail")
+	r = s.receive_damage(100.0, 1.0)
+	if float(r.reflect) <= 0.0:
+		return "荆棘甲应反伤"
+	s.add_equipment("shield_core")
+	s.tick(0.1)
+	if s.shield < CharacterStats.SHIELD_CORE_AMOUNT:
+		return "护盾核心应给护盾"
+	s.add_equipment("second_wind")
+	s.shield = 0.0
+	s.receive_damage(5000.0, 1.0)
+	if not s.try_second_wind() or s.health <= 0.0:
+		return "回光返照应免死一次"
+	s.receive_damage(5000.0, 1.0)
+	if s.try_second_wind():
+		return "回光返照只能触发一次"
 	return ""
 
 

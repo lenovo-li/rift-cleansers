@@ -56,6 +56,8 @@ var special_timer: float = 0.0
 
 var _mesh: MeshInstance3D = null
 var _base_material: Material = null
+## 顶点动画驱动（有带动作分区的模型时才有；灰盒胶囊为 null）
+var anim: EnemyAnimator = null
 var _flash_timer: float = 0.0
 ## 下一次 take_damage 的飘字类型（-1 = 按伤害大小自动）
 var _number_kind: int = -1
@@ -91,6 +93,8 @@ func _ready() -> void:
 	_mesh = get_node("Mesh") as MeshInstance3D
 	apply_look(_mesh, def, elite_mod)
 	_base_material = _mesh.material_override
+	if _base_material is ShaderMaterial:
+		anim = EnemyAnimator.new(_mesh, move_speed())
 	var col: CollisionShape3D = get_node("Collision") as CollisionShape3D
 	col.shape = _cached_shape(s)
 	col.position = Vector3(0, 0.8 * s, 0)
@@ -147,6 +151,8 @@ func _physics_process(delta: float) -> void:
 		velocity = desired
 	move_and_slide()
 	global_position.y = 0.0
+	if anim != null:
+		anim.update(delta, velocity)
 	if desired.length_squared() > 0.01:
 		rotation.y = atan2(-desired.x, -desired.z)
 
@@ -192,7 +198,9 @@ func _dasher(delta: float, dir: Vector3, dist: float, speed: float) -> Vector3:
 				_dash_state = 1
 				_dash_timer = 0.6
 				_dash_dir = dir
-				_mesh.material_override = shared_material(Color(1, 1, 1))
+				_set_windup_flash(true)
+				if anim != null:
+					anim.attack(EnemyAnimator.Kind.WINDUP, 0.6)
 				return Vector3.ZERO
 			special_timer -= delta
 			return dir * speed
@@ -201,7 +209,7 @@ func _dasher(delta: float, dir: Vector3, dist: float, speed: float) -> Vector3:
 				_dash_state = 2
 				_dash_timer = 0.45
 				_dash_hit = false
-				_mesh.material_override = _base_material
+				_set_windup_flash(false)
 			return Vector3.ZERO
 		2:
 			if not _dash_hit and global_position.distance_to(target_player.global_position) < 1.4:
@@ -238,6 +246,7 @@ func apply_taunt(taunter: Node3D, duration: float) -> void:
 
 func _melee(amount: float) -> void:
 	attack_timer = def.attack_cooldown
+	play_attack(EnemyAnimator.Kind.SWING)
 	if target_player.has_method("take_damage"):
 		target_player.take_damage(amount, self)
 		if elite_mod == "vampire":
@@ -246,6 +255,7 @@ func _melee(amount: float) -> void:
 
 
 func _shoot(dir: Vector3) -> void:
+	play_attack(EnemyAnimator.Kind.CAST)
 	var p: Node3D = ProjectileScript.new()
 	p.setup(self, dir, def.attack_damage, Color(0.4, 1.0, 0.3))
 	effects_parent.add_child(p)
@@ -263,6 +273,7 @@ func _heal_allies() -> void:
 			other.receive_heal(def.special_value)
 			healed += 1
 	if healed > 0:
+		play_attack(EnemyAnimator.Kind.CAST, 0.6)
 		SkillVfx.pulse_ring(effects_parent, global_position, def.special_range, Color(0.6, 0.3, 1.0, 0.35), 0.4)
 
 
@@ -279,8 +290,11 @@ func take_damage(amount: float) -> void:
 	DamageNumbers.spawn(effects_parent, global_position, amount, _number_kind)
 	if amount >= DamageNumbers.BIG_DAMAGE:
 		ParticleFx.burst(effects_parent, "spark", global_position + Vector3(0, 1, 0), 0.8)
-	_flash_timer = FLASH_TIME
-	_mesh.material_override = flash_material()
+	if anim != null:
+		anim.hit()
+	else:
+		_flash_timer = FLASH_TIME
+		_mesh.material_override = flash_material()
 	if elite_mod == "teleporter" and not _teleported and current_health > 0.0 and current_health < max_health * 0.3:
 		_teleported = true
 		_teleport_away()
@@ -348,6 +362,20 @@ func _update_flash(delta: float) -> void:
 			_mesh.material_override = _base_material
 
 
+## 攻击动作（没有动画模型时忽略）。
+func play_attack(kind: int, duration: float = -1.0) -> void:
+	if anim != null:
+		anim.attack(kind, duration)
+
+
+## 小鬼蓄力的持续闪白：动画模型走 shader 参数，灰盒换白色材质。
+func _set_windup_flash(on: bool) -> void:
+	if anim != null:
+		anim.hold_flash(on)
+	else:
+		_mesh.material_override = shared_material(Color(1, 1, 1)) if on else _base_material
+
+
 ## 外观：有低模就用低模（原点在脚底，按体型缩放，精英染色并微微发光）；没有就退回灰盒胶囊。
 ## 客户端的敌人视图（EnemyViewPool）也用这个函数，保证两边看起来一样。
 static func apply_look(mi: MeshInstance3D, d: EnemyDef, mod: String) -> void:
@@ -358,7 +386,7 @@ static func apply_look(mi: MeshInstance3D, d: EnemyDef, mod: String) -> void:
 		mi.mesh = model
 		mi.position = Vector3.ZERO
 		mi.scale = Vector3.ONE * s
-		mi.material_override = ModelLibrary.material(ELITE_COLORS[mod] if elite else Color.WHITE, 0.35 if elite else 0.0)
+		mi.material_override = ModelLibrary.anim_material(ELITE_COLORS[mod] if elite else Color.WHITE, 0.35 if elite else 0.0)
 	else:
 		mi.mesh = _cached_mesh(s)
 		mi.position = Vector3(0, 0.8 * s, 0)

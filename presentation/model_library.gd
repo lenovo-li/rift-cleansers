@@ -45,6 +45,24 @@ static func material(tint: Color = Color.WHITE, emission: float = 0.0) -> Standa
 	return _materials[key]
 
 
+const ANIM_SHADER: Shader = preload("res://presentation/model_anim.gdshader")
+static var _anim_materials: Dictionary = {}  # [tint, emission, wind] -> ShaderMaterial
+
+
+## 带顶点动画的共享材质（敌人、Boss、地图零件）：读顶点色 + 模型 UV 里的动作分区。
+## 敌人的动作状态走实例参数（anim_a / anim_b），同一材质可以被所有同色敌人共享。
+static func anim_material(tint: Color = Color.WHITE, emission: float = 0.0, wind: float = 1.0) -> ShaderMaterial:
+	var key: Array = [tint, emission, wind]
+	if not _anim_materials.has(key):
+		var mat: ShaderMaterial = ShaderMaterial.new()
+		mat.shader = ANIM_SHADER
+		mat.set_shader_parameter("tint", tint)
+		mat.set_shader_parameter("emission_energy", emission)
+		mat.set_shader_parameter("wind_strength", wind)
+		_anim_materials[key] = mat
+	return _anim_materials[key]
+
+
 ## 网格里名为 name 的材质所在的表面序号（glb 导出的 "Team" / "Base"）。没有时返回 -1。
 static func surface_index(m: Mesh, name: String) -> int:
 	if m == null:
@@ -95,4 +113,5 @@ static func _world_origin(n: Node3D) -> Vector3:
 static func clear() -> void:
 	_meshes.clear()
 	_materials.clear()
+	_anim_materials.clear()
 	_rigs.clear()

@@ -120,7 +120,7 @@ func _build_piece(piece: String, transforms: Array) -> void:
 		var mmi: MultiMeshInstance3D = MultiMeshInstance3D.new()
 		mmi.name = "MM_" + piece
 		mmi.multimesh = mm
-		mmi.material_override = ModelLibrary.material(Color.WHITE, 0.0)
+		mmi.material_override = ModelLibrary.anim_material()  # 树摇、火焰跳动、晶体发光
 		add_child(mmi)
 	var size: Vector3 = def.colliders[piece]
 	var shape: BoxShape3D = BoxShape3D.new()
@@ -184,7 +184,7 @@ func _scatter_decor() -> void:
 			mm.set_instance_transform(i, list[i])
 		var mmi: MultiMeshInstance3D = MultiMeshInstance3D.new()
 		mmi.multimesh = mm
-		mmi.material_override = ModelLibrary.material(Color.WHITE, 0.0)
+		mmi.material_override = ModelLibrary.anim_material(Color.WHITE, 0.0, 0.6)  # 草叶轻摆
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mmi)
 

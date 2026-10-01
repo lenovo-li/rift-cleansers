@@ -43,10 +43,12 @@ def decor():
     lp.rock((0, 0, 0.06), (0.14, 0.12, 0.08), (0.42, 0.4, 0.37), seed=11, jitter=0.35, subdiv=2)
     lp.rock((0.2, 0.1, 0.04), (0.08, 0.07, 0.05), (0.36, 0.34, 0.31), seed=12, jitter=0.35, subdiv=1)
     groups["pebbles"] = lp.take_parts()
+    lp.part("sway", (0, 0, 0))
     for i, (x, y, r) in enumerate(((0, 0, 0), (0.06, 0.03, 40), (-0.05, 0.04, -35), (0.02, -0.06, 15), (-0.03, -0.03, 70))):
         lp.blade((x, y, 0.0), 0.24 + (i % 2) * 0.06, 0.03, 0.006, (0.55, 0.5, 0.28), rot=(90 - abs(r) * 0.4, 0, i * 72),
                  tip=0.6, curve=0.05, seg=3, ao=0.35)
     groups["grass"] = lp.take_parts()
+    lp.part("body")
     lp.capsule((-0.16, 0, 0.03), (0.16, 0.02, 0.03), 0.022, BONE, seg=6)
     for x in (-0.17, 0.17):
         for y in (-0.02, 0.025):
@@ -86,9 +88,11 @@ def city_kit():
         lp.box((x, 0, 1.8 + h / 2), (1.1, 0.8, h), stone if h > 0.5 else stone_dark, bevel=0.06)
     lp.box((0, 0.42, 0.15), (6.1, 0.1, 0.3), char, bevel=0.03)                   # 墙根焦痕
     lp.cyl((0.3, 0.46, 2.15), 0.03, 1.2, (0.3, 0.22, 0.15), rot=(0, 90, 0))       # 旗杆
+    lp.part("cloth", (0, 0.5, 2.1))
     lp.tube([(-0.12, 0.47, 2.1), (-0.1, 0.5, 1.6), (-0.06, 0.48, 1.1), (0.0, 0.5, 0.9)], [0.45, 0.45, 0.4, 0.3],
             royal, flat=0.05, flat_axis=(0, 1, 0), seg=10)                         # 残破王旗
     lp.box((0.3, 0.5, 1.7), (0.3, 0.02, 0.36), GOLD, bevel=0.01, ao=0.05)         # 旗上纹章
+    lp.part("body")
     for k, (x, z) in enumerate(((-2.0, 0.9), (1.2, 1.2), (2.3, 0.5))):
         lp.box((x, 0.41, z), (0.4, 0.03, 0.05), char, rot=(0, 25 * (k - 1), 0), bevel=0.01)  # 裂缝
     groups["wall"] = lp.take_parts()
@@ -131,12 +135,14 @@ def city_kit():
     for a in range(4):
         lp.cone((math.cos(a * 1.57) * 0.7, math.sin(a * 1.57) * 0.7, 1.04), 0.04, 0.14, char, verts=6)
     lp.ball((0, 0, 0.96), (0.55, 0.55, 0.14), ember, ao=0)
+    lp.part("flame", (0, 0, 0.98))
     for k in range(5):
         a = k * 1.25
         lp.tube([(math.cos(a) * 0.2, math.sin(a) * 0.2, 0.98), (math.cos(a) * 0.15, math.sin(a) * 0.15, 1.25),
                  (math.cos(a + 0.5) * 0.1, math.sin(a + 0.5) * 0.1, 1.5 - (k % 2) * 0.15)], [0.12, 0.07, 0.005],
                 (1.0, 0.65, 0.2), ao=0)
     groups["brazier"] = lp.take_parts()
+    lp.part("body")
     return _city_kit_2(groups, stone, stone_dark, char, royal)
 
 
@@ -182,12 +188,14 @@ def frost_kit():
         lp.cone((x, y, h / 2), r, h, ice if i % 2 == 0 else ice_dark, rot=(i * 6 - 8, i * 5, i * 40), verts=6, ao=0.3)
     lp.rock((0, 0, 0.15), (0.9, 0.8, 0.25), snow, seed=40, jitter=0.15)
     groups["ice_spire"] = lp.take_parts()
+    lp.part("sway", (0, 0, 0))
     lp.tube([(0, 0, 0), (0.02, 0, 1.0), (0, 0.02, 4.4)], [0.24, 0.18, 0.04], bark, seg=10)
     for i, (z, r) in enumerate(((1.3, 1.25), (2.1, 1.05), (2.85, 0.85), (3.55, 0.62), (4.2, 0.4))):
         lp.lathe((0, 0, z), [(r, 0.0), (r * 0.82, 0.12), (r * 0.45, 0.6), (0.0, 1.0)], pine, wobble=0.12, seed=i, seg=14)
         lp.lathe((0, 0, z + 0.08), [(r * 0.86, 0.06), (r * 0.7, 0.16), (r * 0.36, 0.55), (0.0, 0.85)], snow,
                  wobble=0.14, seed=i + 7, seg=14, ao=0.08)
     groups["pine"] = lp.take_parts()
+    lp.part("body")
     lp.rock((0, 0, 0.6), (1.1, 1.0, 0.7), rock, seed=41)
     lp.rock((0.1, 0.05, 1.0), (0.95, 0.85, 0.3), snow, seed=42, jitter=0.12, flat_bottom=False)
     lp.rock((0.9, 0.5, 0.2), (0.3, 0.28, 0.22), rock, seed=45)
@@ -215,8 +223,10 @@ def frost_kit():
         lp.cone((math.cos(a) * 0.6, math.sin(a) * 0.6, 3.6), 0.2, 1.0, ice,
                 rot=(math.degrees(math.sin(a)) * 0.5, -math.degrees(math.cos(a)) * 0.5, 0), verts=5)
     lp.ball((0, 0, 4.1), (0.35, 0.35, 0.35), glow, ao=0)
+    lp.part("spin", (0, 0, 4.1))
     lp.torus((0, 0, 4.1), 0.5, 0.03, glow, rot=(70, 0, 0), ao=0)
     groups["totem"] = lp.take_parts()
+    lp.part("body")
     lp.ball((0, 0, 0.03), (0.3, 0.25, 0.06), snow, subdiv=2, ao=0.05)
     lp.ball((0.25, 0.1, 0.02), (0.18, 0.14, 0.04), snow, subdiv=1, ao=0.05)
     groups["d_snow"] = lp.take_parts()
@@ -277,17 +287,21 @@ def desert_kit():
     lp.lathe((0, 0, 0), [(0.2, 0.0), (0.32, 0.12), (0.38, 0.45), (0.3, 0.75), (0.22, 0.85), (0.27, 0.92)], red_rock)
     lp.torus((0, 0, 0.45), 0.385, 0.02, GOLD)
     lp.ball((0, 0, 0.9), (0.24, 0.24, 0.08), ember, ao=0)
+    lp.part("flame", (0, 0, 0.9))
     lp.tube([(0, 0, 0.9), (0.03, 0, 1.15), (-0.02, 0.02, 1.35)], [0.14, 0.07, 0.005], (1.0, 0.75, 0.3), ao=0)
     groups["urn"] = lp.take_parts()
+    lp.part("body")
     lp.tube([(-0.4, 0, 0.0), (0, 0.03, 0.02), (0.4, 0, 0.0)], [0.05, 0.07, 0.05], sand_dark, flat=0.25,
             flat_axis=(0, 0, 1), seg=6)
     lp.tube([(-0.2, 0.25, 0.0), (0.1, 0.27, 0.015), (0.4, 0.24, 0.0)], [0.04, 0.06, 0.04], sand_dark, flat=0.25,
             flat_axis=(0, 0, 1), seg=6)
     groups["d_ripple"] = lp.take_parts()
+    lp.part("sway", (0, 0, 0))
     for i in range(6):
         lp.tube([(0, 0, 0), (math.cos(i) * 0.08, math.sin(i) * 0.08, 0.12), (math.cos(i) * 0.16, math.sin(i) * 0.16, 0.2)],
                 [0.012, 0.008, 0.002], (0.55, 0.45, 0.25), seg=4, ao=0.3)
     groups["d_bush"] = lp.take_parts()
+    lp.part("body")
     lp.ball((0, 0, 0.08), (0.1, 0.12, 0.09), BONE, subdiv=2)
     lp.box((0, 0.1, 0.03), (0.08, 0.06, 0.05), BONE, bevel=0.015)
     for x in (0.04, -0.04):
@@ -307,6 +321,7 @@ def forest_kit():
     cap = (0.55, 0.25, 0.60)
     groups = {}
     # 古树：根部张开的扭曲树干 + 几根主枝 + 团状树冠
+    lp.part("sway", (0, 0, 0))
     lp.lathe((0, 0, 0), [(0.62, 0.0), (0.45, 0.25), (0.36, 0.8), (0.32, 1.8), (0.26, 2.8)], bark, wobble=0.18, seed=61, seg=16)
     for k in range(5):                                                               # 板根
         a = k * 2 * math.pi / 5 + 0.3
@@ -318,11 +333,14 @@ def forest_kit():
                                       (0.1, 0.85, 3.4, 0.95), (-0.2, -0.75, 3.5, 0.9), (0.3, -0.1, 4.4, 0.9))):
         lp.rock((x, y, z), (s, s, s * 0.78), leaf if i % 2 == 0 else leaf_dark, seed=70 + i, jitter=0.2, flat_bottom=False, ao=0.35)
     groups["oak"] = lp.take_parts()
+    lp.part("body")
     # 暗松：多层下垂枝叶
+    lp.part("sway", (0, 0, 0))
     lp.tube([(0, 0, 0), (0, 0, 2.0), (0.02, 0, 4.8)], [0.24, 0.17, 0.03], bark, seg=10)
     for i, (z, r) in enumerate(((1.6, 1.2), (2.4, 1.0), (3.15, 0.8), (3.85, 0.58), (4.5, 0.36))):
         lp.lathe((0, 0, z), [(r, -0.12), (r * 0.9, 0.05), (r * 0.5, 0.55), (0.0, 1.05)], leaf_dark, wobble=0.15, seed=80 + i, seg=14)
     groups["dark_pine"] = lp.take_parts()
+    lp.part("body")
     # 倒木：空心断面 + 年轮 + 苔藓 + 蘑菇 + 断枝
     with lp.frame((0, 0, 0.4), (0, 90, 0)):
         lp.lathe((0, 0, -2.0), [(0.4, 0.0), (0.42, 1.0), (0.38, 2.6), (0.4, 4.0)], bark, wobble=0.12, seed=63, seg=14)
@@ -362,9 +380,11 @@ def forest_kit():
     lp.box((0, 0.36, 1.7), (0.06, 0.04, 0.9), glow, bevel=0.012, ao=0)
     lp.rock((0, 0, 2.95), (0.48, 0.34, 0.15), moss, seed=68, jitter=0.15, flat_bottom=False)
     groups["standing_stone"] = lp.take_parts()
+    lp.part("sway", (0, 0, 0))
     for i in range(6):
         lp.blade((0, 0, 0.02), 0.38, 0.09, 0.008, leaf, rot=(-40, 0, i * 60), tip=0.5, seg=4, ao=0.35)
     groups["d_fern"] = lp.take_parts()
+    lp.part("body")
     lp.cyl((0, 0, 0.06), 0.02, 0.12, (0.85, 0.82, 0.72), verts=6)
     lp.lathe((0, 0, 0.11), [(0.0, 0.0), (0.07, 0.01), (0.06, 0.04), (0.0, 0.06)], glow, seg=10, ao=0)
     groups["d_mushroom"] = lp.take_parts()

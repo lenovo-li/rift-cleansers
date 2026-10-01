@@ -159,6 +159,7 @@ func _charge(delta: float, dir: Vector3) -> Variant:
 			_charge_time = CHARGE_WINDUP
 			_charge_dir = dir
 			_show_telegraph(true)
+			play_attack(EnemyAnimator.Kind.WINDUP, CHARGE_WINDUP)
 			return Vector3.ZERO
 		1:
 			_charge_time -= delta
@@ -188,17 +189,20 @@ func _lich(delta: float, dir: Vector3, dist: float) -> Vector3:
 	if _timer_a <= 0.0:
 		_timer_a = 3.5 if phase < 3 else 2.5
 		var n: int = 3 if phase == 1 else 5
+		play_attack(EnemyAnimator.Kind.CAST, 0.6)
 		for i in n:
 			_shoot_colored(dir.rotated(Vector3.UP, deg_to_rad((i - (n - 1) / 2.0) * 14.0)), 18.0, Color(0.5, 0.85, 1.0))
 	if phase >= 2:
 		_timer_b -= delta
 		if _timer_b <= 0.0:
 			_timer_b = 7.0
+			play_attack(EnemyAnimator.Kind.SLAM, 1.0)
 			_blast(global_position, 6.0, 1.2, def.special_value, Color(0.5, 0.85, 1.0, 0.45), "%s的冰霜新星" % def.display_name)
 	if phase >= 3:
 		_timer_c -= delta
 		if _timer_c <= 0.0:
 			_timer_c = 6.0
+			play_attack(EnemyAnimator.Kind.CAST, 0.8)
 			_rain_on_players(3, 2.5, 1.3, 35.0, Color(0.6, 0.9, 1.0, 0.45), "%s的冰雨" % def.display_name)
 	# 保持距离：太近时慢慢后撤（比玩家慢得多，近战追得上），太远靠近；狂暴阶段不再后撤
 	if dist < 5.0 and phase < 3:
@@ -220,6 +224,7 @@ func _colossus(delta: float, dir: Vector3, dist: float) -> Vector3:
 	_timer_a -= delta
 	if _timer_a <= 0.0:
 		_timer_a = 6.0 if phase < 3 else 4.5
+		play_attack(EnemyAnimator.Kind.SLAM, 1.0)
 		_blast(global_position, def.special_range, 1.0, 60.0, Color(0.95, 0.65, 0.25, 0.45), "%s的震地" % def.display_name)
 	if phase >= 2:
 		_timer_b -= delta
@@ -227,12 +232,14 @@ func _colossus(delta: float, dir: Vector3, dist: float) -> Vector3:
 			_timer_b = 9.0
 			_burrow_pos = target_player.global_position
 			_burrow_time = 1.5
+			play_attack(EnemyAnimator.Kind.SLAM, 0.8)
 			_blast(_burrow_pos, 4.0, 1.5, def.special_value, Color(0.9, 0.55, 0.2, 0.5), "%s的钻地突袭" % def.display_name)
 			return Vector3.ZERO
 	if phase >= 3:
 		_timer_c -= delta
 		if _timer_c <= 0.0:
 			_timer_c = 8.0
+			play_attack(EnemyAnimator.Kind.CAST, 0.8)
 			_zones_on_players(2, 3.5, 0.4, 10.0, 6.0, Color(0.85, 0.7, 0.4, 0.35), "沙暴")
 	return _chase(dir, dist)
 
@@ -252,6 +259,7 @@ func _treant(delta: float, dir: Vector3, dist: float) -> Vector3:
 	_timer_a -= delta
 	if _timer_a <= 0.0:
 		_timer_a = 6.0 if phase < 3 else 4.0
+		play_attack(EnemyAnimator.Kind.SLAM, 0.9)
 		for i in 6:
 			var pos: Vector3 = global_position + dir * (2.5 + i * 2.4)
 			_blast(pos, 1.6, 0.9 + i * 0.12, 40.0, Color(0.45, 0.8, 0.3, 0.45), "%s的根须" % def.display_name)
@@ -259,6 +267,7 @@ func _treant(delta: float, dir: Vector3, dist: float) -> Vector3:
 		_timer_b -= delta
 		if _timer_b <= 0.0:
 			_timer_b = 8.0
+			play_attack(EnemyAnimator.Kind.CAST, 0.8)
 			_zones_on_players(3, 3.0, 0.3, 12.0, 6.0, Color(0.5, 0.8, 0.2, 0.35), "毒孢子")
 	if phase >= 3:
 		# 再生：每秒 0.6% 最大生命，但不会回到 30% 以上（不回退阶段）

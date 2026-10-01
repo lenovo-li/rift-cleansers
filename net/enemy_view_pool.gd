@@ -1,6 +1,7 @@
 class_name EnemyViewPool extends Node3D
 ## 客户端敌人显示：按主机快照维护一组 MeshInstance3D（与主机敌人共用网格/材质缓存）。
-## 不运行 AI 和物理，只做位置平滑、受击闪白和飘字（按血量比例下降估算伤害）；快照里 1 秒没再出现的敌人视为已消失。
+## 不运行 AI 和物理，只做位置平滑、朝向、四肢动画（EnemyAnimator，按位置变化推算速度，没有攻击动作）、
+## 受击闪白和飘字（按血量比例下降估算伤害）；快照里 1 秒没再出现的敌人视为已消失。
 
 const SpawnerScript: GDScript = preload("res://gameplay/spawn/enemy_spawner.gd")
 const STALE_MS: int = 1000
@@ -33,6 +34,8 @@ func apply(records: Array[Dictionary]) -> void:
 		v.seen = now
 		if r.hp < v.hp - 0.001:
 			v.flash = 0.08
+			if v.anim != null:
+				(v.anim as EnemyAnimator).hit()
 			DamageNumbers.spawn(get_parent(), r.pos, (float(v.hp) - float(r.hp)) * float(v.max_hp))
 		v.hp = r.hp
 
@@ -61,7 +64,8 @@ func _create(r: Dictionary) -> Dictionary:
 	add_child(mi)
 	mi.global_position = r.pos + mi.position
 	var is_boss: bool = SpawnerScript.BOSS_DEFS.has(r.type)
-	return {"node": mi, "target": r.pos, "hp": r.hp, "seen": Time.get_ticks_msec(), "flash": 0.0,
+	var animator: EnemyAnimator = EnemyAnimator.new(mi, def.move_speed) if base is ShaderMaterial else null
+	return {"anim": animator, "node": mi, "target": r.pos, "hp": r.hp, "seen": Time.get_ticks_msec(), "flash": 0.0,
 		"base": base, "height": mi.position.y, "is_boss": is_boss, "color": Enemy.look_color(def, r.elite), "elite": elite or is_boss,
 		"max_hp": def.max_health * (Enemy.ELITE_HEALTH_MULT if elite else 1.0)}
 
@@ -77,10 +81,18 @@ func _process(delta: float) -> void:
 			continue
 		var mi: MeshInstance3D = v.node
 		var target: Vector3 = (v.target as Vector3) + Vector3(0, v.height, 0)
-		if mi.global_position.distance_to(target) > SNAP_DISTANCE:
+		var before: Vector3 = mi.global_position
+		if before.distance_to(target) > SNAP_DISTANCE:
 			mi.global_position = target
 		else:
-			mi.global_position = mi.global_position.lerp(target, k)
+			mi.global_position = before.lerp(target, k)
+		var vel: Vector3 = (mi.global_position - before) / maxf(delta, 0.001)
+		vel.y = 0.0
+		if vel.length_squared() > 0.04 and before.distance_to(target) <= SNAP_DISTANCE:
+			mi.rotation.y = lerp_angle(mi.rotation.y, atan2(-vel.x, -vel.z), clampf(delta * 10.0, 0.0, 1.0))
+		if v.anim != null:
+			(v.anim as EnemyAnimator).update(delta, vel)
+			continue
 		if float(v.flash) > 0.0:
 			v.flash = float(v.flash) - delta
 			mi.material_override = flash_mat if float(v.flash) > 0.0 else v.base

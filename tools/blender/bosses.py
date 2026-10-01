@@ -14,11 +14,13 @@ def corrupted_knight():
     spike = (0.5, 0.1, 0.12)
     with lp.frame((0, 0, 0), scale=(S, S, S)):
         for x in (0.22, -0.22):
+            lp.part("leg_l" if x > 0 else "leg_r", (x, 0, 0.88))
             lp.limb([(x, 0, 0.88), (x, 0.04, 0.48), (x, 0, 0.14)], [0.15, 0.13, 0.11], dark)
             lp.cyl((x, 0.0, 0.3), 0.13, 0.3, dark_l, radius2=0.14)
             lp.ball((x, 0.1, 0.5), (0.11, 0.08, 0.11), dark_l)
             lp.cone((x, 0.18, 0.5), 0.05, 0.12, spike, rot=(-90, 0, 0), tip=0.008)  # 膝刺
             lp.box((x, 0.07, 0.06), (0.24, 0.38, 0.12), dark, bevel=0.04)
+        lp.part("body")
         lp.lathe((0, 0, 0), [(0.34, 0.84), (0.4, 0.95), (0.46, 1.2), (0.48, 1.45), (0.4, 1.62), (0.24, 1.72)],
                  dark, scale=(1, 0.66, 1))                                       # 胸甲
         lp.box((0, 0.3, 1.3), (0.06, 0.06, 0.6), dark_l, rot=(6, 0, 0), bevel=0.02)
@@ -29,12 +31,14 @@ def corrupted_knight():
                         [0.025, 0.004], RED_GLOW, ao=0, seg=6)
         for i, x in enumerate((-0.28, -0.1, 0.1, 0.28)):                          # 腰甲
             lp.box((x, 0.18 - abs(x) * 0.25, 0.78), (0.18, 0.05, 0.26), dark_l, rot=(-10, 0, -x * 30), bevel=0.02)
+        lp.part("cloth", (0, -0.3, 1.66))
         lp.tube([(0, -0.3, 1.66), (0, -0.4, 1.2), (0, -0.48, 0.7), (0, -0.52, 0.2)],
                 [0.38, 0.42, 0.46, 0.5], (0.28, 0.06, 0.08), flat=0.1, flat_axis=(0, 1, 0), seg=18)  # 披风
         for k in range(5):
             lp.cone((-0.36 + k * 0.18, -0.52, 0.16), 0.08, 0.2, (0.28, 0.06, 0.08), rot=(180, 0, 0), verts=4)  # 破边
         for x in (0.56, -0.56):
             s = 1 if x > 0 else -1
+            lp.part("arm_l" if x > 0 else "arm_r", (x, 0.02, 1.52))
             lp.ball((x, 0, 1.6), (0.27, 0.26, 0.2), dark)                       # 肩甲
             for k in range(3):
                 lp.ball((x + s * 0.05, 0, 1.46 - k * 0.09), (0.24 - k * 0.025, 0.22 - k * 0.02, 0.07), dark_l)
@@ -44,6 +48,7 @@ def corrupted_knight():
             lp.limb([(x, 0.02, 1.5), (x + s * 0.03, 0.12, 1.22), (x * 0.35, 0.4, 1.12)], [0.12, 0.1, 0.09], dark)
             lp.cyl((x * 0.6, 0.3, 1.15), 0.11, 0.2, dark_l, rot=(-70, 0, s * 40))
             lp.ball((x * 0.33, 0.42, 1.12), (0.08, 0.09, 0.09), dark)           # 手甲
+        lp.part("head", (0, 0, 1.72))
         with lp.frame((0, 0.02, 1.9)):                                           # 头盔
             lp.lathe((0, 0, 0), [(0.15, -0.14), (0.2, -0.05), (0.21, 0.1), (0.15, 0.2), (0.0, 0.23)], dark, seg=8)
             lp.box((0, 0.17, -0.02), (0.3, 0.08, 0.24), dark_l, bevel=0.03)
@@ -52,6 +57,7 @@ def corrupted_knight():
                 s = 1 if x > 0 else -1
                 lp.tube([(x, 0, 0.12), (x + s * 0.12, -0.02, 0.26), (x + s * 0.16, -0.08, 0.44), (x + s * 0.12, -0.14, 0.56)],
                         [0.06, 0.045, 0.025, 0.004], spike)                      # 弯角
+        lp.part("arm_r", (-0.56, 0.02, 1.52))
         with lp.frame((0, 0.44, 1.12), (-25, 0, 0)):                             # 双手巨剑（剑尖朝前上）
             lp.cyl((0, 0, -0.16), 0.035, 0.36, LEATHER_DARK)
             lp.ball((0, 0, -0.36), (0.06, 0.06, 0.06), spike)
@@ -60,6 +66,7 @@ def corrupted_knight():
             lp.cone((-0.27, 0, 0.04), 0.05, 0.12, spike, rot=(0, -90, 0), tip=0.005)
             lp.blade((0, 0, 0.08), 1.5, 0.2, 0.04, (0.4, 0.38, 0.42), rot=(90, 0, 0), tip=0.15)
             lp.box((0, 0, 0.6), (0.04, 0.045, 0.9), RED_GLOW, bevel=0.01, ao=0)  # 剑身血槽发光
+            lp.part("body")
 
 
 def frost_lich():
@@ -69,17 +76,20 @@ def frost_lich():
     ice = (0.55, 0.85, 1.0)
     glow = (0.4, 0.9, 1.0)
     with lp.frame((0, 0, 0), scale=(S, S, S)):
+        lp.part("cloth", (0, 0, 1.1))
         lp.cone((0, 0, 0.18), 0.32, 0.36, ice, rot=(180, 0, 0), verts=7, ao=0)      # 冰雾尖
         for k in range(9):                                                        # 飘带下摆
             a = k * 2 * math.pi / 9
             c, s = math.cos(a), math.sin(a)
             lp.tube([(c * 0.25, s * 0.2, 1.1), (c * 0.42, s * 0.36, 0.7), (c * 0.44, s * 0.38, 0.45), (c * 0.3, s * 0.26, 0.25)],
                     [0.14, 0.14, 0.1, 0.005], robe if k % 2 else robe_d, flat=0.25, flat_axis=(c, s, 0))
+        lp.part("body")
         lp.lathe((0, 0, 0), [(0.3, 0.6), (0.36, 0.9), (0.38, 1.2), (0.42, 1.42), (0.26, 1.58)], robe,
                  scale=(1, 0.72, 1), wobble=0.06, seed=23)
         lp.tube([(0, 0.3, 0.7), (0, 0.29, 1.0), (0, 0.27, 1.4)], [0.06, 0.07, 0.05], ice, flat=0.3, flat_axis=(0, 1, 0))  # 前襟冰纹
         for x in (0.38, -0.38):
             s = 1 if x > 0 else -1
+            lp.part("arm_l" if x > 0 else "arm_r", (x, 0.04, 1.44))
             lp.ball((x, 0, 1.48), (0.2, 0.18, 0.12), robe_d)
             for k in range(3):
                 lp.cone((x + s * k * 0.06, -0.04 + k * 0.03, 1.58), 0.05, 0.22 - k * 0.04, ice, rot=(0, s * (20 + k * 15), 0), verts=5, ao=0)
@@ -88,6 +98,7 @@ def frost_lich():
             for f in range(3):
                 lp.capsule((x + s * 0.06 + (f - 1) * 0.03, 0.39, 0.97), (x + s * 0.06 + (f - 1) * 0.04, 0.45, 0.88),
                            0.012, BONE, radius2=0.006, seg=6)                  # 骨指
+        lp.part("head", (0, 0, 1.6))
         with lp.frame((0, 0.03, 1.78)):                                          # 骷髅头
             lp.ball((0, 0, 0), (0.19, 0.2, 0.2), BONE)
             lp.box((0, 0.12, -0.13), (0.18, 0.12, 0.08), BONE, bevel=0.03)
@@ -98,6 +109,7 @@ def frost_lich():
                 h = 0.42 - abs(x) * 1.2
                 lp.cone((x, -0.02, 0.18 + h * 0.4), 0.05, h, ice, rot=(-8, x * 120, 0), verts=5, ao=0)
             lp.torus((0, -0.01, 0.14), 0.19, 0.03, (0.75, 0.9, 1.0), rot=(-8, 0, 0))
+        lp.part("arm_r", (-0.38, 0.04, 1.44))
         with lp.frame((-0.48, 0.3, 0.0)):                                        # 冰晶法杖
             lp.tube([(0, 0, 0.3), (0.02, 0, 1.2), (0, 0, 2.1)], [0.03, 0.035, 0.03], (0.3, 0.3, 0.38))
             for z in (1.0, 1.06):
@@ -107,6 +119,7 @@ def frost_lich():
             for a in (0, 120, 240):
                 c, s = math.cos(math.radians(a)), math.sin(math.radians(a))
                 lp.cone((c * 0.12, s * 0.12, 2.2), 0.04, 0.22, ice, rot=(-s * 30, c * 30, 0), verts=4, ao=0)
+            lp.part("body")
 
 
 def sand_colossus():
@@ -117,9 +130,11 @@ def sand_colossus():
     blue = (0.18, 0.32, 0.6)
     with lp.frame((0, 0, 0), scale=(S, S, S)):
         for x in (0.28, -0.28):
+            lp.part("leg_l" if x > 0 else "leg_r", (x, 0, 0.8))
             lp.box((x, 0, 0.18), (0.4, 0.46, 0.36), dark, bevel=0.05)
             lp.box((x, 0, 0.56), (0.34, 0.4, 0.38), sand, bevel=0.05, rot=(0, 0, 4))
             lp.box((x, 0.0, 0.38), (0.36, 0.42, 0.04), glow, bevel=0.01, ao=0)    # 关节缝光
+        lp.part("body")
         lp.box((0, 0, 0.86), (0.84, 0.54, 0.24), dark, bevel=0.06)                # 骨盆块
         lp.lathe((0, 0, 0), [(0.48, 0.92), (0.5, 0.96), (0.48, 1.0)], GOLD, scale=(1, 0.66, 1), seg=24)  # 金腰环
         lp.box((0, 0.0, 1.32), (1.0, 0.6, 0.66), sand, bevel=0.07)               # 胸块
@@ -133,6 +148,7 @@ def sand_colossus():
         lp.box((0, 0, 1.72), (0.7, 0.48, 0.16), dark, bevel=0.05)                # 肩块
         for x in (0.68, -0.68):
             s = 1 if x > 0 else -1
+            lp.part("arm_l" if x > 0 else "arm_r", (x, 0, 1.6))
             lp.ball((x, 0, 1.6), (0.24, 0.26, 0.22), dark)                       # 肩关节石球
             lp.box((x * 1.05, 0, 1.24), (0.28, 0.32, 0.48), sand, bevel=0.05, rot=(0, s * 6, 0))  # 上臂
             lp.box((x * 1.05, 0.0, 0.98), (0.3, 0.34, 0.04), glow, ao=0)
@@ -140,6 +156,7 @@ def sand_colossus():
             for f in range(3):
                 lp.box((x * 1.08 + (f - 1) * 0.13, 0.34, 0.74), (0.12, 0.06, 0.16), dark, bevel=0.03)  # 指节
             lp.torus((x * 1.06, 0.06, 0.95), 0.23, 0.04, GOLD, scale=(1, 1.1, 1))  # 金腕环
+        lp.part("head", (0, 0, 1.8))
         with lp.frame((0, 0.02, 1.98)):                                          # 头 + 头巾 + 金面具
             lp.box((0, -0.02, 0.0), (0.42, 0.38, 0.4), dark, bevel=0.06)
             for x in (0.24, -0.24):
@@ -152,6 +169,7 @@ def sand_colossus():
             lp.box((0, 0.24, -0.12), (0.06, 0.03, 0.08), lp.shade(GOLD, 0.8), bevel=0.01)
             lp.box((0, 0.22, -0.26), (0.08, 0.05, 0.16), GOLD, bevel=0.02)       # 法老胡
             lp.tube([(0, 0.18, 0.2), (0, 0.26, 0.26), (0, 0.3, 0.2)], [0.03, 0.04, 0.02], GOLD)  # 圣蛇额饰
+            lp.part("body")
 
 
 def rotwood_treant():
@@ -164,12 +182,14 @@ def rotwood_treant():
     with lp.frame((0, 0, 0), scale=(S, S, S)):
         for x in (0.25, -0.25):                                                  # 根须腿
             s = 1 if x > 0 else -1
+            lp.part("leg_l" if x > 0 else "leg_r", (x * 0.8, 0, 0.9))
             lp.tube([(x * 0.8, 0, 0.9), (x, 0.02, 0.5), (x * 1.2, 0.04, 0.15), (x * 1.3, 0.1, 0.0)],
                     [0.17, 0.15, 0.14, 0.12], bark, seg=10)
             for k in range(3):
                 a = k * 1.8 + (0.4 if x > 0 else 2.0)
                 lp.tube([(x * 1.2, 0.04, 0.12), (x * 1.2 + math.cos(a) * 0.2, 0.04 + math.sin(a) * 0.2, 0.03),
                          (x * 1.2 + math.cos(a) * 0.34, 0.04 + math.sin(a) * 0.34, 0.0)], [0.07, 0.04, 0.01], bark_d, seg=8)
+        lp.part("body")
         lp.lathe((0, 0, 0), [(0.36, 0.7), (0.44, 0.9), (0.42, 1.25), (0.38, 1.5), (0.34, 1.7), (0.18, 1.85)],
                  bark, wobble=0.14, seed=29, seg=20)                              # 树干
         for k in range(8):                                                       # 树皮纵纹
@@ -183,6 +203,7 @@ def rotwood_treant():
             lp.ball((x, 0.38, 1.5), (0.035, 0.025, 0.03), glow, ao=0)            # 眼
         for x in (0.42, -0.42):
             s = 1 if x > 0 else -1
+            lp.part("arm_l" if x > 0 else "arm_r", (x, 0, 1.55))
             lp.ball((x, 0, 1.62), (0.26, 0.24, 0.16), moss)                      # 苔藓肩
             for k in range(4):
                 lp.tube([(x + s * (k - 1.5) * 0.08, 0.1 + k * 0.03, 1.5), (x + s * (k - 1.5) * 0.08, 0.13 + k * 0.03, 1.36)],
@@ -194,11 +215,13 @@ def rotwood_treant():
                 lp.tube([(x * 1.75, 0.34, 0.82), (x * 1.75 + math.sin(a) * 0.12, 0.44, 0.7), (x * 1.75 + math.sin(a) * 0.18, 0.5, 0.55)],
                         [0.04, 0.025, 0.005], bark_d, seg=8)                     # 枝爪
             lp.tube([(x * 1.5, 0.1, 1.3), (x * 1.8, 0.0, 1.5), (x * 2.0, -0.05, 1.6)], [0.04, 0.025, 0.005], bark_d, seg=6)  # 侧枝
+        lp.part("sway", (0, 0, 1.78))
         for k, (x, y, rz) in enumerate(((0, 0, 0), (0.18, 0.05, 30), (-0.2, 0.0, -32), (0.08, -0.12, 14), (-0.06, 0.1, -10))):
             h = 0.7 - k * 0.06
             lp.tube([(x * 0.5, y * 0.5, 1.78), (x, y, 1.78 + h * 0.5), (x * 1.6, y * 1.4, 1.78 + h)],
                     [0.07, 0.045, 0.006], bark, seg=8)                           # 枝冠
             lp.ball((x * 1.6, y * 1.4, 1.78 + h + 0.02), (0.1, 0.1, 0.07), moss)  # 枝头苔簇
+        lp.part("body")
         for x, y, z, r in ((0.3, 0.25, 1.0, 0.12), (0.36, 0.12, 0.88, 0.08), (-0.34, -0.2, 1.3, 0.1)):
             lp.cyl((x, y, z - 0.04), r * 0.3, 0.08, (0.85, 0.82, 0.72))
             lp.lathe((x, y, z), [(0.0, -0.01), (r, 0.0), (r * 0.9, r * 0.35), (0.0, r * 0.55)], fungus)  # 腐菌

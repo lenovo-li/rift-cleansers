@@ -29,6 +29,47 @@ _group = "body"
 AO = 0.22          # 默认底部变暗比例
 SHARP_ANGLE = 48.0  # 超过这个二面角的边保持硬边（圆锥底边、刀刃等）
 
+# 顶点动画分区（Godot 侧 model_anim.gdshader 读取，编号必须一致）：
+#   UV  = (分区编号 + 发光 * 0.5, 枢轴 x)   UV2 = (枢轴 y, 枢轴 z)   —— 枢轴为 Godot 坐标（y 上、-z 前）
+PARTS = {"body": 0, "leg_l": 1, "leg_r": 2, "arm_l": 3, "arm_r": 4, "head": 5, "tail": 6,
+         "wing_l": 7, "wing_r": 8, "cloth": 9, "flame": 10, "sway": 11, "spin": 12}
+_anim = ["body", Vector((0, 0, 0))]
+
+
+class anim:
+    """with lp.anim("arm_l", 肩关节): 里创建的零件在 Godot 里绕枢轴做该分区的动作。
+    枢轴按进入时的局部坐标系（lp.frame）换算成世界坐标。"""
+
+    def __init__(self, part, pivot=(0, 0, 0)):
+        self.part = part
+        self.pivot = pivot
+
+    def __enter__(self):
+        self.prev = list(_anim)
+        _anim[0] = self.part
+        _anim[1] = _frames[-1] @ Vector(self.pivot)
+        return self
+
+    def __exit__(self, *exc):
+        _anim[:] = self.prev
+
+
+def part(name, pivot=(0, 0, 0)):
+    """之后创建的零件归入动画分区 name（不缩进的写法，等同 anim 但不自动恢复）。part("body") 复位。"""
+    _anim[0] = name
+    _anim[1] = _frames[-1] @ Vector(pivot)
+
+
+def _write_anim_uv(mesh, glow):
+    """把当前分区和枢轴写入两层 UV（glTF 导出时 V 会被翻转成 1-v，这里预先抵消）。"""
+    pid = PARTS[_anim[0]] + (0.5 if glow else 0.0)
+    p = _anim[1]
+    gx, gy, gz = p.x, p.z, -p.y  # Blender (x, y, z) -> Godot (x, z, -y)
+    for name, (u, v) in (("UVMap", (pid, gx)), ("UVAnim", (gy, gz))):
+        layer = mesh.uv_layers.new(name=name)
+        flat = [u, 1.0 - v] * len(mesh.loops)
+        layer.data.foreach_set("uv", flat)
+
 
 def reset_scene():
     global _group
@@ -36,6 +77,7 @@ def reset_scene():
     _parts.clear()
     _part_groups.clear()
     _group = "body"
+    _anim[:] = ["body", Vector((0, 0, 0))]
 
 
 def group(name):
@@ -131,6 +173,7 @@ def _finish(obj, color, team, ao=None, smooth=True, sharp=SHARP_ANGLE):
         attr.data[loop.index].color_srgb = (color[0] * k, color[1] * k, color[2] * k, 1.0)
     mesh.materials.clear()
     mesh.materials.append(_material("Team" if team else "Base"))
+    _write_anim_uv(mesh, ao == 0.0)  # ao=0 的零件（眼睛、火焰、晶体）同时标记为发光，shader 让它呼吸闪烁
     _parts.append(obj)
     _part_groups.append(_group)
     return obj
@@ -451,6 +494,11 @@ def export_rig(path, joints):
     return sorted(groups)
 
 
+def save_blend(path):
+    """把当前场景（已合并好的网格）存成 .blend，方便以后在 Blender 里打开查看。"""
+    bpy.ops.wm.save_as_mainfile(filepath=path, compress=True, check_existing=False)
+
+
 def take_parts():
     """取出并清空当前已登记的零件（分组导出用）。"""
     parts = list(_parts)
@@ -496,18 +544,21 @@ def render_preview(path, distance=6.0, height=2.0):
     bpy.ops.render.render(write_still=True)
 
 
-def render_kit_preview(path, objects):
-    """零件包预览：把各零件横向排开（只在预览时移动，已导出的文件不受影响），俯视 3/4 角度渲染。"""
+def layout_row(objects):
+    """把各零件沿 x 横向排开（导出之后调用，只影响预览和 .blend 里的摆放），返回 (总宽, 最高点)。"""
     x = 0.0
-    spans = []
+    top = 1.0
     for obj in objects:
         bb = [obj.matrix_world @ Vector(c) for c in obj.bound_box]
-        w = max(v.x for v in bb) - min(v.x for v in bb)
-        obj.location.x += x + w * 0.5 - (max(v.x for v in bb) + min(v.x for v in bb)) * 0.5
-        spans.append(max(v.z for v in bb))
-        x += w + 0.6
-    width = x - 0.6
-    top = max(spans) if spans else 1.0
+        x0, x1 = min(v.x for v in bb), max(v.x for v in bb)
+        obj.location.x += x - x0
+        top = max(top, max(v.z for v in bb))
+        x += (x1 - x0) + 0.6
+    return x - 0.6, top
+
+
+def render_kit_preview(path, width, top):
+    """零件包预览：零件已由 layout_row 横向排开，正交相机俯视 3/4 角度渲染。"""
     scene = _setup_render((1600, 600))
     cam_data = bpy.data.cameras.new("KitCam")
     cam_data.type = "ORTHO"

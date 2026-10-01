@@ -23,3 +23,15 @@ static func get_theme() -> Theme:
 ## 设为根窗口主题：之后所有 Control（菜单、HUD、面板）默认都用它。
 static func install(tree: SceneTree) -> void:
 	tree.root.theme = get_theme()
+
+
+## 手柄导航：让 root 下第一个可用的按钮获得焦点（之后十字键 / 摇杆移动焦点，A 确认）。
+## 用 call_deferred 调用，等面板加进场景树、布局完成后再抓焦点。
+static func focus_first(root: Node) -> void:
+	if root == null or not root.is_inside_tree():
+		return
+	for n: Node in root.find_children("*", "BaseButton", true, false):
+		var b: BaseButton = n as BaseButton
+		if b.is_visible_in_tree() and not b.disabled and b.focus_mode != Control.FOCUS_NONE:
+			b.grab_focus()
+			return

@@ -26,6 +26,8 @@ const PRESETS: Dictionary = {
 		"gravity": 1.0, "size": Vector2(0.6, 1.0), "color": Color(0.5, 0.8, 1.0), "radius": 0.6, "additive": true},
 }
 
+## 同时活跃的爆发数量系数（画质「低」为 0.5，见 Settings.apply_quality）。
+static var density: float = 1.0
 static var _pools: Dictionary = {}       # 预设 -> Array[GPUParticles3D]
 static var _draw_materials: Dictionary = {}  # 预设 -> StandardMaterial3D
 static var _process_materials: Dictionary = {}  # 预设 -> ParticleProcessMaterial（颜色每次覆盖）
@@ -42,7 +44,7 @@ static func burst(parent: Node, preset: String, pos: Vector3, scale: float = 1.0
 	var now: int = Time.get_ticks_msec()
 	while not _active_until.is_empty() and _active_until[0] <= now:
 		_active_until.pop_front()
-	if _active_until.size() >= MAX_ACTIVE:
+	if _active_until.size() >= int(MAX_ACTIVE * density):
 		return
 	var p: GPUParticles3D = _acquire(parent, preset)
 	if p == null:

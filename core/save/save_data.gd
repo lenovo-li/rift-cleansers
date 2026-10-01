@@ -1,9 +1,12 @@
 class_name SaveData extends RefCounted
-## 本地存档（user://save.json）：排行榜、累计统计、天赋碎片与每个角色已点的天赋。
+## 本地存档（user://save.json）：排行榜、累计统计、天赋碎片、每个角色已点的天赋、成就。
 ## 只存本地玩家的数据；联机时每台机器各存各的。读写失败时退回默认值，不影响游戏。
+## 版本迁移：旧版本逐级升到 VERSION（migrate）；新版本游戏写的存档保留不认识的字段，降级运行也不丢数据。
+## 损坏的存档先另存为 *.corrupt 再用默认值；写入先写 *.tmp 再改名，写到一半崩溃不会毁掉旧存档。
 
 const DEFAULT_PATH: String = "user://save.json"
-const VERSION: int = 1
+## 1：初版。2：加 achievements（成就 id -> 解锁日期）和 stats（成就用的累计计数）。
+const VERSION: int = 2
 const LEADERBOARD_SIZE: int = 10
 
 ## 测试时改成临时文件。
@@ -14,7 +17,7 @@ static var _loaded: bool = false
 
 static func defaults() -> Dictionary:
 	return {"version": VERSION, "runs": 0, "wins": 0, "total_kills": 0, "shards": 0,
-		"leaderboard": [], "talents": {}, "settings": {}}
+		"leaderboard": [], "talents": {}, "settings": {}, "achievements": {}, "stats": {}}
 
 
 static func data() -> Dictionary:
@@ -31,23 +34,44 @@ static func load_file() -> void:
 	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if f == null:
 		return
+	var text: String = f.get_as_text()
+	f.close()
 	var json: JSON = JSON.new()
-	if json.parse(f.get_as_text()) != OK:
-		push_warning("存档损坏，使用默认值: %s" % path)
+	if json.parse(text) != OK or not (json.data is Dictionary):
+		push_warning("存档损坏，已备份为 %s.corrupt，使用默认值" % path)
+		DirAccess.copy_absolute(ProjectSettings.globalize_path(path), ProjectSettings.globalize_path(path + ".corrupt"))
 		return
-	var parsed: Variant = json.data
-	if parsed is Dictionary:
-		for key: String in _data:
-			if (parsed as Dictionary).has(key) and typeof(parsed[key]) == typeof(_data[key]):
-				_data[key] = parsed[key]
+	_data = migrate(json.data)
+
+
+## 把任意版本的存档字典升级到当前格式：逐级迁移，再按默认值补齐缺失或类型不对的字段。
+static func migrate(raw: Dictionary) -> Dictionary:
+	var d: Dictionary = raw.duplicate(true)
+	var v: int = int(d.get("version", 1))
+	if v < 2:
+		d["achievements"] = {}
+		d["stats"] = {}
+	var out: Dictionary = defaults()
+	for key: String in d:
+		if not out.has(key):
+			out[key] = d[key]  # 新版本游戏的字段，原样保留
+		elif typeof(d[key]) == typeof(out[key]) or (out[key] is int and d[key] is float):
+			out[key] = int(d[key]) if out[key] is int else d[key]  # JSON 读回来的整数是 float
+	out["version"] = maxi(v, VERSION)
+	return out
 
 
 static func save_file() -> bool:
-	var f: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	var tmp: String = path + ".tmp"
+	var f: FileAccess = FileAccess.open(tmp, FileAccess.WRITE)
 	if f == null:
 		push_warning("存档写入失败: %s" % path)
 		return false
 	f.store_string(JSON.stringify(data(), "\t"))
+	f.close()
+	if DirAccess.rename_absolute(ProjectSettings.globalize_path(tmp), ProjectSettings.globalize_path(path)) != OK:
+		push_warning("存档改名失败: %s" % path)
+		return false
 	return true
 
 
@@ -71,8 +95,10 @@ static func shards_for(victory: bool, level: int, kills: int) -> int:
 	return kills / 100 + level / 5 + (10 if victory else 0)
 
 
-## 记录一局。返回 {rank（1 起，未上榜为 0）, shards, score}。
-static func record_run(char_id: String, map_id: String, victory: bool, time_s: float, level: int, kills: int) -> Dictionary:
+## 记录一局并判断成就。extra：Achievements.evaluate 需要的其他字段（boss_affix、players 等）。
+## 返回 {rank（1 起，未上榜为 0）, shards, score, achievements（本局新解锁的 id）}。
+static func record_run(char_id: String, map_id: String, victory: bool, time_s: float, level: int, kills: int,
+		extra: Dictionary = {}) -> Dictionary:
 	var d: Dictionary = data()
 	var score: int = score_of(victory, time_s, level, kills)
 	var shards: int = shards_for(victory, level, kills)
@@ -90,8 +116,11 @@ static func record_run(char_id: String, map_id: String, victory: bool, time_s: f
 		board.resize(LEADERBOARD_SIZE)
 	if rank > LEADERBOARD_SIZE:
 		rank = 0
+	var run: Dictionary = extra.duplicate()
+	run.merge({"char": char_id, "map": map_id, "victory": victory, "time": time_s, "level": level, "kills": kills}, true)
+	var fresh: Array[String] = Achievements.evaluate(run)
 	save_file()
-	return {"rank": rank, "shards": shards, "score": score}
+	return {"rank": rank, "shards": shards, "score": score, "achievements": fresh}
 
 
 static func leaderboard() -> Array:

@@ -1,0 +1,15 @@
+asset_name: webrtc-native（Godot WebRTC GDExtension）及其依赖 libdatachannel / libjuice / libsrtp / mbedtls / usrsctp / plog
+author: Godot Engine contributors；Paul-Louis Ageneau（libdatachannel、libjuice）；Cisco（libsrtp）；Arm（mbedtls）；usrsctp、plog 各自作者
+source_url: https://github.com/godotengine/webrtc-native
+version: 1.2.1
+license: MIT（webrtc-native、plog）、MPL-2.0（libdatachannel、libjuice）、BSD-3-Clause（libsrtp、usrsctp）、Apache-2.0（mbedtls）
+license_url: https://github.com/godotengine/webrtc-native/blob/master/LICENSE
+download_date: 2026-10-01
+modified: false
+credit_required: true（随发行物附带各库许可证全文）
+used_in:
+  - P2P 联机 (net/p2p_link.gd)
+files_location: addons/webrtc_native/（仅 Windows x64 DLL）
+license_files: addons/webrtc_native/LICENSE.*
+notes: |
+  MPL-2.0 的库以未修改的动态库形式分发，源码可从上面的仓库获取。

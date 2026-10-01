@@ -45,6 +45,7 @@ func _ready() -> void:
 		_button(box, "邀请好友（P2P）", func() -> void: invite_requested.emit())
 	_button(box, "设置", _open_settings)
 	_button(box, "返回主菜单", func() -> void: quit_requested.emit())
+	UiTheme.focus_first.call_deferred(self)
 
 
 func _button(parent: Node, text: String, cb: Callable) -> void:
@@ -60,7 +61,8 @@ func _open_settings() -> void:
 	_settings = SettingsPanel.new()
 	_settings.closed.connect(func() -> void:
 		_settings = null
-		visible = true)
+		visible = true
+		UiTheme.focus_first.call_deferred(self))
 	add_child(_settings)
 
 

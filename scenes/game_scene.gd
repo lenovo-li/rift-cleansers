@@ -27,11 +27,17 @@ var _music: Node = null
 var _music_timer: float = 0.0
 ## 地图随机事件（主机 / 单人）
 var events: EventDirector = null
+## 成就用：Boss 登场时间（-1 = 未登场）、词缀、本地玩家是否倒下过
+var _boss_spawn_time: float = -1.0
+var _boss_affix: String = ""
+var _local_downed: bool = false
 
 
 func _ready() -> void:
 	_rng.randomize()
+	CrashReporter.install(get_tree())
 	Settings.apply()  # 命令行直接开局时菜单没跑过，这里再应用一次
+	Settings.apply_quality(self)  # 地图（子节点）已按主题复制好环境，这里再按画质开关阴影 / 泛光
 	_music = (load("res://presentation/music_manager.gd") as GDScript).new()
 	_music.name = "Music"
 	add_child(_music)
@@ -58,6 +64,9 @@ func _ready() -> void:
 		auto_pick_upgrades = true
 		record_runs = false
 	register_player(_player)
+	_player.died.connect(func(_reason: String) -> void: _local_downed = true)
+	Achievements.on_unlocked = func(_id: String, title: String) -> void:
+		_hud.show_toast("成就解锁：%s" % title, 3.0)
 	SkillVfx.reset_counters()
 	SkillVfx.warmup(self, _player.global_position)  # 预编译特效着色器，避免第一次施放卡顿
 	_player.hurt.connect(func(amount: float) -> void:
@@ -84,8 +93,11 @@ func _ready() -> void:
 			keys.append("%s %s" % [_hud.key_label(i), SkillFactory.display_name(pool[i])])
 	var move: String = "".join([Settings.key_name(Settings.key_of("move_up")), Settings.key_name(Settings.key_of("move_left")),
 			Settings.key_name(Settings.key_of("move_down")), Settings.key_name(Settings.key_of("move_right"))])
-	_hud.show_toast("%s 移动  %s  %s 闪避  T 自动施放  %s 菜单  F3 联机调试" % [move, "  ".join(keys),
-			Settings.key_name(Settings.key_of("dash")), Settings.key_name(Settings.key_of("pause"))], 5.0)
+	if Settings.pad_connected():
+		_hud.show_toast("左摇杆 移动  %s  A 闪避  Back 自动施放  Start 菜单" % "  ".join(keys), 5.0)
+	else:
+		_hud.show_toast("%s 移动  %s  %s 闪避  T 自动施放  %s 菜单  F3 联机调试" % [move, "  ".join(keys),
+				Settings.key_name(Settings.key_of("dash")), Settings.key_name(Settings.key_of("pause"))], 5.0)
 	# P2P 房主刚开房（还没有好友）：直接弹出邀请面板；之后可以在菜单里继续邀请
 	if NetConfig.is_host() and NetConfig.p2p and NetConfig.p2p_dir.is_empty() and not NetConfig.bot \
 			and net != null and net.players_by_slot.size() <= 1:
@@ -107,6 +119,7 @@ func _setup_network() -> void:
 
 func _exit_tree() -> void:
 	Reactions.on_reaction = Callable()
+	Achievements.on_unlocked = Callable()
 	Enemy.clear_caches()
 	SfxManager.reset_voices()
 	HitStop.reset()
@@ -118,7 +131,9 @@ func _exit_tree() -> void:
 func register_player(p: CharacterBody3D) -> void:
 	p.died.connect(func(_reason: String) -> void: _on_player_down(p))
 	p.equipment_added.connect(func(id: String) -> void:
-		_toast_to(p.net_slot, "获得装备：%s — %s" % [ItemCatalog.equipment_name(id), ItemCatalog.equipment_desc(id)]))
+		_toast_to(p.net_slot, "获得装备：%s — %s" % [ItemCatalog.equipment_name(id), ItemCatalog.equipment_desc(id)])
+		if id == "exp_tome":
+			_session.exp_bonus += 0.25)  # 共享等级，全队生效
 
 
 ## 每秒按敌人数量和 Boss 是否在场切换音乐（客户端的数量和 Boss 信息来自主机快照，同样可用）。
@@ -216,6 +231,8 @@ func _apply_upgrade(choice: Dictionary) -> void:
 
 
 func _on_boss_spawned(boss: Boss) -> void:
+	_boss_spawn_time = _session.get_game_time()
+	_boss_affix = boss.affix
 	_broadcast_toast("%s 降临！" % boss.get_display_name())
 	boss.phase_changed.connect(func(phase: int) -> void:
 		SkillVfx.shockwave(self, boss.global_position, 12.0, Color(0.9, 0.1, 0.25, 1.0), 0.7)
@@ -248,12 +265,28 @@ func _on_game_over(reason: String, victory: bool) -> void:
 	var record: Dictionary = {}
 	if record_runs:
 		record = SaveData.record_run(_player.character_id, NetConfig.map_id, victory, _session.get_game_time(),
-				_session.get_player_level(), _spawner.kills)
+				_session.get_player_level(), _spawner.kills, _achievement_context())
 	var can_restart: bool = not NetConfig.is_client()
 	_game_over_panel = GameOverPanel.build(victory, reason, _session, _spawner.kills, can_restart, record)
 	_game_over_panel.restart_requested.connect(_restart)
 	_game_over_panel.quit_requested.connect(_quit_to_menu)
 	$UI.add_child(_game_over_panel)
+
+
+## 成就判断用的本局数据。技能段位和装备由主机结算，客户端填 -1（相关成就本局不判断）。
+func _achievement_context() -> Dictionary:
+	var tiers: int = -1
+	var gear: int = -1
+	if not NetConfig.is_client():
+		tiers = 0
+		for id: String in _player.ability_system.pool():
+			var skill: Skill = _player.ability_system.get_skill(id)
+			if skill != null and skill.get_tier() >= 4:
+				tiers += 1
+		gear = _player.stats.equipment.size()
+	return {"boss_affix": _boss_affix, "players": maxi(1, PlayerQuery.all(get_tree()).size()),
+		"boss_fight_time": _session.get_game_time() - _boss_spawn_time if _boss_spawn_time >= 0.0 else -1.0,
+		"max_tier_skills": tiers, "equipment": gear, "downed": _local_downed}
 
 
 func _restart() -> void:
@@ -281,6 +314,11 @@ func _unhandled_input(event: InputEvent) -> void:
 					net.send_action(NetSession.Action.AUTO_CAST, int(_player.auto_cast))
 			KEY_F3:
 				_hud.toggle_debug()
+	if event is InputEventJoypadButton and event.pressed and (event as InputEventJoypadButton).button_index == JOY_BUTTON_BACK:
+		_player.auto_cast = not _player.auto_cast  # 手柄 Back = T（自动施放）
+		_hud.show_toast("自动施放：%s" % ("开" if _player.auto_cast else "关"), 1.5)
+		if net != null:
+			net.send_action(NetSession.Action.AUTO_CAST, int(_player.auto_cast))
 	if event.is_action_pressed("pause"):
 		get_viewport().set_input_as_handled()
 		_open_pause_menu()

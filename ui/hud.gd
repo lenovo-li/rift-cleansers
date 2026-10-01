@@ -7,6 +7,8 @@ const SKILL_KEYS: Array[String] = ["空格", "Q", "E", "R", "F", "C"]  # 默认�
 
 ## 技能栏第 i 格当前绑定的按键名（设置里可改键）。
 static func key_label(i: int) -> String:
+	if Settings.pad_connected():
+		return Settings.PAD_NAMES["skill_%d" % i]
 	var code: int = Settings.key_of("skill_%d" % i)
 	return "空格" if code == KEY_SPACE else Settings.key_name(code)
 const BAR_WIDTH: float = 360.0

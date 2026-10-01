@@ -69,6 +69,7 @@ func _ready() -> void:
 		queue_free())
 	bottom.add_child(back)
 	_refresh()
+	back.grab_focus.call_deferred()
 
 
 func _refresh() -> void:
@@ -101,7 +102,7 @@ func _refresh() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and (event as InputEventKey).keycode == KEY_ESCAPE:
+	if event.is_action_pressed("ui_cancel") or (event is InputEventKey and event.pressed and (event as InputEventKey).keycode == KEY_ESCAPE):
 		get_viewport().set_input_as_handled()
 		closed.emit()
 		queue_free()

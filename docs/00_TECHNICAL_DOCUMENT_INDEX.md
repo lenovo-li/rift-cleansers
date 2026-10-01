@@ -53,7 +53,7 @@
 - **联机模型**：主机权威 Listen Server
 - **开发期传输**：ENet（Godot高层多人API）
 - **Steam传输**：GodotSteam MultiplayerPeer + Steam Relay
-- **渲染方向**：低多边形3D + 俯视固定镜头
+- **渲染方向**：平滑中模3D + 俯视固定镜头
 
 ### 开发顺序（文档07）
 

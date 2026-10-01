@@ -27,7 +27,7 @@
 - **语言**：GDScript（强制类型标注）
 - **网络**：ENet（开发期）→ GodotSteam + Steam Relay（发布版）
 - **架构**：主机权威 Listen Server
-- **渲染**：低多边形3D，Forward+渲染器
+- **渲染**：平滑中模3D，Forward+渲染器
 - **平台**：Windows 10/11，Steam首发
 
 ---

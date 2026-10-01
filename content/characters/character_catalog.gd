@@ -9,14 +9,14 @@ const DEFAULT_ID: String = "iron_guard"
 const CHARACTERS: Dictionary = {
 	"iron_guard": {
 		"name": "铁卫",
-		"desc": "近战坦克：盾击击退、嘲讽聚怪、旋风斩收割。生命 1000。",
+		"desc": "近战坦克：盾击击退、嘲讽聚怪、旋风斩收割。生命 1200。",
 		"model": "iron_guard",
 		"skills": ["shield_bash", "whirlwind", "taunt", "charge", "ground_slam", "reflect_aura"],
 		"starting": ["shield_bash", "taunt"],
-		"max_health": 1000.0,
+		"max_health": 1200.0,
 		"move_speed": 8.0,
 		"attack": "pulse",  # 自身周围范围脉冲
-		"attack_damage": 28.0,
+		"attack_damage": 34.0,
 		"attack_range": 3.5,
 		"attack_interval": 1.0,
 	},

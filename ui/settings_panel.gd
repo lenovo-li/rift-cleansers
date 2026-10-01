@@ -32,9 +32,14 @@ func _ready() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 36)
 	box.add_child(title)
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(660, 560)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(scroll)
 	_rows = VBoxContainer.new()
 	_rows.add_theme_constant_override("separation", 4)
-	box.add_child(_rows)
+	_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_rows)
 	_hint = Label.new()
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint.add_theme_font_size_override("font_size", 16)
@@ -57,6 +62,7 @@ func _ready() -> void:
 	close_btn.pressed.connect(_close)
 	buttons.add_child(close_btn)
 	_build_rows()
+	close_btn.grab_focus.call_deferred()
 
 
 func _build_rows() -> void:
@@ -64,12 +70,20 @@ func _build_rows() -> void:
 		c.queue_free()
 	_key_buttons.clear()
 	_waiting = ""
-	_hint.text = "点击按键后按下新键；Esc 取消。与其他动作冲突时会互换。"
+	_hint.text = "点击按键后按下新键；Esc 取消。与其他动作冲突时会互换。\n" + \
+			"手柄（固定）：左摇杆移动  A 闪避  X/Y/B/LB/RB/RT 技能  Back 自动施放  Start 菜单"
 	_slider("总音量", "master")
 	_slider("音乐", "music")
 	_slider("音效", "sfx")
 	_toggle("伤害数字", "damage_numbers")
 	_toggle("震屏", "screen_shake")
+	_option("画质", "quality", Settings.QUALITY_NAMES, [0, 1, 2])
+	_toggle("全屏", "fullscreen")
+	_toggle("垂直同步", "vsync")
+	var fps_names: Array[String] = []
+	for cap: int in Settings.FPS_CAPS:
+		fps_names.append("不限" if cap == 0 else str(cap))
+	_option("帧率上限", "max_fps", fps_names, Settings.FPS_CAPS)
 	var grid: GridContainer = GridContainer.new()
 	grid.columns = 4
 	grid.add_theme_constant_override("h_separation", 12)
@@ -133,6 +147,18 @@ func _toggle(text: String, key: String) -> void:
 	row.add_child(box)
 
 
+## 下拉选项：names 为显示文字，values 为存进设置的值（顺序一一对应）。
+func _option(text: String, key: String, names: Array, values: Array) -> void:
+	var row: HBoxContainer = _row(text)
+	var opt: OptionButton = OptionButton.new()
+	opt.custom_minimum_size = Vector2(170, 32)
+	for n: String in names:
+		opt.add_item(n)
+	opt.selected = maxi(0, values.find(int(Settings.get_value(key))))
+	opt.item_selected.connect(func(i: int) -> void: Settings.set_value(key, values[i]))
+	row.add_child(opt)
+
+
 func _start_rebind(action: String) -> void:
 	_waiting = action
 	(_key_buttons[action] as Button).text = "按下新键…"
@@ -141,6 +167,11 @@ func _start_rebind(action: String) -> void:
 
 func _input(event: InputEvent) -> void:
 	# 用 _input 抢在游戏和其他面板之前拿到按键
+	if event is InputEventJoypadButton and event.pressed and _waiting.is_empty() \
+			and (event as InputEventJoypadButton).button_index in [JOY_BUTTON_B, JOY_BUTTON_START]:
+		get_viewport().set_input_as_handled()
+		_close()  # 手柄 B / Start 关闭（改键只针对键盘，手柄键位固定）
+		return
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
 	var key: InputEventKey = event as InputEventKey

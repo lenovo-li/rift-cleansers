@@ -128,6 +128,9 @@ func _on_enemy_died(enemy: Enemy) -> void:
 	kills += 1
 	if _session:
 		_session.add_experience(enemy.exp_reward)
+		for p: Node in get_tree().get_nodes_in_group("players"):
+			if p.has_method("get") and p.get("stats") != null:
+				p.stats.on_kill()
 	if enemy is Boss:
 		boss = null
 		boss_defeated.emit(enemy.get_display_name())

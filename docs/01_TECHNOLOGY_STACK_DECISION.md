@@ -17,7 +17,7 @@
 2. 1000-2000敌人需要MultiMesh、对象池和空间分区，Godot原生支持
 3. Steam集成、手柄、音频混合、粒子系统已内置
 4. 主机权威网络架构已有成熟参考实现
-5. 低多边形3D渲染管线完整
+5. 3D渲染管线完整（MultiMesh、glTF导入、自定义Shader）
 
 ---
 
@@ -35,7 +35,7 @@
 | 掉线重连 | 需要快照序列化和状态恢复 |
 | Steam发布 | 需要Steamworks集成 |
 | 手柄支持 | 需要输入映射和振动 |
-| 低多边形3D | 需要3D渲染管线和模型导入 |
+| 平滑中模3D | 需要3D渲染管线和模型导入 |
 
 ### 1.2 开发者背景
 
@@ -157,7 +157,7 @@
 #### Unreal Engine
 
 - **优势**：AAA级渲染，蓝图可视化编程
-- **劣势**：引擎体积巨大，编辑器学习曲线陡峭，低多边形3D用不上高级渲染
+- **劣势**：引擎体积巨大，编辑器学习曲线陡峭，中模3D用不上高级渲染
 - **判断**：过度工程，不适合本项目
 
 #### Stride（前Xenko）
@@ -204,7 +204,7 @@
 开发期传输: ENet（Godot MultiplayerPeer）
 Steam传输: GodotSteam MultiplayerPeer + Steam Relay
 首发平台: Windows 10/11，Steam
-渲染方向: 低多边形3D，Forward+渲染器
+渲染方向: 平滑中模3D，Forward+渲染器
 正式项目: 从零创建，不复用现有node_modules
 node_modules: 归档到archive/或删除
 ```
@@ -353,7 +353,7 @@ node_modules: 归档到archive/或删除
 | 1-4人联机 | Godot MultiplayerPeer + GodotSteam |
 | 1000-2000敌人 | MultiMesh + 对象池 + 空间网格 + 分层更新 |
 | 技能四段进化 | GPUParticles + Shader + AnimationPlayer |
-| 低多边形3D | Blender + glTF + 共享材质 |
+| 平滑中模3D | Blender 脚本建模 + glTF + 共享材质 + 顶点动画Shader |
 | 掉线重连 | 快照序列化 + 重连令牌 |
 | 手柄支持 | Input映射 + Joypad振动API |
 | Steam发布 | GodotSteam + Windows导出模板 |

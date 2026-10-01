@@ -120,6 +120,8 @@ func damage_taken_multiplier() -> float:
 	var mult: float = 1.0
 	if has_equipment("iron_skin"):
 		mult *= 0.9
+	if has_equipment("fortress_plate"):
+		mult *= 1.0 - 0.02 * floorf(rage / 10.0)
 	return mult
 
 
@@ -155,6 +157,8 @@ func receive_damage(amount: float, block_roll: float) -> Dictionary:
 			add_shield(10.0)
 		if has_equipment("spiked_shield"):
 			result.reflect += SPIKED_SHIELD_DAMAGE
+		if has_equipment("vital_bulwark"):
+			heal(max_health * 0.03)
 		rage = minf(RAGE_MAX, rage + RAGE_PER_HIT_TAKEN)
 		revenge_remaining = REVENGE_DURATION
 		return result
@@ -186,6 +190,12 @@ func on_damage_dealt(hits: int, total_damage: float, melee: bool) -> float:
 		heal(amount)
 		return health - before
 	return 0.0
+
+
+## 击杀回调：战意徽章获得怒气。
+func on_kill() -> void:
+	if has_equipment("battle_badge"):
+		rage = minf(RAGE_MAX, rage + 15.0)
 
 
 func tick(delta: float) -> void:

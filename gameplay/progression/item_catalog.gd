@@ -32,6 +32,9 @@ const EQUIPMENT: Dictionary = {
 	"berserker_helm": {"name": "狂战头盔", "desc": "生命<50%时伤害+40%", "char": "iron_guard"},
 	"bulwark_sigil": {"name": "壁垒徽记", "desc": "格挡率+10%", "char": "iron_guard"},
 	"rage_sigil": {"name": "狂怒印记", "desc": "怒气获取+50%", "char": "iron_guard"},
+	"fortress_plate": {"name": "堡垒板甲", "desc": "每10点怒气受到伤害-2%（满怒-20%）", "char": "iron_guard"},
+	"vital_bulwark": {"name": "生机壁垒", "desc": "格挡时回复3%最大生命", "char": "iron_guard"},
+	"battle_badge": {"name": "战意徽章", "desc": "击杀获得15点怒气", "char": "iron_guard"},
 	# 元素术士
 	"flame_core": {"name": "烈焰核心", "desc": "自动攻击附加燃烧（重击可引爆）", "char": "elementalist"},
 	"arcane_tome": {"name": "奥术秘典", "desc": "技能伤害+20%", "char": "elementalist"},

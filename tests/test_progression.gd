@@ -169,6 +169,15 @@ func test_new_equipment_effects() -> String:
 	s.tick(0.1)
 	if s.shield < CharacterStats.SHIELD_CORE_AMOUNT:
 		return "护盾核心应给护盾"
+	var g: CharacterStats = CharacterStats.new(1000.0)
+	g.add_equipment("fortress_plate")
+	g.rage = 100.0
+	if not is_equal_approx(g.damage_taken_multiplier(), 0.8):
+		return "堡垒板甲满怒应减伤 20%%：%s" % g.damage_taken_multiplier()
+	g.add_equipment("vital_bulwark")
+	g.health = 500.0
+	if not g.receive_damage(100.0, 0.0).blocked or not is_equal_approx(g.health, 530.0):
+		return "生机壁垒格挡应回复 3%% 最大生命：%s" % g.health
 	s.add_equipment("second_wind")
 	s.shield = 0.0
 	s.receive_damage(5000.0, 1.0)

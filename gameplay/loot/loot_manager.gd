@@ -43,7 +43,9 @@ func drop_equipment(pos: Vector3) -> void:
 	var target: Node3D = PlayerQuery.nearest_alive(get_tree(), pos)
 	var char_id: String = str(target.character_id) if target != null else "-"
 	var owned: Dictionary = target.stats.equipment if target != null else {}
-	var id: String = DropSystem.pick_equipment(owned, _pending, char_id, _rng)
+	var id: String = ""
+	if owned.size() < DropSystem.MAX_EQUIPMENT:
+		id = DropSystem.pick_equipment(owned, _pending, char_id, _rng)
 	if id.is_empty():
 		_spawn("heal", "", DropSystem.HEAL_ORB_AMOUNT * 3.0, pos)
 		return

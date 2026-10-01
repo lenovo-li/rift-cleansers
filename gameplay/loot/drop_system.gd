@@ -3,6 +3,8 @@ class_name DropSystem extends RefCounted
 ## 普通敌人 3% 掉治疗球。纯逻辑。
 
 const ELITE_EQUIPMENT_CHANCE: float = 0.35
+## 每人最多装备数。装备池扩到 29 件后不设上限会在后期叠满（模拟里 9 分钟拿到 19 件），满了掉治疗球。
+const MAX_EQUIPMENT: int = 8
 const HEAL_ORB_CHANCE: float = 0.03
 const HEAL_ORB_AMOUNT: float = 60.0
 

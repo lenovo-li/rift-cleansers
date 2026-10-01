@@ -19,14 +19,21 @@ const DEFAULT_KEYS: Dictionary = {
 	"pause": KEY_ESCAPE,
 }
 
+## 画质档位：低 = 无阴影 / 无泛光 / 0.75 渲染缩放 / 少粒子；中 = 柔和阴影 + FXAA；高 = 高质量阴影 + 4x MSAA。
+enum { QUALITY_LOW, QUALITY_MEDIUM, QUALITY_HIGH }
+const QUALITY_NAMES: Array[String] = ["低", "中", "高"]
+const FPS_CAPS: Array[int] = [0, 60, 120, 144, 240]  # 0 = 不限
+
 static var _applied_keys: Dictionary = {}  # 动作 -> 当前由设置写入的 InputEventKey（改键时只替换这一个）
+static var _applied_display: Array = []  # 上次应用的 [fullscreen, vsync]，相同则不动窗口（避免每次进场景都重置窗口大小）
 
 
 static func defaults() -> Dictionary:
 	var keys: Dictionary = {}
 	for a: String in DEFAULT_KEYS:
 		keys[a] = int(DEFAULT_KEYS[a])
-	return {"master": 1.0, "music": 0.8, "sfx": 1.0, "damage_numbers": true, "screen_shake": true, "keys": keys}
+	return {"master": 1.0, "music": 0.8, "sfx": 1.0, "damage_numbers": true, "screen_shake": true, "keys": keys,
+		"quality": QUALITY_HIGH, "fullscreen": false, "vsync": true, "max_fps": 0}
 
 
 ## 当前设置（缺的字段补默认值）。
@@ -35,7 +42,9 @@ static func data() -> Dictionary:
 	var s: Dictionary = save.get("settings", {})
 	var d: Dictionary = defaults()
 	for k: String in d:
-		if not s.has(k) or typeof(s[k]) != typeof(d[k]):
+		if s.has(k) and d[k] is int and s[k] is float:
+			s[k] = int(s[k])  # JSON 读回来的整数是 float
+		elif not s.has(k) or typeof(s[k]) != typeof(d[k]):
 			s[k] = d[k]
 	for a: String in DEFAULT_KEYS:
 		if not (s.keys as Dictionary).has(a):
@@ -93,6 +102,49 @@ static func apply() -> void:
 	DamageNumbers.enabled = bool(s.damage_numbers)
 	SkillVfx.shake_enabled = bool(s.screen_shake)
 	_apply_keys(s.keys)
+	_apply_display(s)
+	var tree: SceneTree = Engine.get_main_loop() as SceneTree
+	if tree != null and tree.current_scene != null:
+		apply_quality(tree.current_scene)
+
+
+static func quality() -> int:
+	return clampi(int(data().quality), QUALITY_LOW, QUALITY_HIGH)
+
+
+## 画质：视口抗锯齿 / 渲染缩放，以及场景里的阴影和泛光。游戏场景搭好地图后也会调用一次。
+static func apply_quality(scene: Node) -> void:
+	var q: int = quality()
+	var vp: Viewport = scene.get_viewport()
+	if vp != null:
+		vp.msaa_3d = Viewport.MSAA_4X if q == QUALITY_HIGH else Viewport.MSAA_DISABLED
+		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if q == QUALITY_MEDIUM else Viewport.SCREEN_SPACE_AA_DISABLED
+		vp.scaling_3d_scale = 0.75 if q == QUALITY_LOW else 1.0
+	RenderingServer.directional_soft_shadow_filter_set_quality(
+		RenderingServer.SHADOW_QUALITY_SOFT_HIGH if q == QUALITY_HIGH else RenderingServer.SHADOW_QUALITY_SOFT_LOW)
+	ParticleFx.density = 0.5 if q == QUALITY_LOW else 1.0
+	var sun: DirectionalLight3D = scene.get_node_or_null("Sun") as DirectionalLight3D
+	if sun != null:
+		sun.shadow_enabled = q != QUALITY_LOW
+	var we: WorldEnvironment = scene.get_node_or_null("WorldEnvironment") as WorldEnvironment
+	if we != null and we.environment != null:
+		we.environment.glow_enabled = q != QUALITY_LOW
+
+
+## 全屏 / 垂直同步 / 帧率上限。无界面模式（测试）不动窗口。
+static func _apply_display(s: Dictionary) -> void:
+	Engine.max_fps = int(s.max_fps)
+	if DisplayServer.get_name() == "headless":
+		return
+	var want: Array = [bool(s.fullscreen), bool(s.vsync)]
+	if want == _applied_display:
+		return
+	if _applied_display.is_empty() and not want[0]:
+		pass  # 首次且窗口模式：保持 project.godot 的默认窗口（最大化），不去改
+	else:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if want[0] else DisplayServer.WINDOW_MODE_MAXIMIZED)
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if want[1] else DisplayServer.VSYNC_DISABLED)
+	_applied_display = want
 
 
 static func _ensure_bus(bus_name: String) -> void:

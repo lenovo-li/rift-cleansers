@@ -31,7 +31,9 @@ var events: EventDirector = null
 
 func _ready() -> void:
 	_rng.randomize()
+	CrashReporter.install(get_tree())
 	Settings.apply()  # 命令行直接开局时菜单没跑过，这里再应用一次
+	Settings.apply_quality(self)  # 地图（子节点）已按主题复制好环境，这里再按画质开关阴影 / 泛光
 	_music = (load("res://presentation/music_manager.gd") as GDScript).new()
 	_music.name = "Music"
 	add_child(_music)

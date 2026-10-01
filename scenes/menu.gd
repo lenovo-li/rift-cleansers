@@ -13,6 +13,7 @@ var _status: Label
 
 
 func _ready() -> void:
+	CrashReporter.install(get_tree())
 	UiTheme.install(get_tree())
 	Settings.apply()
 	if NetConfig.parse_cmdline():
@@ -84,9 +85,16 @@ func _ready() -> void:
 	_button(box, "局域网创建房间", _on_host)
 	_addr_edit = _field(box, "主机 IP", NetConfig.address)
 	_button(box, "局域网加入房间", _on_join)
-	_button(box, "天赋树", func() -> void: add_child(TalentPanel.build(NetConfig.character_id)))
-	_button(box, "本地排行榜", _show_leaderboard)
-	_button(box, "设置", func() -> void: add_child(SettingsPanel.new()))
+	var extra_row: HBoxContainer = HBoxContainer.new()
+	extra_row.add_theme_constant_override("separation", 8)
+	box.add_child(extra_row)
+	for pair: Array in [["天赋树", func() -> void: add_child(TalentPanel.build(NetConfig.character_id))],
+			["排行榜", _show_leaderboard],
+			["设置", func() -> void: add_child(SettingsPanel.new())],
+			["关于", func() -> void: add_child(LicensesPanel.new())]]:
+		var b: Button = _button(extra_row, pair[0], pair[1])
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", 18)
 	_button(box, "退出", func() -> void: get_tree().quit())
 	_status = Label.new()
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -94,6 +102,22 @@ func _ready() -> void:
 			"局域网：主机需要放行 UDP 端口；无加密与鉴权，只在可信网络使用"
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(_status)
+	if not CrashReporter.pending_report.is_empty():
+		_show_crash_notice(CrashReporter.pending_report)
+		CrashReporter.pending_report = ""
+
+
+## 上次异常退出：提示日志位置，可直接打开文件夹（日志只在本机，不上传）。
+func _show_crash_notice(report: String) -> void:
+	var dialog: ConfirmationDialog = ConfirmationDialog.new()
+	dialog.title = "上次游戏异常退出"
+	dialog.dialog_text = "已把上次的日志保存到：\n%s\n\n反馈问题时可以附上这个文件。日志只保存在本机，不会上传。" % \
+			ProjectSettings.globalize_path(report)
+	dialog.ok_button_text = "打开文件夹"
+	dialog.cancel_button_text = "知道了"
+	dialog.confirmed.connect(func() -> void: OS.shell_open(CrashReporter.report_dir_global()))
+	add_child(dialog)
+	dialog.popup_centered()
 
 
 func _field(parent: Node, label: String, value: String) -> LineEdit:

@@ -39,8 +39,11 @@ func drop_equipment_near_player() -> void:
 
 
 func drop_equipment(pos: Vector3) -> void:
-	# 多人时只排除所有玩家都已拥有的装备
-	var id: String = DropSystem.pick_equipment(_owned_by_everyone(), _pending, _rng)
+	# 按离掉落点最近的玩家抽（通用 + 他的角色专属），排除他已有的；没有玩家时只抽通用
+	var target: Node3D = PlayerQuery.nearest_alive(get_tree(), pos)
+	var char_id: String = str(target.character_id) if target != null else "-"
+	var owned: Dictionary = target.stats.equipment if target != null else {}
+	var id: String = DropSystem.pick_equipment(owned, _pending, char_id, _rng)
 	if id.is_empty():
 		_spawn("heal", "", DropSystem.HEAL_ORB_AMOUNT * 3.0, pos)
 		return

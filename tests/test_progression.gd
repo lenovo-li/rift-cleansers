@@ -132,12 +132,13 @@ func test_spawn_timeline_matches_design() -> String:
 func test_drop_picks_unowned_equipment() -> String:
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	var owned: Dictionary = {}
-	for i in ItemCatalog.EQUIPMENT.size():
-		var id: String = DropSystem.pick_equipment(owned, [], rng)
+	var pool: Array[String] = ItemCatalog.equipment_pool("iron_guard")
+	for i in pool.size():
+		var id: String = DropSystem.pick_equipment(owned, [], "iron_guard", rng)
 		if id.is_empty() or owned.has(id):
 			return "应掉落未拥有的装备"
 		owned[id] = true
-	if not DropSystem.pick_equipment(owned, [], rng).is_empty():
+	if not DropSystem.pick_equipment(owned, [], "iron_guard", rng).is_empty():
 		return "全部拥有后不应再掉装备"
 	return ""
 

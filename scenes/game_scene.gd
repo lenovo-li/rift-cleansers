@@ -131,7 +131,9 @@ func _exit_tree() -> void:
 func register_player(p: CharacterBody3D) -> void:
 	p.died.connect(func(_reason: String) -> void: _on_player_down(p))
 	p.equipment_added.connect(func(id: String) -> void:
-		_toast_to(p.net_slot, "获得装备：%s — %s" % [ItemCatalog.equipment_name(id), ItemCatalog.equipment_desc(id)]))
+		_toast_to(p.net_slot, "获得装备：%s — %s" % [ItemCatalog.equipment_name(id), ItemCatalog.equipment_desc(id)])
+		if id == "exp_tome":
+			_session.exp_bonus += 0.25)  # 共享等级，全队生效
 
 
 ## 每秒按敌人数量和 Boss 是否在场切换音乐（客户端的数量和 Boss 信息来自主机快照，同样可用）。

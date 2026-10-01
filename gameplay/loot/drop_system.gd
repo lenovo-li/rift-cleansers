@@ -8,9 +8,10 @@ const HEAL_ORB_AMOUNT: float = 60.0
 
 
 ## 从未拥有、也未在地上的装备里随机挑一件；全部拿到时返回空字符串。
-static func pick_equipment(owned: Dictionary, pending: Array, rng: RandomNumberGenerator) -> String:
+## char_id：筛选该角色能用的装备（通用 + 该角色专属）。
+static func pick_equipment(owned: Dictionary, pending: Array, char_id: String, rng: RandomNumberGenerator) -> String:
 	var candidates: Array[String] = []
-	for id: String in ItemCatalog.EQUIPMENT:
+	for id: String in ItemCatalog.equipment_pool(char_id):
 		if not owned.has(id) and not pending.has(id):
 			candidates.append(id)
 	if candidates.is_empty():

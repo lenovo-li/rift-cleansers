@@ -337,7 +337,7 @@ func dodge() -> bool:
 		return false
 	dodge_cooldown_remaining = stats.dodge_cooldown()
 	_start_dash(facing * DODGE_SPEED, DODGE_TIME)
-	_invulnerable_time = DODGE_TIME + 0.12
+	_invulnerable_time = DODGE_TIME + 0.12 + (0.3 if stats.has_equipment("night_cloak") else 0.0)
 	if control == ControlMode.PREDICTED:
 		dodge_requested.emit()
 	else:  # 客户端预测时特效由主机回放
@@ -358,6 +358,15 @@ func make_context(enemies: Array) -> SkillContext:
 	ctx.targets = enemies
 	ctx.damage_mult = stats.damage_multiplier()
 	ctx.magnet = stats.has_equipment("magnetic_boots")
+	ctx.crit_chance = crit_chance
+	ctx.crit_mult = 2.0
+	if stats.has_equipment("backstab_dagger"):
+		ctx.crit_mult = 2.6
+	ctx.area_mult = 1.0
+	if stats.has_equipment("range_lens"):
+		ctx.area_mult *= 1.2
+	if stats.has_equipment("grace_staff"):
+		ctx.area_mult *= 1.25
 	ctx.allies = PlayerQuery.all(get_tree())
 	ctx.crit_chance = crit_chance
 	ctx.rng = _rng
@@ -475,7 +484,8 @@ func auto_attack() -> int:
 		_: victims = _bolt_victims()
 	var dealt_total: float = 0.0
 	for enemy: Variant in victims:
-		var dealt: float = damage * (2.0 if crit_chance > 0.0 and _rng.randf() < crit_chance else 1.0)
+		var crit: float = 2.6 if stats.has_equipment("backstab_dagger") else 2.0
+		var dealt: float = damage * (crit if crit_chance > 0.0 and _rng.randf() < crit_chance else 1.0)
 		enemy.take_damage(dealt)
 		dealt_total += dealt
 		if burn and enemy.is_alive and "status" in enemy:
@@ -575,6 +585,11 @@ func take_damage(amount: float, source: Variant = null) -> void:
 		hurt.emit(float(result.taken))
 		if float(result.taken) >= 20.0:
 			SfxManager.play(_fx_parent, "hurt")
+	if not stats.is_alive() and stats.try_second_wind():
+		_invulnerable_time = maxf(_invulnerable_time, 2.0)
+		SkillVfx.burst(_fx_parent, "star", global_position + Vector3(0, 1, 0), 1.6, Color(1.0, 0.9, 0.5))
+		SfxManager.play(_fx_parent, "evolve")
+		return
 	if not stats.is_alive():
 		die()
 
@@ -643,6 +658,28 @@ func apply_net_input(seq: int, move: Vector3, p_facing: Vector3) -> void:
 
 func add_equipment(item_id: String) -> void:
 	stats.add_equipment(item_id)
+	# 固定属性：装备时立即应用
+	match item_id:
+		"hp_pendant":
+			stats.max_health *= 1.25
+			stats.health = minf(stats.health, stats.max_health)
+		"glass_cannon":
+			stats.max_health *= 0.8
+			stats.health = minf(stats.health, stats.max_health)
+		"crit_amulet":
+			crit_chance += 0.12
+		"assassin_mark":
+			crit_chance += 0.15
+		"bulwark_sigil":
+			stats.block_chance += 0.1
+		"sprint_boots":
+			move_speed *= 1.18
+		"cd_crystal":
+			ability_system.cooldown_mult *= 0.88
+		"mana_prism":
+			ability_system.cooldown_mult *= 0.85
+		"holy_relic":
+			heal_mult *= 1.25
 	SkillVfx.burst(_fx_parent, "star", global_position + Vector3(0, 1, 0), 1.2)
 	SfxManager.play(_fx_parent, "pickup")
 	equipment_added.emit(item_id)

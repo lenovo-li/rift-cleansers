@@ -100,11 +100,11 @@ D:\tools\Godot_v4.7.2-stable_win64.exe --path D:\project\game\Survive --editor
 然后在 `player_m1.gd` 添加：
 ```gdscript
 if Input.is_action_just_pressed("skill_1"):
-    var ctx: SkillContext = SkillContext.new()
-    ctx.caster = self
-    ctx.origin = global_position
-    ctx.targets = get_tree().get_nodes_in_group("enemies")
-    ability_system.cast("whirlwind", ctx)
+	var ctx: SkillContext = SkillContext.new()
+	ctx.caster = self
+	ctx.origin = global_position
+	ctx.targets = get_tree().get_nodes_in_group("enemies")
+	ability_system.cast("whirlwind", ctx)
 ```
 
 ---

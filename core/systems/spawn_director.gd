@@ -9,7 +9,7 @@ signal equipment_drop_due(drop_index: int)
 const BOSS_TIME: float = 540.0  # 9:00
 const FIRST_ELITE_TIME: float = 300.0  # 5:00
 const EQUIPMENT_DROP_TIMES: Array[float] = [60.0, 180.0, 300.0, 420.0, 520.0]
-const ELITE_MODS: Array[String] = ["teleporter", "vampire", "haste"]
+const ELITE_MODS: Array[String] = ["teleporter", "vampire", "haste", "armored", "explosive", "regenerating", "frost", "burning", "giant"]
 ## 存活上限关键帧：[时间秒, 上限]，中间线性插值。
 const ALIVE_CAP_CURVE: Array = [[0.0, 15], [60.0, 25], [180.0, 55], [300.0, 110], [420.0, 220], [540.0, 400]]
 const BOSS_PHASE_CAP: int = 120

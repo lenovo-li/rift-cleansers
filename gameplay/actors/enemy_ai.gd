@@ -12,11 +12,14 @@ const ELITE_HEALTH_MULT: float = 4.0
 const ELITE_EXP_MULT: float = 5.0
 const ELITE_SCALE: float = 1.35
 const ELITE_COLORS: Dictionary = {
-	"teleporter": Color(0.2, 0.9, 1.0),
-	"vampire": Color(0.85, 0.05, 0.25),
-	"haste": Color(1.0, 0.9, 0.1),
+	"teleporter": Color(0.2, 0.9, 1.0), "vampire": Color(0.85, 0.05, 0.25), "haste": Color(1.0, 0.9, 0.1),
+	"armored": Color(0.5, 0.55, 0.6), "explosive": Color(1.0, 0.4, 0.05), "regenerating": Color(0.2, 1.0, 0.5),
+	"frost": Color(0.6, 0.85, 1.0), "burning": Color(1.0, 0.55, 0.1), "giant": Color(0.8, 0.7, 0.95),
 }
-const ELITE_NAMES: Dictionary = {"teleporter": "传送", "vampire": "吸血", "haste": "迅捷"}
+const ELITE_NAMES: Dictionary = {
+	"teleporter": "传送", "vampire": "吸血", "haste": "迅捷", "armored": "装甲", "explosive": "爆裂",
+	"regenerating": "再生", "frost": "冰霜", "burning": "燃烧", "giant": "巨型",
+}
 const FLASH_TIME: float = 0.08
 const KNOCKBACK_DECAY: float = 0.9
 const MAGNET_SPEED: float = 14.0
@@ -68,6 +71,7 @@ var _dash_state: int = 0  # 0 接近 1 蓄力 2 冲刺 3 硬直
 var _dash_timer: float = 0.0
 var _dash_dir: Vector3 = Vector3.ZERO
 var _dash_hit: bool = false
+var _burning_timer: float = 0.0
 
 
 ## 生成后、加入场景树之前调用。
@@ -82,14 +86,20 @@ func _ready() -> void:
 	if def == null:
 		def = DEFAULT_DEF
 	var elite: bool = not elite_mod.is_empty()
-	max_health = def.max_health * (ELITE_HEALTH_MULT if elite else 1.0) * health_scale
+	var health_mult: float = ELITE_HEALTH_MULT if elite else 1.0
+	if elite_mod == "giant":
+		health_mult *= 1.6
+	max_health = def.max_health * health_mult * health_scale
 	current_health = max_health
 	exp_reward = def.exp_reward * (ELITE_EXP_MULT if elite else 1.0)
 	special_timer = def.special_cooldown * randf()
 	collision_layer = LAYER_ENEMY
 	collision_mask = MASK_ENEMY
 	add_to_group("enemies")
-	var s: float = def.body_scale * (ELITE_SCALE if elite else 1.0)
+	var scale_mult: float = ELITE_SCALE if elite else 1.0
+	if elite_mod == "giant":
+		scale_mult = 1.8
+	var s: float = def.body_scale * scale_mult
 	_mesh = get_node("Mesh") as MeshInstance3D
 	apply_look(_mesh, def, elite_mod)
 	_base_material = _mesh.material_override
@@ -113,7 +123,12 @@ func is_elite() -> bool:
 
 
 func move_speed() -> float:
-	return def.move_speed * status.speed_multiplier() * (1.5 if elite_mod == "haste" else 1.0)
+	var mult: float = 1.0
+	if elite_mod == "haste":
+		mult = 1.5
+	elif elite_mod == "giant":
+		mult = 0.85
+	return def.move_speed * status.speed_multiplier() * mult
 
 
 func _physics_process(delta: float) -> void:
@@ -127,6 +142,7 @@ func _physics_process(delta: float) -> void:
 		if not is_alive:
 			return
 	_update_flash(delta)
+	_update_elite(delta)
 	_update_target(delta)
 	if target_player == null:
 		return
@@ -226,6 +242,17 @@ func _dasher(delta: float, dir: Vector3, dist: float, speed: float) -> Vector3:
 			return dir * speed * 0.3
 
 
+## 精英词缀的持续效果：再生回血、燃烧留地火（移动时每 0.4 秒一块）。
+func _update_elite(delta: float) -> void:
+	if elite_mod == "regenerating":
+		receive_heal(max_health * 0.02 * delta)
+	elif elite_mod == "burning" and velocity.length() > 0.5:
+		_burning_timer -= delta
+		if _burning_timer <= 0.0:
+			_burning_timer = 0.4
+			_spawn_burning_zone()
+
+
 ## 每 0.5 秒重新选择最近的存活玩家；被嘲讽期间锁定嘲讽者。
 func _update_target(delta: float) -> void:
 	_taunt_time -= delta
@@ -252,6 +279,8 @@ func _melee(amount: float) -> void:
 		if elite_mod == "vampire":
 			# 吸血词缀：回复造成伤害的 100%（相对精英的高血量不算多，但会拖长击杀时间）
 			receive_heal(amount)
+		elif elite_mod == "frost" and target_player.has_method("apply_slow"):
+			target_player.apply_slow(0.5, 1.5)  # 冰霜词缀：命中减速 50%，1.5 秒
 
 
 func _shoot(dir: Vector3) -> void:
@@ -284,6 +313,8 @@ func receive_heal(amount: float) -> void:
 func take_damage(amount: float) -> void:
 	if not is_alive:
 		return
+	if elite_mod == "armored":
+		amount *= 0.6
 	amount *= status.damage_taken_multiplier()  # 死亡标记
 	current_health -= amount
 	SfxManager.play_hit(effects_parent)
@@ -299,6 +330,8 @@ func take_damage(amount: float) -> void:
 		_teleported = true
 		_teleport_away()
 	if current_health <= 0.0:
+		if elite_mod == "explosive":
+			_elite_death_blast()
 		die()
 
 
@@ -308,6 +341,27 @@ func _teleport_away() -> void:
 	var anchor: Vector3 = target_player.global_position if target_player else global_position
 	global_position = anchor + Vector3(cos(angle), 0, sin(angle)) * 10.0
 	knockback_velocity = Vector3.ZERO
+
+
+## 爆裂精英：死后原地 0.9 秒预警，半径 4 米爆炸（和爆裂小鬼一样可以走出去）。
+func _elite_death_blast() -> void:
+	var blast: Node3D = BlastScript.new()
+	blast.setup(4.0, def.attack_damage * 2.0, 0.9, "%s的爆炸" % get_display_name())
+	blast.color = Color(ELITE_COLORS["explosive"], 0.45)
+	effects_parent.add_child(blast)
+	blast.global_position = global_position
+	SkillVfx.record(["blast", global_position, 4.0, 0.9])
+
+
+## 燃烧精英：脚下留一块 2 秒的小火区（减速 30% + 持续伤害）。
+func _spawn_burning_zone() -> void:
+	var zone: Node3D = HazardScript.new()
+	zone.setup(1.6, 0.7, 2.0, Color(ELITE_COLORS["burning"], 0.35))
+	zone.dps = def.attack_damage * 0.4
+	zone.source_name = "%s的火焰" % get_display_name()
+	effects_parent.add_child(zone)
+	zone.global_position = global_position
+	SkillVfx.record(["hazard", global_position, 1.6, 2.0])
 
 
 func die() -> void:
@@ -342,7 +396,8 @@ func _explode() -> void:
 
 
 func apply_knockback(impulse: Vector3) -> void:
-	knockback_velocity = impulse * (1.0 - knockback_resist)
+	var resist: float = maxf(knockback_resist, 0.7 if elite_mod == "giant" else 0.0)
+	knockback_velocity = impulse * (1.0 - resist)
 	_dash_state = 0 if _dash_state == 2 else _dash_state
 
 

@@ -147,6 +147,46 @@ static func _apply_display(s: Dictionary) -> void:
 	_applied_display = want
 
 
+## 手柄（Xbox 布局）：左摇杆 / 十字键移动，A 闪避，X/Y/B/LB/RB/RT 六个技能，Start 菜单。
+## UI 导航（ui_accept / ui_cancel / 方向）用 Godot 自带的手柄映射。
+const PAD_BUTTONS: Dictionary = {
+	"dash": JOY_BUTTON_A, "skill_0": JOY_BUTTON_X, "skill_1": JOY_BUTTON_Y, "skill_2": JOY_BUTTON_B,
+	"skill_3": JOY_BUTTON_LEFT_SHOULDER, "skill_4": JOY_BUTTON_RIGHT_SHOULDER, "pause": JOY_BUTTON_START,
+	"move_up": JOY_BUTTON_DPAD_UP, "move_down": JOY_BUTTON_DPAD_DOWN,
+	"move_left": JOY_BUTTON_DPAD_LEFT, "move_right": JOY_BUTTON_DPAD_RIGHT,
+}
+const PAD_AXES: Dictionary = {  # 动作 -> [轴, 方向]
+	"move_up": [JOY_AXIS_LEFT_Y, -1.0], "move_down": [JOY_AXIS_LEFT_Y, 1.0],
+	"move_left": [JOY_AXIS_LEFT_X, -1.0], "move_right": [JOY_AXIS_LEFT_X, 1.0],
+	"skill_5": [JOY_AXIS_TRIGGER_RIGHT, 1.0],
+}
+## 手柄按钮的显示名（HUD 提示用）
+const PAD_NAMES: Dictionary = {"dash": "A", "skill_0": "X", "skill_1": "Y", "skill_2": "B", "skill_3": "LB",
+	"skill_4": "RB", "skill_5": "RT", "pause": "Start"}
+
+
+static func _add_pad_events(action: String) -> void:
+	for ev: InputEvent in InputMap.action_get_events(action):
+		if ev is InputEventJoypadButton or ev is InputEventJoypadMotion:
+			return  # 已有（project.godot 里配过）
+	if PAD_BUTTONS.has(action):
+		var b: InputEventJoypadButton = InputEventJoypadButton.new()
+		b.device = -1
+		b.button_index = PAD_BUTTONS[action]
+		InputMap.action_add_event(action, b)
+	if PAD_AXES.has(action):
+		var m: InputEventJoypadMotion = InputEventJoypadMotion.new()
+		m.device = -1
+		m.axis = PAD_AXES[action][0]
+		m.axis_value = PAD_AXES[action][1]
+		InputMap.action_add_event(action, m)
+
+
+## 当前是否有手柄连接（HUD 提示据此显示手柄按键）。
+static func pad_connected() -> bool:
+	return not Input.get_connected_joypads().is_empty()
+
+
 static func _ensure_bus(bus_name: String) -> void:
 	if AudioServer.get_bus_index(bus_name) >= 0:
 		return
@@ -173,10 +213,11 @@ static func _apply_keys(keys: Dictionary) -> void:
 		if old != null:
 			InputMap.action_erase_event(action, old)
 		else:
-			# 第一次应用：去掉 project.godot 里与默认主键相同的那一个，避免重复
+			# 第一次应用：去掉 project.godot 里与默认主键相同的那一个，避免重复；并加上手柄绑定（固定，不参与改键）
 			for ev: InputEvent in InputMap.action_get_events(action):
 				if ev is InputEventKey and (ev as InputEventKey).physical_keycode == int(DEFAULT_KEYS[action]):
 					InputMap.action_erase_event(action, ev)
+			_add_pad_events(action)
 		var e: InputEventKey = InputEventKey.new()
 		e.physical_keycode = int(keys.get(action, DEFAULT_KEYS[action])) as Key
 		InputMap.action_add_event(action, e)

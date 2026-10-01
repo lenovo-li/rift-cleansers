@@ -100,7 +100,8 @@ func close() -> void:
 
 
 func _update_title() -> void:
-	_title.text = "升级！选择一项（1/2/3）" + ("   还有 %d 次" % (_queue - 1) if _queue > 1 else "")
+	var keys: String = "十字键 ←/↑/→" if Settings.pad_connected() else "1/2/3"
+	_title.text = "升级！选择一项（%s）" % keys + ("   还有 %d 次" % (_queue - 1) if _queue > 1 else "")
 
 
 func _pick(index: int) -> void:
@@ -116,8 +117,18 @@ func _pick(index: int) -> void:
 		_open()  # 远程模式下一组选项由主机再发
 
 
+## 手柄：十字键左 / 上 / 右 选第 1 / 2 / 3 项（十字键在升级时不会误触技能；联机不暂停时角色会顺带走一步）。
+const PAD_PICKS: Dictionary = {JOY_BUTTON_DPAD_LEFT: 0, JOY_BUTTON_DPAD_UP: 1, JOY_BUTTON_DPAD_RIGHT: 2}
+
+
 func _unhandled_input(event: InputEvent) -> void:
-	if not visible or not (event is InputEventKey) or not event.pressed or event.echo:
+	if not visible or not event.is_pressed() or event.is_echo():
+		return
+	if event is InputEventJoypadButton and PAD_PICKS.has((event as InputEventJoypadButton).button_index):
+		_pick(PAD_PICKS[(event as InputEventJoypadButton).button_index])
+		get_viewport().set_input_as_handled()
+		return
+	if not (event is InputEventKey):
 		return
 	var k: Key = (event as InputEventKey).keycode
 	if k >= KEY_1 and k <= KEY_3:

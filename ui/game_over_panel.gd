@@ -25,11 +25,18 @@ static func build(victory: bool, reason: String, session: GameSession, kills: in
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 34)
 	var t: float = session.get_game_time()
-	var hint: String = "按 Enter 重新开始    Esc 返回菜单" if p_can_restart else "等待主机重新开始    Esc 返回菜单"
+	var pad: bool = Settings.pad_connected()
+	var hint: String = ("按 %s 重新开始    " % ("A" if pad else "Enter") if p_can_restart else "等待主机重新开始    ") + \
+			"%s 返回菜单" % ("B" if pad else "Esc")
 	var saved: String = ""
 	if not record.is_empty():
 		saved = "得分 %d%s    天赋碎片 +%d（共 %d）\n\n" % [record.score,
 				"    本地排行第 %d 名" % record.rank if int(record.rank) > 0 else "", record.shards, SaveData.shards()]
+		var names: PackedStringArray = []
+		for id: String in record.get("achievements", []):
+			names.append(Achievements.name_of(id))
+		if not names.is_empty():
+			saved += "新成就：%s\n\n" % "、".join(names)
 	label.text = "%s
 
 %s
@@ -44,6 +51,16 @@ static func build(victory: bool, reason: String, session: GameSession, kills: in
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventJoypadButton and event.pressed:
+		match (event as InputEventJoypadButton).button_index:
+			JOY_BUTTON_A:  # 手柄 A = Enter，B / Start = Esc
+				if can_restart:
+					get_viewport().set_input_as_handled()
+					restart_requested.emit()
+			JOY_BUTTON_B, JOY_BUTTON_START:
+				get_viewport().set_input_as_handled()
+				quit_requested.emit()
+		return
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
 	match (event as InputEventKey).keycode:

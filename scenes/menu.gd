@@ -10,6 +10,7 @@ var _desc: Label
 var _addr_edit: LineEdit
 var _port_edit: LineEdit
 var _status: Label
+var _single_btn: Button
 
 
 func _ready() -> void:
@@ -75,7 +76,7 @@ func _ready() -> void:
 	_desc.add_theme_font_size_override("font_size", 16)
 	box.add_child(_desc)
 	_update_char_buttons()
-	_button(box, "单人游戏", _on_single)
+	_single_btn = _button(box, "单人游戏", _on_single)
 	var p2p_row: HBoxContainer = HBoxContainer.new()
 	p2p_row.add_theme_constant_override("separation", 12)
 	box.add_child(p2p_row)
@@ -90,6 +91,7 @@ func _ready() -> void:
 	box.add_child(extra_row)
 	for pair: Array in [["天赋树", func() -> void: add_child(TalentPanel.build(NetConfig.character_id))],
 			["排行榜", _show_leaderboard],
+			["成就", func() -> void: add_child(AchievementsPanel.new())],
 			["设置", func() -> void: add_child(SettingsPanel.new())],
 			["关于", func() -> void: add_child(LicensesPanel.new())]]:
 		var b: Button = _button(extra_row, pair[0], pair[1])
@@ -102,6 +104,7 @@ func _ready() -> void:
 			"局域网：主机需要放行 UDP 端口；无加密与鉴权，只在可信网络使用"
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(_status)
+	_single_btn.grab_focus.call_deferred()  # 手柄：十字键 / 摇杆移动焦点，A 确认
 	if not CrashReporter.pending_report.is_empty():
 		_show_crash_notice(CrashReporter.pending_report)
 		CrashReporter.pending_report = ""

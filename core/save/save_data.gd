@@ -95,8 +95,10 @@ static func shards_for(victory: bool, level: int, kills: int) -> int:
 	return kills / 100 + level / 5 + (10 if victory else 0)
 
 
-## 记录一局。返回 {rank（1 起，未上榜为 0）, shards, score}。
-static func record_run(char_id: String, map_id: String, victory: bool, time_s: float, level: int, kills: int) -> Dictionary:
+## 记录一局并判断成就。extra：Achievements.evaluate 需要的其他字段（boss_affix、players 等）。
+## 返回 {rank（1 起，未上榜为 0）, shards, score, achievements（本局新解锁的 id）}。
+static func record_run(char_id: String, map_id: String, victory: bool, time_s: float, level: int, kills: int,
+		extra: Dictionary = {}) -> Dictionary:
 	var d: Dictionary = data()
 	var score: int = score_of(victory, time_s, level, kills)
 	var shards: int = shards_for(victory, level, kills)
@@ -114,8 +116,11 @@ static func record_run(char_id: String, map_id: String, victory: bool, time_s: f
 		board.resize(LEADERBOARD_SIZE)
 	if rank > LEADERBOARD_SIZE:
 		rank = 0
+	var run: Dictionary = extra.duplicate()
+	run.merge({"char": char_id, "map": map_id, "victory": victory, "time": time_s, "level": level, "kills": kills}, true)
+	var fresh: Array[String] = Achievements.evaluate(run)
 	save_file()
-	return {"rank": rank, "shards": shards, "score": score}
+	return {"rank": rank, "shards": shards, "score": score, "achievements": fresh}
 
 
 static func leaderboard() -> Array:

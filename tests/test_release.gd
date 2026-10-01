@@ -20,6 +20,30 @@ func test_yaml_field_parser() -> String:
 	return ""
 
 
+func test_gamepad_bindings_added() -> String:
+	Settings.apply()
+	Settings.apply()  # 重复应用不应重复添加
+	for action: String in Settings.ACTIONS:
+		var pads: int = 0
+		for ev: InputEvent in InputMap.action_get_events(action):
+			if ev is InputEventJoypadButton or ev is InputEventJoypadMotion:
+				pads += 1
+		var want: int = int(Settings.PAD_BUTTONS.has(action)) + int(Settings.PAD_AXES.has(action))
+		if pads != want:
+			return "%s 手柄绑定数量 %d，应为 %d" % [action, pads, want]
+	var press: InputEventJoypadButton = InputEventJoypadButton.new()
+	press.button_index = JOY_BUTTON_A
+	press.pressed = true
+	if not press.is_action_pressed("dash"):
+		return "手柄 A 应触发闪避"
+	var stick: InputEventJoypadMotion = InputEventJoypadMotion.new()
+	stick.axis = JOY_AXIS_LEFT_X
+	stick.axis_value = -0.9
+	if not stick.is_action_pressed("move_left"):
+		return "左摇杆向左应触发 move_left"
+	return ""
+
+
 func test_settings_int_fields_survive_json() -> String:
 	var tmp: String = "user://test_settings_tmp.json"
 	SaveData.reset(tmp)

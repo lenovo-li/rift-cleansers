@@ -51,8 +51,8 @@ func _process(delta: float) -> bool:
 		1: _overlay(SettingsPanel.new(), "settings")
 		2: _overlay(LicensesPanel.new(), "licenses")
 		3:
-			if ClassDB.class_exists("AchievementsPanel") or ResourceLoader.exists("res://ui/achievements_panel.gd"):
-				_overlay((load("res://ui/achievements_panel.gd") as GDScript).new(), "achievements")
+			SaveData.data().achievements["first_win"] = "2026-10-01"
+			_overlay(AchievementsPanel.new(), "achievements")
 		4:
 			Settings.data().quality = Settings.QUALITY_LOW
 			_load("res://scenes/game_scene.tscn")

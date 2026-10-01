@@ -62,6 +62,7 @@ func _ready() -> void:
 	close_btn.pressed.connect(_close)
 	buttons.add_child(close_btn)
 	_build_rows()
+	close_btn.grab_focus.call_deferred()
 
 
 func _build_rows() -> void:
@@ -69,7 +70,8 @@ func _build_rows() -> void:
 		c.queue_free()
 	_key_buttons.clear()
 	_waiting = ""
-	_hint.text = "点击按键后按下新键；Esc 取消。与其他动作冲突时会互换。"
+	_hint.text = "点击按键后按下新键；Esc 取消。与其他动作冲突时会互换。\n" + \
+			"手柄（固定）：左摇杆移动  A 闪避  X/Y/B/LB/RB/RT 技能  Back 自动施放  Start 菜单"
 	_slider("总音量", "master")
 	_slider("音乐", "music")
 	_slider("音效", "sfx")
@@ -165,6 +167,11 @@ func _start_rebind(action: String) -> void:
 
 func _input(event: InputEvent) -> void:
 	# 用 _input 抢在游戏和其他面板之前拿到按键
+	if event is InputEventJoypadButton and event.pressed and _waiting.is_empty() \
+			and (event as InputEventJoypadButton).button_index in [JOY_BUTTON_B, JOY_BUTTON_START]:
+		get_viewport().set_input_as_handled()
+		_close()  # 手柄 B / Start 关闭（改键只针对键盘，手柄键位固定）
+		return
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
 	var key: InputEventKey = event as InputEventKey

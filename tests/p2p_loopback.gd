@@ -15,6 +15,14 @@ var fails: PackedStringArray = []
 
 
 func _init() -> void:
+	# --relay-only：只交换 TURN 中转候选，连上即证明 TURN 配置可用（需要 ice_servers.json）
+	if "--relay-only" in OS.get_cmdline_user_args():
+		if P2PLink.turn_servers().is_empty():
+			printerr("FAIL --relay-only 需要 %s（exe 同目录或项目根目录）" % P2PLink.TURN_CONFIG_FILE)
+			quit(1)
+			return
+		P2PLink.relay_only = true
+		print("强制走 TURN 中转：%s" % ", ".join(P2PLink.turn_servers().map(func(s: Dictionary) -> String: return s.urls[0])))
 	host = P2PLink.create_host_peer()
 	invite = P2PLink.invite(host)
 
@@ -30,7 +38,10 @@ func _process(delta: float) -> bool:
 	match stage:
 		"offer":
 			if not invite.code.is_empty():
-				print("邀请码 %d 字符，srflx=%s" % [invite.code.length(), _has_srflx(invite.code)])
+				print("邀请码 %d 字符，srflx=%s，候选 %s" % [invite.code.length(), _has_srflx(invite.code),
+						invite.candidate_stats()])
+				if P2PLink.relay_only and int(invite.candidate_stats().get("relay", 0)) == 0:
+					return _finish("没有拿到 TURN 中转候选：检查 %s 的地址和账号密码" % P2PLink.TURN_CONFIG_FILE)
 				_check_bad_codes()
 				joiner = P2PLink.join(invite.code)
 				if not joiner.error.is_empty():

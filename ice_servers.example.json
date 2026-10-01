@@ -1,0 +1,9 @@
+{
+  "iceServers": [
+    {
+      "urls": ["turn:global.relay.metered.ca:80", "turn:global.relay.metered.ca:443?transport=tcp"],
+      "username": "在 Metered 控制台生成的 username",
+      "credential": "在 Metered 控制台生成的 credential"
+    }
+  ]
+}

@@ -10,14 +10,25 @@ signal code_ready(code: String)
 const CODE_PREFIX: String = "LJ1-"
 const PROTOCOL: int = 1
 ## 公共 STUN（只用来探测自己的公网地址，不转发游戏数据）。国内可用的放前面，不通的会被跳过。
-const ICE_SERVERS: Array = [
+const STUN_SERVERS: Array = [
 	{"urls": ["stun:stun.miwifi.com:3478"]},
 	{"urls": ["stun:stun.chat.bilibili.com:3478"]},
 	{"urls": ["stun:stun.cloudflare.com:3478"]},
 	{"urls": ["stun:stun.l.google.com:19302"]},
 ]
+## TURN 中转（双方都无法直连时转发数据）需要账号，不进仓库。按顺序找第一个存在的文件：
+## exe 同目录（打包后可直接改）→ res://（打包时一起带上，被 .gitignore 忽略）。
+## 格式：{"iceServers": [{"urls": ["turn:host:port"], "username": "...", "credential": "..."}]}
+const TURN_CONFIG_FILE: String = "ice_servers.json"
 ## 候选收集最多等这么久（有 STUN 不通时收集状态可能迟迟不完成，已拿到的候选通常足够）。
+## TURN 分配要多一次往返，所以有 TURN 时等久一点。
 const GATHER_TIMEOUT: float = 4.0
+const GATHER_TIMEOUT_TURN: float = 6.0
+
+## 测试用：只交换中转候选，强制数据走 TURN（验证中转可用）。
+static var relay_only: bool = false
+static var _turn_cache: Array = []
+static var _turn_loaded: bool = false
 
 var peer_id: int = 0
 var conn: WebRTCPeerConnection = null
@@ -94,7 +105,8 @@ func update(delta: float) -> void:
 	if conn == null or not code.is_empty() or _sdp.is_empty():
 		return
 	_elapsed += delta
-	if conn.get_gathering_state() == WebRTCPeerConnection.GATHERING_STATE_COMPLETE or _elapsed >= GATHER_TIMEOUT:
+	var limit: float = GATHER_TIMEOUT_TURN if not turn_servers().is_empty() else GATHER_TIMEOUT
+	if conn.get_gathering_state() == WebRTCPeerConnection.GATHERING_STATE_COMPLETE or _elapsed >= limit:
 		code = encode({"v": PROTOCOL, "ver": game_version(), "t": "offer" if _is_offer else "answer",
 			"id": peer_id, "sdp": _sdp, "c": _cands})
 		code_ready.emit(code)
@@ -117,12 +129,75 @@ func cancel(host_peer: WebRTCMultiplayerPeer) -> void:
 
 func _init_conn() -> void:
 	conn = WebRTCPeerConnection.new()
-	conn.initialize({"iceServers": ICE_SERVERS})
+	conn.initialize({"iceServers": ice_servers()})
 	conn.session_description_created.connect(func(type: String, sdp: String) -> void:
 		conn.set_local_description(type, sdp)
 		_sdp = sdp)
 	conn.ice_candidate_created.connect(func(media: String, index: int, cand: String) -> void:
+		if relay_only and candidate_type(cand) != "relay":
+			return
 		_cands.append([media, index, cand]))
+
+
+## 本机这次收集到的候选类型统计，例如 {"host": 2, "srflx": 1, "relay": 1}。
+func candidate_stats() -> Dictionary:
+	var out: Dictionary = {}
+	for c: Array in _cands:
+		var t: String = candidate_type(str(c[2]))
+		out[t] = int(out.get(t, 0)) + 1
+	return out
+
+
+## "candidate:... typ relay raddr ..." → "relay"
+static func candidate_type(cand: String) -> String:
+	var parts: PackedStringArray = cand.split(" ")
+	var i: int = parts.find("typ")
+	return parts[i + 1] if i >= 0 and i + 1 < parts.size() else "?"
+
+
+static func ice_servers() -> Array:
+	return STUN_SERVERS + turn_servers()
+
+
+## 读 TURN 配置（只读一次）。文件不存在 = 不用 TURN；格式不对会打印警告并忽略。
+static func turn_servers() -> Array:
+	if _turn_loaded:
+		return _turn_cache
+	_turn_loaded = true
+	for path: String in [OS.get_executable_path().get_base_dir().path_join(TURN_CONFIG_FILE),
+			"res://" + TURN_CONFIG_FILE]:
+		if not FileAccess.file_exists(path):
+			continue
+		_turn_cache = parse_turn_config(FileAccess.get_file_as_string(path))
+		print("[p2p] TURN config %s: %d server(s)" % [path, _turn_cache.size()])
+		break
+	return _turn_cache
+
+
+## 只保留 urls 是 turn:/turns: 且带账号密码的条目。
+static func parse_turn_config(text: String) -> Array:
+	var json: JSON = JSON.new()
+	if json.parse(text) != OK or not json.data is Dictionary:
+		push_warning("[p2p] %s 格式错误，忽略 TURN" % TURN_CONFIG_FILE)
+		return []
+	var out: Array = []
+	for s: Variant in (json.data as Dictionary).get("iceServers", []):
+		if not s is Dictionary:
+			continue
+		var urls: Array = []
+		for u: Variant in (s.get("urls", []) if s.get("urls") is Array else [s.get("urls", "")]):
+			if str(u).begins_with("turn:") or str(u).begins_with("turns:"):
+				urls.append(str(u))
+		if urls.is_empty() or str(s.get("username", "")).is_empty() or str(s.get("credential", "")).is_empty():
+			continue
+		out.append({"urls": urls, "username": str(s.username), "credential": str(s.credential)})
+	return out
+
+
+## 测试用：替换 TURN 配置（null = 恢复为从文件读取）。
+static func override_turn(servers: Variant) -> void:
+	_turn_loaded = servers != null
+	_turn_cache = servers if servers is Array else []
 
 
 func _add_candidates(list: Array) -> void:

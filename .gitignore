@@ -47,3 +47,9 @@ archive/
 
 # Python
 __pycache__/
+
+# TURN 账号（P2P 中转），见 ice_servers.example.json
+ice_servers.json
+
+# Blender 自动备份
+*.blend1

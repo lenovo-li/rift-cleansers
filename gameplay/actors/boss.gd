@@ -75,6 +75,7 @@ func _ready() -> void:
 	super._ready()
 	variant = def.enemy_id
 	knockback_resist = 1.0 if affix == "fortified" else 0.9
+	freeze_resist = 0.3  # Boss 冰冻抗性（冰冻时间 ×0.3）
 	add_to_group("boss")
 
 

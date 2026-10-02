@@ -146,6 +146,10 @@ func _physics_process(delta: float) -> void:
 	_update_target(delta)
 	if target_player == null:
 		return
+	# 冰冻：跳过所有行动
+	if status.is_frozen():
+		velocity = Vector3.ZERO
+		return
 	if attack_timer > 0.0:
 		attack_timer -= delta
 	var to_player: Vector3 = target_player.global_position - global_position
@@ -274,6 +278,7 @@ func apply_taunt(taunter: Node3D, duration: float) -> void:
 func _melee(amount: float) -> void:
 	attack_timer = def.attack_cooldown
 	play_attack(EnemyAnimator.Kind.SWING)
+	amount *= status.damage_dealt_multiplier()  # 虚弱 / 腐蚀
 	if target_player.has_method("take_damage"):
 		target_player.take_damage(amount, self)
 		if elite_mod == "vampire":
@@ -307,7 +312,7 @@ func _heal_allies() -> void:
 
 
 func receive_heal(amount: float) -> void:
-	current_health = minf(max_health, current_health + amount)
+	current_health = minf(max_health, current_health + amount * status.healing_multiplier())  # 中毒削减治疗
 
 
 func take_damage(amount: float) -> void:
@@ -315,7 +320,7 @@ func take_damage(amount: float) -> void:
 		return
 	if elite_mod == "armored":
 		amount *= 0.6
-	amount *= status.damage_taken_multiplier()  # 死亡标记
+	amount *= status.damage_taken_multiplier()  # 死亡标记、感电、腐蚀
 	current_health -= amount
 	SfxManager.play_hit(effects_parent)
 	DamageNumbers.spawn(effects_parent, global_position, amount, _number_kind)

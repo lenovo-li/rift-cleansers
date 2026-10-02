@@ -167,6 +167,24 @@ func nearest_targets(max_range: float, count: int) -> Array:
 	return result
 
 
+## max_range 内离施法者最近的存活敌人；没有返回 null。
+func nearest_alive(max_range: float) -> Variant:
+	var list: Array = nearest_targets(max_range, 1)
+	return list[0] if not list.is_empty() else null
+
+
+## 以 center 为顶点、朝 dir 的扇形（半角 half_angle_deg）内、距离不超过 max_range 的存活敌人。
+func targets_in_cone(center: Vector3, dir: Vector3, max_range: float, half_angle_deg: float) -> Array:
+	var result: Array = []
+	var f: Vector3 = Vector3(dir.x, 0.0, dir.z).normalized() if Vector3(dir.x, 0.0, dir.z).length() > 0.01 else flat_facing()
+	var cos_limit: float = cos(deg_to_rad(half_angle_deg))
+	for t: Variant in targets_in_radius(center, max_range):
+		var off: Vector3 = (t.global_position - center) * Vector3(1, 0, 1)
+		if off.length() < 0.5 or off.normalized().dot(f) >= cos_limit:
+			result.append(t)
+	return result
+
+
 ## 朝最近的敌人瞄准，返回单位方向向量（用于冰枪/火球的自动瞄准）。没有敌人时用面朝方向。
 func aim_direction(max_range: float) -> Vector3:
 	var list: Array = nearest_targets(max_range, 1)

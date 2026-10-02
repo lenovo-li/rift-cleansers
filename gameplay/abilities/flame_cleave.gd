@@ -27,11 +27,11 @@ func get_cooldown() -> float:
 func cast(ctx: SkillContext) -> Dictionary:
 	var tier: int = get_tier()
 	var range_val: float = BASE_RANGE * (1.3 if tier >= 3 else 1.0) * ctx.area_mult
-	var damage: float = BASE_DAMAGE * ctx.damage_mult
+	var damage: float = BASE_DAMAGE
 	if tier >= 5:
-		damage = 120.0 * ctx.damage_mult
+		damage = 120.0
 	if tier >= 8:
-		damage = 200.0 * ctx.damage_mult
+		damage = 200.0
 
 	var duration: float = 8.0 if tier >= 8 else (5.0 if tier >= 5 else 3.0)
 	var dps: float = (50.0 if tier >= 8 else (30.0 if tier >= 5 else 20.0)) * ctx.damage_mult

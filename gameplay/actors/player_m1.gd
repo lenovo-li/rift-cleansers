@@ -771,7 +771,7 @@ func _auto_cast(enemies: Array) -> void:
 			near += 1
 	if near == 0:
 		return
-	for id: String in ability_system.pool():
+	for id: String in ability_system.equipped:
 		if (id == "reflect_aura" or id == "smoke_bomb") and near < 5:
 			continue
 		if id == "divine_intervention" and not _someone_needs_rescue():

@@ -244,16 +244,18 @@ func _update_skills() -> void:
 		if label != null:
 			label.text = "[%s]" % key_label(i)
 	var abilities: AbilitySystem = player.ability_system
-	var pool: Array[String] = abilities.pool()
-	for i in mini(pool.size(), _skill_panels.size()):
-		var id: String = pool[i]
+	for i in _skill_panels.size():
+		var id: String = abilities.slot_id(i)
 		var p: Dictionary = _skill_panels[i]
-		var skill: Skill = abilities.get_skill(id)
+		var skill: Skill = abilities.get_skill(id) if not id.is_empty() else null
 		if skill == null:
-			p.name.text = "%s\n未习得" % SkillFactory.display_name(id)
+			p.name.text = "空栏位"
 			p.panel.modulate = Color(1, 1, 1, 0.35)
 			p.cd.value = 0.0
+			p.style.border_color = Color(0.3, 0.3, 0.4)
 			continue
+		var elem: String = Elements.of(id)
+		p.style.bg_color = Color(Elements.color(elem), 0.18) if not elem.is_empty() else Color(0.1, 0.1, 0.14, 0.8)
 		p.panel.modulate = Color.WHITE
 		var remaining: float = abilities.get_cooldown_remaining(id)
 		p.name.text = "%s\nLv%d%s" % [skill.display_name, skill.level, "" if remaining <= 0.0 else "  %.1f" % remaining]

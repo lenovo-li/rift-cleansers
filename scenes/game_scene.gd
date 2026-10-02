@@ -87,10 +87,9 @@ func _ready() -> void:
 	_session.player_count_provider = _director.player_count_provider
 	_session.start_game()
 	var keys: PackedStringArray = []
-	var pool: Array[String] = _player.ability_system.pool()
-	for i in pool.size():
-		if _player.ability_system.get_skill(pool[i]) != null:
-			keys.append("%s %s" % [_hud.key_label(i), SkillFactory.display_name(pool[i])])
+	var slots: Array[String] = _player.ability_system.equipped
+	for i in slots.size():
+		keys.append("%s %s" % [_hud.key_label(i), SkillFactory.display_name(slots[i])])
 	var move: String = "".join([Settings.key_name(Settings.key_of("move_up")), Settings.key_name(Settings.key_of("move_left")),
 			Settings.key_name(Settings.key_of("move_down")), Settings.key_name(Settings.key_of("move_right"))])
 	if Settings.pad_connected():

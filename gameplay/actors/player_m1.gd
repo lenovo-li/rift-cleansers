@@ -402,6 +402,7 @@ func _apply_skill_result(skill_id: String, result: Dictionary, ctx: SkillContext
 				HitStop.trigger(get_tree(), 0.03 + 0.005 * tier)
 				SfxManager.play(_fx_parent, "heavy")
 		"taunt":
+			SfxManager.play(_fx_parent, "shield_up")
 			if float(result.get("shield", 0.0)) > 0.0:
 				stats.add_shield(float(result.shield))
 		"charge":
@@ -419,19 +420,23 @@ func _apply_skill_result(skill_id: String, result: Dictionary, ctx: SkillContext
 			HitStop.trigger(get_tree(), 0.06)
 			_shake(0.35 + (0.15 if tier >= 8 else 0.0))
 		"reflect_aura":
+			SfxManager.play(_fx_parent, "shield_up")
 			stats.set_aura(float(result.aura_duration), float(result.reflect), float(result.reduction))
 		"fireball":
+			SfxManager.play(_fx_parent, "fire_cast")
 			if hits > 0:
-				SfxManager.play(_fx_parent, "explode")
+				SfxManager.play(_fx_parent, "fire_impact")
 		"ice_lance":
+			SfxManager.play(_fx_parent, "ice_cast")
 			if hits > 0:
-				SfxManager.play(_fx_parent, "shatter")
+				SfxManager.play(_fx_parent, "ice_shatter")
 		"frost_nova":
-			SfxManager.play(_fx_parent, "shatter")
+			SfxManager.play(_fx_parent, "ice_shatter")
 			_shake(0.2)
 		"chain_lightning":
+			SfxManager.play(_fx_parent, "lightning_cast")
 			if hits > 0:
-				SfxManager.play(_fx_parent, "heavy")
+				SfxManager.play(_fx_parent, "lightning_hit")
 		"shadow_step":
 			var path: Array = result.get("path", [])
 			if path.size() >= 2:
@@ -453,10 +458,36 @@ func _apply_skill_result(skill_id: String, result: Dictionary, ctx: SkillContext
 					_shake(0.25 + (0.15 if tier >= 8 else 0.0))
 				SfxManager.play(_fx_parent, "heavy")
 		"smite":
+			SfxManager.play(_fx_parent, "lightning_cast")
 			if hits > 0:
-				SfxManager.play(_fx_parent, "slam")
+				SfxManager.play(_fx_parent, "explosion_heavy")
+		"holy_nova":
+			SfxManager.play(_fx_parent, "heal_cast")
+			if hits > 0:
+				SfxManager.play(_fx_parent, "explosion_heavy")
+		"blessing":
+			SfxManager.play(_fx_parent, "holy_buff")
+		"sanctuary":
+			SfxManager.play(_fx_parent, "heal_cast")
+		"divine_shield":
+			SfxManager.play(_fx_parent, "shield_up")
+		"meteor":
+			SfxManager.play(_fx_parent, "fire_cast")
+		"storm_field":
+			SfxManager.play(_fx_parent, "lightning_cast")
+		"whirlwind":
+			if hits > 0:
+				SfxManager.play(_fx_parent, "heavy")
+		"fan_of_knives":
+			if hits > 0:
+				SfxManager.play(_fx_parent, "crit_hit")
+		"death_mark":
+			SfxManager.play(_fx_parent, "crit_hit")
+		"blade_flurry":
+			if hits > 0:
+				SfxManager.play(_fx_parent, "crit_hit")
 		"divine_intervention":
-			SfxManager.play(_fx_parent, "evolve")
+			SfxManager.play(_fx_parent, "holy_buff")
 	SkillFx.play(_fx_parent, self, skill_id, result, ctx.origin, ctx.flat_facing(), tier)
 	for zone: GroundZone in ctx.new_zones:
 		if zone.anchor == null:
@@ -467,7 +498,9 @@ func _apply_skill_result(skill_id: String, result: Dictionary, ctx: SkillContext
 				"smoke": color = Color(0.35, 0.3, 0.45, 0.45)
 				"holy": color = Color(1.0, 0.9, 0.45, 0.3)
 			SkillVfx.ground_zone(_fx_parent, zone.a, zone.b, zone.half_width, zone.remaining, color, zone.kind)
-	SfxManager.play_whoosh(_fx_parent)
+	if skill_id in ["shield_bash", "charge", "shadow_step", "smoke_bomb", "whirlwind", "fan_of_knives",
+			"blade_flurry", "execute"]:
+		SfxManager.play_whoosh(_fx_parent)  # 物理技能的挥舞声；法术类技能各自有施法音
 	print("[PlayerM1] %s Lv%d (Tier%d) hits=%d damage=%.0f" % [skill_id, ability_system.get_level(skill_id),
 			tier, hits, float(result.get("damage", 0.0))])
 
@@ -494,6 +527,7 @@ func auto_attack() -> int:
 	if hits > 0:
 		stats.on_damage_dealt(hits, dealt_total, true)
 		SkillFx.auto_attack(_fx_parent, self, attack_kind, _bolt_fx, victims, attack_range, burn, _bolt_color)
+		SfxManager.play_attack(_fx_parent, attack_kind, _bolt_fx)
 	return hits
 
 

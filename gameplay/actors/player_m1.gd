@@ -446,38 +446,8 @@ func _apply_resonance_and_synergy(ctx: SkillContext) -> void:
 
 ## 装备对元素的影响。
 func _apply_element_equipment(ctx: SkillContext) -> void:
-	if stats.has_equipment("elemental_focus"):
-		ctx.element_mods["intensity_mult"] = 1.5
-	if stats.has_equipment("reaction_catalyst"):
-		ctx.element_mods["reaction_mult"] = 1.4
-	if stats.has_equipment("shockwave_ring"):
-		ctx.knockback_mult = 1.4
-		ctx.shatter_mult = 1.3
-	if stats.has_equipment("ignition_core"):
-		ctx.element_mods["ignite_mult"] = ctx.element_mods.get("ignite_mult", 1.0) * 1.5
-	if stats.has_equipment("frost_shard"):
-		ctx.element_mods["slow_mult"] = 1.25
-		ctx.element_mods["freeze_bonus"] = 1.0
-	if stats.has_equipment("storm_conductor"):
-		ctx.element_mods["shock_cap"] = 15
-		ctx.element_mods["chain_range_mult"] = 1.3
-	if stats.has_equipment("toxic_vial"):
-		ctx.element_mods["poison_mult"] = 1.4
-		ctx.element_mods["poison_heal_mult"] = 2.0
-	if stats.has_equipment("overload_amplifier"):
-		ctx.element_mods["overload_mult"] = 1.3
-		ctx.element_mods["overload_radius_mult"] = 1.5
-	if stats.has_equipment("melt_core"):
-		ctx.element_mods["melt_bonus"] = 0.5
-	if stats.has_equipment("chain_conductor"):
-		ctx.chain_bonus += 2
-		ctx.element_mods["chain_range_mult"] = 1.3
-	if stats.has_equipment("annihilate_orb"):
-		ctx.element_mods["annihilate_min"] = 2
-
-	# 持续延长：DOT技能持续时间+50%
-	if stats.has_equipment("duration_extension") and SkillSynergy.has_tag("", "dot"):
-		ctx.element_mods["dot_duration_mult"] = 1.5
+	# 持续延长对 zone 的影响在 post_cast 里应用
+	pass
 
 
 ## 施放技能；未拥有或冷却中返回空字典。use_aim = false 时忽略鼠标瞄准点（自动施放）。
@@ -524,15 +494,7 @@ func cast_skill(skill_id: String, use_aim: bool = true) -> Dictionary:
 	ctx.chain_bonus += syn.chain
 
 	# 双元素/三元素装备
-	if stats.has_equipment("dual_element"):
-		if elem == "fire":
-			ctx.extra_elements.append(["ice", ctx.intensity * 0.4])
-		elif elem == "ice":
-			ctx.extra_elements.append(["fire", ctx.intensity * 0.4])
-	if stats.has_equipment("tri_element"):
-		for e: String in ["fire", "ice", "lightning"]:
-			if e != elem:
-				ctx.extra_elements.append([e, ctx.intensity * 0.2])
+	ctx.extra_elements = EquipmentEffects.extra_elements(stats, elem, ctx.intensity)
 
 	if skill_id == "taunt":
 		ctx.area_mult = stats.taunt_radius_multiplier()
@@ -550,15 +512,41 @@ func cast_skill(skill_id: String, use_aim: bool = true) -> Dictionary:
 
 ## 技能施放后的装备效果（回响、连锁反应等）
 func _apply_equipment_post_cast(skill_id: String, ctx: SkillContext, result: Dictionary) -> void:
+	# 持续延长：zone 持续时间 +50%
+	if stats.has_equipment("duration_extension") and SkillSynergy.has_tag(skill_id, "dot"):
+		for z: GroundZone in ctx.new_zones:
+			z.remaining *= 1.5
+
+	# 吸血印记：技能伤害的15%转化为生命
+	if stats.has_equipment("vampire_sigil"):
+		heal(float(result.get("damage", 0.0)) * 0.15)
+
+	# 超频核心：消耗5%当前生命
+	if stats.has_equipment("overclock_core") and stats.health > 0.0:
+		stats.health = maxf(1.0, stats.health - stats.health * 0.05)
+
+	# 冷却返还：击杀标记敌人返还20%冷却（立即生效）
+	if stats.has_equipment("cooldown_return") and ctx.marked_kills > 0:
+		for sid: String in ability_system.pool():
+			var cd: float = ability_system._cooldowns.get(sid, 0.0)
+			if cd > 0.0:
+				ability_system._cooldowns[sid] = cd * 0.8
+
+	# 回响打击与连锁反应：延迟处理（async）
+	if stats.has_equipment("echo_strikes") or (stats.has_equipment("chain_reaction") and SkillSynergy.has_tag(skill_id, "aoe")):
+		_queue_delayed_equipment_effects(skill_id, ctx, result)
+
+
+func _queue_delayed_equipment_effects(skill_id: String, ctx: SkillContext, result: Dictionary) -> void:
+	await get_tree().create_timer(1.0).timeout
+	if is_dead:
+		return
 	# 回响打击：1秒后再次触发40%伤害
 	if stats.has_equipment("echo_strikes") and ctx.hit_log.size() > 0:
-		await get_tree().create_timer(1.0).timeout
-		if is_dead:
-			return
+		var damage: float = float(result.get("damage", 0.0)) * 0.4 / maxi(1, ctx.hit_log.size())
 		for t: Variant in ctx.hit_log:
 			if is_instance_valid(t) and t.is_alive:
-				t.take_damage(float(result.get("damage", 0.0)) * 0.4 / ctx.hit_log.size())
-
+				t.take_damage(damage)
 	# 连锁反应：范围技能命中3+敌人触发二次爆炸
 	if stats.has_equipment("chain_reaction") and SkillSynergy.has_tag(skill_id, "aoe"):
 		if ctx.hit_log.size() >= 3:
@@ -567,19 +555,13 @@ func _apply_equipment_post_cast(skill_id: String, ctx: SkillContext, result: Dic
 				if is_instance_valid(t):
 					center += t.global_position
 			center /= float(ctx.hit_log.size())
-			var damage: float = float(result.get("damage", 0.0)) * 0.3 / ctx.hit_log.size()
+			var damage: float = float(result.get("damage", 0.0)) * 0.3 / maxi(1, ctx.hit_log.size())
 			for t: Variant in get_tree().get_nodes_in_group("enemies"):
 				if is_instance_valid(t) and t.is_alive:
 					var d: float = (t.global_position - center).length()
 					if d <= 3.0:
 						t.take_damage(damage)
-
-	# 冷却返还：击杀标记敌人返还20%冷却
-	if stats.has_equipment("cooldown_return") and ctx.marked_kills > 0:
-		for sid: String in ability_system.pool():
-			var cd: float = ability_system._cooldowns.get(sid, 0.0)
-			if cd > 0.0:
-				ability_system._cooldowns[sid] = cd * 0.8
+			SkillVfx.pulse_ring(_fx_parent, center, 3.0, Color(1, 0.6, 0.2, 0.6), 0.25)
 
 
 ## 技能结算后的位移、状态和手感（音效 / 震屏 / 顿帧）；视觉特效交给 SkillFx 按段位编排。

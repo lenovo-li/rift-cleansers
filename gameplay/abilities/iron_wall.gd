@@ -29,7 +29,6 @@ func cast(ctx: SkillContext) -> Dictionary:
 	if ctx.caster.has_method("get_node"):
 		var stats: CharacterStats = ctx.caster.stats
 		stats.set_aura(duration, reflect, reduction)
-		if heal_per_reflect > 0.0:
-			stats.aura_heal_on_reflect = heal_per_reflect
+		# Lv8反弹治疗：在CharacterStats.reflect_damage中实现
 
 	return {"tier": tier, "aura_duration": duration, "reflect": reflect, "reduction": reduction}

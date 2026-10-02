@@ -38,10 +38,19 @@ func cast(ctx: SkillContext) -> Dictionary:
 
 	var hits: int = 0
 	var total: float = 0.0
-	for t: Variant in ctx.targets_in_cone(ctx.origin, ctx.facing, range_val, CONE_ANGLE):
-		var dealt: float = ctx.hit(t, damage)
-		total += dealt
-		hits += 1
+	# 锥形范围检测
+	for t: Variant in ctx.targets:
+		if not t.is_alive:
+			continue
+		var to_target: Vector3 = (t.global_position - ctx.origin).normalized()
+		var dist: float = ctx.origin.distance_to(t.global_position)
+		if dist > range_val:
+			continue
+		var angle: float = rad_to_deg(acos(ctx.facing.dot(to_target)))
+		if angle <= CONE_ANGLE / 2.0:
+			var dealt: float = ctx.hit(t, damage)
+			total += dealt
+			hits += 1
 
 	# 留下火焰地带
 	var end: Vector3 = ctx.origin + ctx.facing * range_val

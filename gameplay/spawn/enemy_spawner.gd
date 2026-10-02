@@ -71,7 +71,12 @@ func spawn_enemies(count: int) -> void:
 
 func spawn_enemy(enemy_id: String, elite_mods: Array, center: Variant = null, radius: float = -1.0) -> Enemy:
 	var enemy: Enemy = EnemyScene.instantiate() as Enemy
-	var mod_str: String = elite_mods[0] if elite_mods.size() > 0 else ""
+	# 双词缀：组合字符串 "mod1+mod2"
+	var mod_str: String = ""
+	if elite_mods.size() == 1:
+		mod_str = str(elite_mods[0])
+	elif elite_mods.size() >= 2:
+		mod_str = "%s+%s" % [elite_mods[0], elite_mods[1]]
 	enemy.setup(DEFS.get(enemy_id, DEFS["zombie"]), mod_str, null, get_parent())
 	_add(enemy, center, radius)
 	return enemy

@@ -36,6 +36,8 @@ static var _shapes: Dictionary = {}     # float scale -> CapsuleShape3D
 
 var def: EnemyDef = null
 var elite_mod: String = ""
+## 全部词缀（15 分钟后的精英可能有两个）
+var elite_mods: Array[String] = []
 var entity_id: int = -1
 var max_health: float = 60.0
 var current_health: float = 60.0
@@ -79,7 +81,9 @@ var _burning_timer: float = 0.0
 ## 生成后、加入场景树之前调用。
 func setup(p_def: EnemyDef, p_elite_mod: String, player: Node3D, p_effects_parent: Node) -> void:
 	def = p_def
-	elite_mod = p_elite_mod
+	# 双词缀以 "a+b" 传入：elite_mod 保留主词缀（外观、网络编码用），elite_mods 存全部
+	elite_mods.assign(p_elite_mod.split("+", false))
+	elite_mod = elite_mods[0] if not elite_mods.is_empty() else ""
 	target_player = player
 	effects_parent = p_effects_parent
 
@@ -89,7 +93,7 @@ func _ready() -> void:
 		def = DEFAULT_DEF
 	var elite: bool = not elite_mod.is_empty()
 	var health_mult: float = ELITE_HEALTH_MULT if elite else 1.0
-	if elite_mod == "giant":
+	if has_mod("giant"):
 		health_mult *= 1.6
 	max_health = def.max_health * health_mult * health_scale
 	current_health = max_health
@@ -99,7 +103,7 @@ func _ready() -> void:
 	collision_mask = MASK_ENEMY
 	add_to_group("enemies")
 	var scale_mult: float = ELITE_SCALE if elite else 1.0
-	if elite_mod == "giant":
+	if has_mod("giant"):
 		scale_mult = 1.8
 	var s: float = def.body_scale * scale_mult
 	_mesh = get_node("Mesh") as MeshInstance3D
@@ -117,7 +121,13 @@ func _ready() -> void:
 
 func get_display_name() -> String:
 	var n: String = def.display_name if def != null else "敌人"
-	return "%s·%s" % [ELITE_NAMES[elite_mod], n] if not elite_mod.is_empty() else n
+	if elite_mods.is_empty():
+		return n
+	return "%s·%s" % ["".join(elite_mods.map(func(m: String) -> String: return ELITE_NAMES.get(m, m))), n]
+
+
+func has_mod(mod: String) -> bool:
+	return mod in elite_mods
 
 
 func is_elite() -> bool:
@@ -126,10 +136,11 @@ func is_elite() -> bool:
 
 func move_speed() -> float:
 	var mult: float = 1.0
-	if elite_mod == "haste":
-		mult = 1.5
-	elif elite_mod == "giant":
-		mult = 0.85
+	for mod: String in elite_mods:
+		if mod == "haste":
+			mult *= 1.5
+		elif mod == "giant":
+			mult *= 0.85
 	return def.move_speed * status.speed_multiplier() * mult
 
 
@@ -250,9 +261,9 @@ func _dasher(delta: float, dir: Vector3, dist: float, speed: float) -> Vector3:
 
 ## 精英词缀的持续效果：再生回血、燃烧留地火（移动时每 0.4 秒一块）。
 func _update_elite(delta: float) -> void:
-	if elite_mod == "regenerating":
+	if has_mod("regenerating"):
 		receive_heal(max_health * 0.02 * delta)
-	elif elite_mod == "burning" and velocity.length() > 0.5:
+	if has_mod("burning") and velocity.length() > 0.5:
 		_burning_timer -= delta
 		if _burning_timer <= 0.0:
 			_burning_timer = 0.4
@@ -283,10 +294,10 @@ func _melee(amount: float) -> void:
 	amount *= status.damage_dealt_multiplier()  # 虚弱 / 腐蚀
 	if target_player.has_method("take_damage"):
 		target_player.take_damage(amount, self)
-		if elite_mod == "vampire":
+		if has_mod("vampire"):
 			# 吸血词缀：回复造成伤害的 100%（相对精英的高血量不算多，但会拖长击杀时间）
 			receive_heal(amount)
-		elif elite_mod == "frost" and target_player.has_method("apply_slow"):
+		if has_mod("frost") and target_player.has_method("apply_slow"):
 			target_player.apply_slow(0.5, 1.5)  # 冰霜词缀：命中减速 50%，1.5 秒
 
 
@@ -320,7 +331,7 @@ func receive_heal(amount: float) -> void:
 func take_damage(amount: float) -> void:
 	if not is_alive:
 		return
-	if elite_mod == "armored":
+	if has_mod("armored"):
 		amount *= 0.6
 	amount *= status.damage_taken_multiplier()  # 死亡标记、感电、腐蚀
 	current_health -= amount
@@ -333,11 +344,11 @@ func take_damage(amount: float) -> void:
 	else:
 		_flash_timer = FLASH_TIME
 		_mesh.material_override = flash_material()
-	if elite_mod == "teleporter" and not _teleported and current_health > 0.0 and current_health < max_health * 0.3:
+	if has_mod("teleporter") and not _teleported and current_health > 0.0 and current_health < max_health * 0.3:
 		_teleported = true
 		_teleport_away()
 	if current_health <= 0.0:
-		if elite_mod == "explosive":
+		if has_mod("explosive"):
 			_elite_death_blast()
 		die()
 
@@ -403,7 +414,10 @@ func _explode() -> void:
 
 
 func apply_knockback(impulse: Vector3) -> void:
-	var resist: float = maxf(knockback_resist, 0.7 if elite_mod == "giant" else 0.0)
+	var resist: float = knockback_resist
+	for mod: String in elite_mods:
+		if mod == "giant":
+			resist = maxf(resist, 0.7)
 	knockback_velocity = impulse * (1.0 - resist)
 	_dash_state = 0 if _dash_state == 2 else _dash_state
 

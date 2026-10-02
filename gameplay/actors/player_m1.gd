@@ -450,8 +450,6 @@ func _apply_element_equipment(ctx: SkillContext) -> void:
 		ctx.element_mods["intensity_mult"] = 1.5
 	if stats.has_equipment("reaction_catalyst"):
 		ctx.element_mods["reaction_mult"] = 1.4
-	if stats.has_equipment("resonance_crystal"):
-		pass  # 共鸣提升一档（需要在共鸣计算中实现）
 	if stats.has_equipment("shockwave_ring"):
 		ctx.knockback_mult = 1.4
 		ctx.shatter_mult = 1.3
@@ -474,11 +472,12 @@ func _apply_element_equipment(ctx: SkillContext) -> void:
 	if stats.has_equipment("chain_conductor"):
 		ctx.chain_bonus += 2
 		ctx.element_mods["chain_range_mult"] = 1.3
-	if stats.has_equipment("dual_element"):
-		# 火焰技能附加冰霜，冰霜技能附加火焰（在 cast_skill 中根据技能元素处理）
-		pass
 	if stats.has_equipment("annihilate_orb"):
 		ctx.element_mods["annihilate_min"] = 2
+
+	# 持续延长：DOT技能持续时间+50%
+	if stats.has_equipment("duration_extension") and SkillSynergy.has_tag("", "dot"):
+		ctx.element_mods["dot_duration_mult"] = 1.5
 
 
 ## 施放技能；未拥有或冷却中返回空字典。use_aim = false 时忽略鼠标瞄准点（自动施放）。
@@ -542,7 +541,45 @@ func cast_skill(skill_id: String, use_aim: bool = true) -> Dictionary:
 		return result
 	stats.on_damage_dealt(int(result.get("hits", 0)), float(result.get("damage", 0.0)), false)
 	_apply_skill_result(skill_id, result, ctx)
+
+	# 装备后处理效果
+	_apply_equipment_post_cast(skill_id, ctx, result)
+
 	return result
+
+
+## 技能施放后的装备效果（回响、连锁反应等）
+func _apply_equipment_post_cast(skill_id: String, ctx: SkillContext, result: Dictionary) -> void:
+	# 回响打击：1秒后再次触发40%伤害
+	if stats.has_equipment("echo_strikes") and ctx.hit_log.size() > 0:
+		await get_tree().create_timer(1.0).timeout
+		if is_dead:
+			return
+		for t: Variant in ctx.hit_log:
+			if is_instance_valid(t) and t.is_alive:
+				t.take_damage(float(result.get("damage", 0.0)) * 0.4 / ctx.hit_log.size())
+
+	# 连锁反应：范围技能命中3+敌人触发二次爆炸
+	if stats.has_equipment("chain_reaction") and SkillSynergy.has_tag(skill_id, "aoe"):
+		if ctx.hit_log.size() >= 3:
+			var center: Vector3 = Vector3.ZERO
+			for t: Variant in ctx.hit_log:
+				if is_instance_valid(t):
+					center += t.global_position
+			center /= float(ctx.hit_log.size())
+			var damage: float = float(result.get("damage", 0.0)) * 0.3 / ctx.hit_log.size()
+			for t: Variant in get_tree().get_nodes_in_group("enemies"):
+				if is_instance_valid(t) and t.is_alive:
+					var d: float = (t.global_position - center).length()
+					if d <= 3.0:
+						t.take_damage(damage)
+
+	# 冷却返还：击杀标记敌人返还20%冷却
+	if stats.has_equipment("cooldown_return") and ctx.marked_kills > 0:
+		for sid: String in ability_system.pool():
+			var cd: float = ability_system._cooldowns.get(sid, 0.0)
+			if cd > 0.0:
+				ability_system._cooldowns[sid] = cd * 0.8
 
 
 ## 技能结算后的位移、状态和手感（音效 / 震屏 / 顿帧）；视觉特效交给 SkillFx 按段位编排。

@@ -45,4 +45,4 @@ func cast(ctx: SkillContext) -> Dictionary:
 			if s != null:
 				s.apply_burn(burn_dps, burn_dur, ctx.intensity * 0.5)
 
-	return {"hits": hits, "damage": total, "tier": tier}
+	return {"hits": hits, "damage": total, "tier": tier, "radius": radius}

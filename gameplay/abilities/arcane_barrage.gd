@@ -30,11 +30,13 @@ func cast(ctx: SkillContext) -> Dictionary:
 
 	var hits: int = 0
 	var total: float = 0.0
+	var impacts: Array[Vector3] = []  # 表现用：每发飞弹的落点
 	for i in count:
 		var nearest: Variant = ctx.nearest_alive(20.0)
 		if nearest != null:
+			impacts.append(nearest.global_position)
 			var dealt: float = ctx.hit(nearest, damage)
 			total += dealt
 			hits += 1
 
-	return {"hits": hits, "damage": total, "projectiles": count, "tier": tier}
+	return {"hits": hits, "damage": total, "projectiles": count, "tier": tier, "impacts": impacts}

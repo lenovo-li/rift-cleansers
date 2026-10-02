@@ -41,4 +41,4 @@ func cast(ctx: SkillContext) -> Dictionary:
 		mult = elite_bonus
 
 	var dealt: float = ctx.hit(target, damage * mult)
-	return {"hits": 1, "damage": dealt, "tier": tier}
+	return {"hits": 1, "damage": dealt, "tier": tier, "center": target.global_position}

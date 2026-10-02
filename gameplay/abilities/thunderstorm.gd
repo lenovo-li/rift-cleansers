@@ -33,4 +33,4 @@ func cast(ctx: SkillContext) -> Dictionary:
 	zone.intensity = ctx.intensity
 	ctx.new_zones.append(zone)
 
-	return {"tier": tier, "duration": duration}
+	return {"tier": tier, "duration": duration, "radius": BASE_RADIUS}

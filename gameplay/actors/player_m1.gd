@@ -691,6 +691,66 @@ func _apply_skill_result(skill_id: String, result: Dictionary, ctx: SkillContext
 				SfxManager.play(_fx_parent, "crit_hit")
 		"divine_intervention":
 			SfxManager.play(_fx_parent, "holy_buff")
+		"earthquake":
+			SfxManager.play(_fx_parent, "slam")
+			_shake(0.4 + 0.1 * tier)
+			HitStop.trigger(get_tree(), 0.05)
+		"iron_wall":
+			SfxManager.play(_fx_parent, "shield_up")
+		"war_cry":
+			SfxManager.play(_fx_parent, "heavy")
+			_shake(0.15)
+		"flame_cleave":
+			SfxManager.play(_fx_parent, "fire_cast")
+			if hits > 0:
+				SfxManager.play(_fx_parent, "fire_impact")
+			_shake(0.2)
+		"thunderstorm":
+			SfxManager.play(_fx_parent, "lightning_cast")
+			_shake(0.25)
+		"frost_barrier":
+			SfxManager.play(_fx_parent, "shield_up")
+			if hits > 0:
+				SfxManager.play(_fx_parent, "ice_shatter")
+		"arcane_barrage":
+			SfxManager.play(_fx_parent, "fire_cast")
+			if hits > 0:
+				SfxManager.play(_fx_parent, "crit_hit")
+		"lava_blast":
+			SfxManager.play(_fx_parent, "fire_cast")
+			if hits > 0:
+				SfxManager.play(_fx_parent, "explosion_heavy")
+			_shake(0.3 + 0.1 * tier)
+		"eviscerate":
+			if result.has("center"):
+				SfxManager.play(_fx_parent, "heavy")
+				if result.get("executed", false):
+					HitStop.trigger(get_tree(), 0.05)
+					_shake(0.3)
+		"shadow_clone":
+			SfxManager.play(_fx_parent, "crit_hit")
+		"backstab":
+			if result.has("center"):
+				SfxManager.play(_fx_parent, "crit_hit")
+				if tier >= 3:
+					HitStop.trigger(get_tree(), 0.04)
+		"poison_blade":
+			SfxManager.play(_fx_parent, "fire_cast")
+		"guardian_angel":
+			SfxManager.play(_fx_parent, "holy_buff")
+		"purify":
+			SfxManager.play(_fx_parent, "heal_cast")
+			if hits > 0:
+				SfxManager.play(_fx_parent, "explosion_heavy")
+		"resurrection":
+			SfxManager.play(_fx_parent, "holy_buff")
+			if int(result.get("revived", 0)) > 0:
+				_shake(0.3)
+		"holy_wrath":
+			if result.has("center"):
+				SfxManager.play(_fx_parent, "lightning_cast")
+				SfxManager.play(_fx_parent, "explosion_heavy")
+				_shake(0.25 + 0.1 * tier)
 	SkillFx.play(_fx_parent, self, skill_id, result, ctx.origin, ctx.flat_facing(), tier)
 	for zone: GroundZone in ctx.new_zones:
 		if zone.anchor == null:
@@ -700,9 +760,12 @@ func _apply_skill_result(skill_id: String, result: Dictionary, ctx: SkillContext
 				"frost": color = Color(0.5, 0.85, 1.0, 0.3)
 				"smoke": color = Color(0.35, 0.3, 0.45, 0.45)
 				"holy": color = Color(1.0, 0.9, 0.45, 0.3)
+				"thunderstorm": color = Color(0.55, 0.65, 1.0, 0.3)
+				"earthquake": color = Color(0.65, 0.5, 0.3, 0.35)
+				"shadow": color = Color(0.5, 0.3, 0.8, 0.35)
 			SkillVfx.ground_zone(_fx_parent, zone.a, zone.b, zone.half_width, zone.remaining, color, zone.kind)
 	if skill_id in ["shield_bash", "charge", "shadow_step", "smoke_bomb", "whirlwind", "fan_of_knives",
-			"blade_flurry", "execute"]:
+			"blade_flurry", "execute", "flame_cleave", "eviscerate", "backstab", "poison_blade"]:
 		SfxManager.play_whoosh(_fx_parent)  # 物理技能的挥舞声；法术类技能各自有施法音
 	print("[PlayerM1] %s Lv%d (Tier%d) hits=%d damage=%.0f" % [skill_id, ability_system.get_level(skill_id),
 			tier, hits, float(result.get("damage", 0.0))])

@@ -30,6 +30,10 @@ var crits: int = 0
 ## 治疗与护盾倍率（牧师天赋「虔诚」）
 var heal_mult: float = 1.0
 
+## 元素系统（新增）
+var element_type: int = 0  # ElementalResonance.Element
+var element_intensity: float = 0.0  # 0-100
+
 
 ## 存活的队友。
 func alive_allies() -> Array:
@@ -74,9 +78,42 @@ func hit(target: Variant, base_damage: float, heavy: bool = false) -> float:
 		crits += 1
 	var was_burning: bool = heavy and Reactions.is_burning(target)
 	target.take_damage(damage)
+
+	# 应用元素强度（如果技能有元素属性）
+	if element_intensity > 0.0 and target.is_alive:
+		var s: StatusEffects = Reactions.status_of(target)
+		if s != null:
+			_apply_element_to_target(s)
+
 	if was_burning:
 		Reactions.ignite(target, alive_targets())
 	return damage
+
+
+## 根据技能元素类型应用元素强度和基础状态
+func _apply_element_to_target(status: StatusEffects) -> void:
+	const ElementalResonance = preload("res://gameplay/progression/elemental_resonance.gd")
+	match element_type:
+		ElementalResonance.Element.FIRE:
+			status.fire_intensity = minf(100.0, status.fire_intensity + element_intensity)
+			# 火系技能默认附加轻度燃烧
+			if element_intensity >= 20.0:
+				status.apply_burn(8.0, 2.0, 0.0)
+		ElementalResonance.Element.ICE:
+			status.ice_intensity = minf(100.0, status.ice_intensity + element_intensity)
+			# 冰系技能默认附加减速
+			if element_intensity >= 20.0:
+				status.apply_slow(0.3, 2.0, 0.0)
+		ElementalResonance.Element.LIGHTNING:
+			status.lightning_intensity = minf(100.0, status.lightning_intensity + element_intensity)
+			# 雷系技能默认附加感电
+			if element_intensity >= 20.0:
+				status.apply_shocked(1, 3.0, 0.0)
+		ElementalResonance.Element.POISON:
+			status.poison_intensity = minf(100.0, status.poison_intensity + element_intensity)
+			# 毒系技能默认附加中毒
+			if element_intensity >= 20.0:
+				status.apply_poisoned(5.0, 3.0, 0.3, 0.0)
 
 
 ## 击退。被减速目标触发碎裂，返回碎裂额外伤害。

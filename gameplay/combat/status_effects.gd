@@ -31,6 +31,12 @@ var frozen_remaining: float = 0.0
 var weakened_reduction: float = 0.0  # 0.3 = 伤害-30%
 var weakened_remaining: float = 0.0
 
+## 腐蚀：受到伤害增加（腐蚀反应）
+var corroded: float = 0.0  # 剩余时间
+
+## 反应冷却：防止持续区域每跳都触发反应
+var reaction_cooldown: float = 0.0
+
 # ===== 元素强度（用于反应判定）=====
 var fire_intensity: float = 0.0      # 火元素强度（0-100）
 var ice_intensity: float = 0.0       # 冰元素强度
@@ -56,8 +62,8 @@ func apply_mark(bonus: float, duration: float) -> void:
 	mark_remaining = maxf(mark_remaining, duration)
 
 
-func apply_shocked(stacks: int, duration: float, intensity: float = 0.0) -> void:
-	shocked_stacks = mini(10, shocked_stacks + stacks)  # 最多10层
+func apply_shocked(stacks: int, duration: float, intensity: float = 0.0, cap: int = 10) -> void:
+	shocked_stacks = mini(cap, shocked_stacks + stacks)
 	shocked_remaining = maxf(shocked_remaining, duration)
 	lightning_intensity = minf(100.0, lightning_intensity + intensity)
 
@@ -102,13 +108,15 @@ func is_weakened() -> bool:
 	return weakened_remaining > 0.0
 
 
-## 受到伤害倍率（标记 × 感电）。
+## 受到伤害倍率（标记 × 感电 × 腐蚀）。
 func damage_taken_multiplier() -> float:
 	var mult: float = 1.0
 	if is_marked():
 		mult *= 1.0 + mark_bonus
 	if is_shocked():
 		mult *= 1.0 + 0.05 * float(shocked_stacks)
+	if corroded > 0.0:
+		mult *= 1.2
 	return mult
 
 
@@ -192,6 +200,10 @@ func tick(delta: float) -> float:
 		weakened_remaining -= delta
 		if weakened_remaining <= 0.0:
 			weakened_reduction = 0.0
+	if corroded > 0.0:
+		corroded -= delta
+	if reaction_cooldown > 0.0:
+		reaction_cooldown -= delta
 	# 元素强度自然衰减（每秒 -10）
 	var decay: float = 10.0 * delta
 	fire_intensity = maxf(0.0, fire_intensity - decay)

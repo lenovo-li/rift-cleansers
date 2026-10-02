@@ -53,3 +53,6 @@ ice_servers.json
 
 # Blender 自动备份
 *.blend1
+
+# Godot DLL 加载临时副本
+addons/**/*~*.dll

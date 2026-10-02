@@ -37,6 +37,39 @@ var regen_bonus: float = 0.0
 ## 装备：护盾核心计时、回光返照是否已用掉
 var shield_core_timer: float = 0.0
 var second_wind_used: bool = false
+## 升级「属性加成」（文档 10 §7 STAT_BOOST）：永久移速/攻速/暴击加成
+var bonus_move_speed: float = 0.0
+var bonus_attack_speed: float = 0.0
+var bonus_crit: float = 0.0
+## 升级「装备强化」（EQUIPMENT_BUFF）：每层 → 每件装备 +3% 伤害、+2% 冷却缩减
+var equipment_power: int = 0
+## 战吼（铁卫）：限时攻速 / 移速 / 伤害加成
+var war_cry_remaining: float = 0.0
+var war_cry_attack_speed: float = 0.0
+var war_cry_move_speed: float = 0.0
+var war_cry_damage: float = 0.0
+## 铁壁 8 段：光环反弹伤害时回复该比例的最大生命（每次受击）
+var aura_heal_ratio: float = 0.0
+
+
+func set_war_cry(duration: float, attack_speed: float, move_speed: float, damage: float) -> void:
+	war_cry_remaining = maxf(war_cry_remaining, duration)
+	war_cry_attack_speed = maxf(war_cry_attack_speed, attack_speed)
+	war_cry_move_speed = maxf(war_cry_move_speed, move_speed)
+	war_cry_damage = maxf(war_cry_damage, damage)
+
+
+## 移速倍率：属性加成 + 战吼。
+func move_speed_multiplier() -> float:
+	var mult: float = 1.0 + bonus_move_speed
+	if war_cry_remaining > 0.0:
+		mult *= 1.0 + war_cry_move_speed
+	return mult
+
+
+## 装备强化带来的技能冷却倍率。
+func equipment_cooldown_multiplier() -> float:
+	return 1.0 / (1.0 + 0.02 * equipment_power * equipment.size())
 
 
 ## 回光返照：若本次伤害会致死且还没用过，保住 1 点生命并回复 30%。返回是否触发。
@@ -92,6 +125,10 @@ func damage_multiplier() -> float:
 		mult *= 1.3
 	if has_equipment("arcane_tome"):
 		mult *= 1.2
+	if war_cry_remaining > 0.0:
+		mult *= 1.0 + war_cry_damage
+	if equipment_power > 0:
+		mult *= 1.0 + 0.03 * equipment_power * equipment.size()
 	return mult
 
 
@@ -102,6 +139,9 @@ func attack_interval_multiplier() -> float:
 		speed *= 1.0 + blessing_bonus
 	if has_equipment("swift_gloves"):
 		speed *= 1.25  # 间隔 -20% = 速度 ×1.25
+	speed *= 1.0 + bonus_attack_speed
+	if war_cry_remaining > 0.0:
+		speed *= 1.0 + war_cry_attack_speed
 	return 1.0 / speed
 
 
@@ -166,6 +206,8 @@ func receive_damage(amount: float, block_roll: float) -> Dictionary:
 	if aura_remaining > 0.0:
 		result.reflect += amount * aura_reflect
 		incoming *= 1.0 - aura_reduction
+		if aura_heal_ratio > 0.0:
+			heal(max_health * aura_heal_ratio)
 	if has_equipment("thorn_mail"):
 		result.reflect += amount * 0.25
 	var absorbed: float = minf(shield, incoming)
@@ -211,6 +253,13 @@ func tick(delta: float) -> void:
 	rage = maxf(0.0, rage - RAGE_DECAY * delta)
 	revenge_remaining = maxf(0.0, revenge_remaining - delta)
 	aura_remaining = maxf(0.0, aura_remaining - delta)
+	if aura_remaining <= 0.0:
+		aura_heal_ratio = 0.0
+	war_cry_remaining = maxf(0.0, war_cry_remaining - delta)
+	if war_cry_remaining <= 0.0:
+		war_cry_attack_speed = 0.0
+		war_cry_move_speed = 0.0
+		war_cry_damage = 0.0
 	blessing_remaining = maxf(0.0, blessing_remaining - delta)
 	if blessing_remaining <= 0.0:
 		blessing_bonus = 0.0

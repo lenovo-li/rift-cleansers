@@ -32,10 +32,9 @@ func cast(ctx: SkillContext) -> Dictionary:
 
 	var buffed: int = 0
 	for ally: Variant in ctx.allies_in_radius(ctx.origin, radius):
-		# 战吼增益：暂时简化为施法者自身增强
 		if ally == ctx.caster and ally.has_method("get_node"):
 			var stats: CharacterStats = ally.stats
-			# TODO: 实现临时buff系统，这里只是占位
+			stats.set_war_cry(duration, attack_speed, move_speed, damage_bonus)
 		buffed += 1
 
 	return {"tier": tier, "radius": radius, "buffed": buffed}

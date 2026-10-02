@@ -8,7 +8,7 @@ class_name Boss extends Enemy
 ## 另有随机词缀（affix）改变打法：狂暴 / 坚韧 / 召唤 / 爆裂，由 EnemySpawner 生成时掷骰。
 
 signal phase_changed(phase: int)
-signal summon_requested(enemy_id: String, count: int, elite_mod: String, center: Vector3)
+signal summon_requested(enemy_id: String, count: int, elite_mods: Array, center: Vector3)
 
 const SUMMON_INTERVAL: float = 12.0
 const SUMMON_WAVES: int = 4
@@ -126,7 +126,7 @@ func _update_summons(delta: float) -> void:
 		_summon_timer = SUMMON_INTERVAL * (0.75 if affix == "summoner" else 1.0)
 		_waves_done += 1
 		var pair: Array = SUMMONS.get(variant, SUMMONS.corrupted_knight)
-		summon_requested.emit(pair[0] if _waves_done % 2 == 1 else pair[1], size, "", global_position)
+		summon_requested.emit(pair[0] if _waves_done % 2 == 1 else pair[1], size, [], global_position)
 
 
 func _chase(dir: Vector3, dist: float) -> Vector3:
@@ -141,7 +141,7 @@ func _knight(delta: float, dir: Vector3, dist: float) -> Vector3:
 		_elite_timer -= delta
 		if _elite_timer <= 0.0:
 			_elite_timer = ELITE_INTERVAL
-			summon_requested.emit("skeleton", 1, SpawnDirector.ELITE_MODS.pick_random(), global_position)
+			summon_requested.emit("skeleton", 1, [SpawnDirector.ELITE_MODS.pick_random()], global_position)
 	if phase >= 2:
 		var v: Variant = _charge(delta, dir)
 		if v != null:

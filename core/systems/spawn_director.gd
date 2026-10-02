@@ -90,9 +90,8 @@ func _spawn_wave(t: float) -> void:
 				mods = [ELITE_MODS[_rng.randi() % ELITE_MODS.size()]]
 			elif _rng.randf() < get_elite_chance(t):
 				mods = _pick_elite_mods(t)
-		# 传递第一个词缀给信号（保持兼容性）
-		var mod: String = mods[0] if mods.size() > 0 else ""
-		spawn_requested.emit(pick_enemy_type(t, _rng.randf(), map_id), mod)
+		# 传递词缀数组（spawner需要支持）
+		spawn_requested.emit(pick_enemy_type(t, _rng.randf(), map_id), mods)
 
 
 func _player_scale() -> float:

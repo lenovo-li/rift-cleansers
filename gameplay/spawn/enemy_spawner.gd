@@ -53,7 +53,12 @@ func _ready() -> void:
 	_director = get_tree().root.find_child("SpawnDirector", true, false) as SpawnDirector
 	_session = get_tree().root.find_child("GameSession", true, false) as GameSession
 	if _director:
-		_director.spawn_requested.connect(func(id: String, mod: String) -> void: spawn_enemy(id, mod))
+		_director.spawn_requested.connect(func(id: String, mods: Variant) -> void:
+			if mods is Array:
+				spawn_enemy(id, mods)
+			else:
+				spawn_enemy(id, [str(mods)] if not str(mods).is_empty() else [])
+		)
 		_director.boss_requested.connect(spawn_boss)
 	spawn_enemies(initial_count)
 
@@ -61,12 +66,13 @@ func _ready() -> void:
 ## 兼容旧接口：生成 count 只腐尸。
 func spawn_enemies(count: int) -> void:
 	for i in count:
-		spawn_enemy("zombie", "")
+		spawn_enemy("zombie", [])
 
 
-func spawn_enemy(enemy_id: String, elite_mod: String, center: Variant = null, radius: float = -1.0) -> Enemy:
+func spawn_enemy(enemy_id: String, elite_mods: Array, center: Variant = null, radius: float = -1.0) -> Enemy:
 	var enemy: Enemy = EnemyScene.instantiate() as Enemy
-	enemy.setup(DEFS.get(enemy_id, DEFS["zombie"]), elite_mod, null, get_parent())
+	var mod_str: String = elite_mods[0] if elite_mods.size() > 0 else ""
+	enemy.setup(DEFS.get(enemy_id, DEFS["zombie"]), mod_str, null, get_parent())
 	_add(enemy, center, radius)
 	return enemy
 
@@ -118,9 +124,9 @@ func _random_player_position() -> Vector3:
 	return players[randi() % players.size()].global_position
 
 
-func _on_boss_summon(enemy_id: String, count: int, elite_mod: String, center: Vector3) -> void:
+func _on_boss_summon(enemy_id: String, count: int, elite_mods: Array, center: Vector3) -> void:
 	for i in count:
-		spawn_enemy(enemy_id, elite_mod, center, 4.0 + randf() * 3.0)
+		spawn_enemy(enemy_id, elite_mods, center, 4.0 + randf() * 3.0)
 	SkillVfx.pulse_ring(get_parent(), center, 7.0, Color(0.6, 0.1, 0.2, 0.4), 0.5)
 
 

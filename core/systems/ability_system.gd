@@ -95,6 +95,9 @@ static func resolve_strike(s: Dictionary, targets: Array) -> int:
 	ctx.origin = s.center
 	ctx.targets = targets
 	ctx.magnet = s.get("magnet", false)
+	ctx.element = str(s.get("element", ""))
+	ctx.intensity = float(s.get("intensity", 0.0))
+	ctx.element_mods = s.get("element_mods", {})
 	var hits: int = 0
 	for t: Variant in ctx.targets_in_radius(s.center, s.radius):
 		hits += 1
@@ -106,7 +109,7 @@ static func resolve_strike(s: Dictionary, targets: Array) -> int:
 		ctx.push(t, dir * float(s.knockback), dealt)
 		var st: StatusEffects = Reactions.status_of(t)
 		if st != null and float(s.burn) > 0.0:
-			st.apply_burn(s.burn, 4.0)
+			st.apply_burn(s.burn, 4.0, ctx.intensity * 0.3)
 	if s.get("second_wave", false):
 		for t: Variant in ctx.targets_in_radius(s.center, s.radius * 1.6):
 			var d: float = ((t.global_position - s.center) * Vector3(1, 0, 1)).length()

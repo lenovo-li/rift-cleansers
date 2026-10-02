@@ -1,200 +1,83 @@
 class_name ElementalResonance extends RefCounted
-## 元素共鸣系统：同类元素技能达到一定数量时，获得被动增益。
-## 2个同元素技能：小共鸣（+15%该元素伤害）
-## 3个同元素技能：中共鸣（+30%该元素伤害+特殊效果）
-## 4+个同元素技能：大共鸣（+50%该元素伤害+强化特殊效果）
+## 元素共鸣（文档 11）：已学技能中同元素技能数量 → 共鸣等级。
+## 2 个：小共鸣（该元素伤害 +15%）；3 个：中共鸣（+30% + 特殊效果）；4+：大共鸣（+50% + 强化效果）。
+## 雷 +15/35/55%，圣光 +12/25/40%。共鸣水晶：已有共鸣的元素提升一档。
+## 技能元素读 Elements.SKILL_ELEMENTS（唯一来源）。
 
-enum ResonanceLevel {
-	NONE = 0,
-	MINOR = 2,   # 2个技能
-	MAJOR = 3,   # 3个技能
-	PERFECT = 4, # 4+个技能
+const NONE: int = 0
+const MINOR: int = 2
+const MAJOR: int = 3
+const PERFECT: int = 4
+
+const DAMAGE_MULTS: Dictionary = {
+	"fire": [1.15, 1.30, 1.50], "ice": [1.15, 1.30, 1.50], "lightning": [1.15, 1.35, 1.55],
+	"wind": [1.15, 1.30, 1.50], "poison": [1.15, 1.30, 1.50], "shadow": [1.15, 1.30, 1.50],
+	"holy": [1.12, 1.25, 1.40],
 }
-
-enum Element {
-	NONE,
-	FIRE,
-	ICE,
-	LIGHTNING,
-	WIND,
-	POISON,
-	SHADOW,
-	HOLY,
-}
-
-# 技能元素映射
-const SKILL_ELEMENTS: Dictionary = {
-	# 火系
-	"fireball": Element.FIRE,
-	"meteor": Element.FIRE,
-	"charge": Element.FIRE,
-
-	# 冰系
-	"ice_lance": Element.ICE,
-	"frost_nova": Element.ICE,
-
-	# 雷系
-	"chain_lightning": Element.LIGHTNING,
-	"storm_field": Element.LIGHTNING,
-
-	# 暗影系
-	"shadow_step": Element.SHADOW,
-	"death_mark": Element.SHADOW,
-	"smoke_bomb": Element.SHADOW,
-	"execute": Element.SHADOW,
-
-	# 圣光系
-	"holy_nova": Element.HOLY,
-	"smite": Element.HOLY,
-	"sanctuary": Element.HOLY,
-	"divine_shield": Element.HOLY,
-	"blessing": Element.HOLY,
-	"divine_intervention": Element.HOLY,
-
-	# 物理/通用（无共鸣）
-	"shield_bash": Element.NONE,
-	"whirlwind": Element.NONE,
-	"taunt": Element.NONE,
-	"ground_slam": Element.NONE,
-	"fan_of_knives": Element.NONE,
-	"blade_flurry": Element.NONE,
-	"reflect_aura": Element.NONE,
+## 特殊效果说明（UI 用）：[中共鸣, 大共鸣]
+const SPECIAL_DESC: Dictionary = {
+	"fire": ["爆燃伤害 +50%", "燃烧伤害 +30%"],
+	"ice": ["冰冻所需强度 60→45", "碎裂波及周围"],
+	"lightning": ["连锁 +1", "反应冷却 -30%"],
+	"wind": ["扩散范围与伤害 +30%", "击退 +30%"],
+	"poison": ["中毒伤害 +30%", "治疗削减翻倍"],
+	"shadow": ["对标记目标暴击率 +20%", "处决阈值 +5%"],
+	"holy": ["治疗 +20%", "净化时灼烧周围敌人"],
 }
 
 
-## 计算元素共鸣状态
-static func calculate_resonance(skill_ids: Array[String]) -> Dictionary:
-	var element_counts: Dictionary = {}
-
+## 统计已学技能的元素数量：{element: count}
+static func element_counts(skill_ids: Array[String]) -> Dictionary:
+	var counts: Dictionary = {}
 	for sid: String in skill_ids:
-		var elem: Element = SKILL_ELEMENTS.get(sid, Element.NONE)
-		if elem != Element.NONE:
-			element_counts[elem] = element_counts.get(elem, 0) + 1
-
-	var resonances: Dictionary = {}
-	for elem: Element in element_counts:
-		var count: int = element_counts[elem]
-		if count >= ResonanceLevel.MINOR:
-			resonances[elem] = _get_resonance_level(count)
-
-	return resonances  # {Element -> ResonanceLevel}
+		var e: String = Elements.of(sid)
+		if not e.is_empty():
+			counts[e] = int(counts.get(e, 0)) + 1
+	return counts
 
 
-static func _get_resonance_level(count: int) -> ResonanceLevel:
+## 计算共鸣等级：{element: MINOR/MAJOR/PERFECT}（未达到 2 个的元素不出现）。boost：共鸣水晶。
+static func calculate(skill_ids: Array[String], boost: bool = false) -> Dictionary:
+	var out: Dictionary = {}
+	var counts: Dictionary = element_counts(skill_ids)
+	for e: String in counts:
+		var lv: int = level_for_count(int(counts[e]))
+		if lv != NONE:
+			out[e] = mini(PERFECT, lv + 1) if boost else lv
+	return out
+
+
+static func level_for_count(count: int) -> int:
 	if count >= 4:
-		return ResonanceLevel.PERFECT
-	elif count >= 3:
-		return ResonanceLevel.MAJOR
-	elif count >= 2:
-		return ResonanceLevel.MINOR
-	return ResonanceLevel.NONE
+		return PERFECT
+	if count >= 3:
+		return MAJOR
+	if count >= 2:
+		return MINOR
+	return NONE
 
 
-## 获取共鸣加成
-static func get_resonance_bonuses(resonances: Dictionary) -> Dictionary:
-	var bonuses: Dictionary = {
-		"fire_damage_mult": 1.0,
-		"ice_damage_mult": 1.0,
-		"lightning_damage_mult": 1.0,
-		"shadow_damage_mult": 1.0,
-		"holy_damage_mult": 1.0,
-		"special_effects": [],
-	}
-
-	for elem: Element in resonances:
-		var level: ResonanceLevel = resonances[elem]
-		match elem:
-			Element.FIRE:
-				bonuses.fire_damage_mult = _fire_resonance_mult(level)
-				if level >= ResonanceLevel.MAJOR:
-					bonuses.special_effects.append("fire_resonance_ignite_chance")
-				if level >= ResonanceLevel.PERFECT:
-					bonuses.special_effects.append("fire_resonance_burn_spread")
-
-			Element.ICE:
-				bonuses.ice_damage_mult = _ice_resonance_mult(level)
-				if level >= ResonanceLevel.MAJOR:
-					bonuses.special_effects.append("ice_resonance_freeze_buildup")
-				if level >= ResonanceLevel.PERFECT:
-					bonuses.special_effects.append("ice_resonance_shatter_aoe")
-
-			Element.LIGHTNING:
-				bonuses.lightning_damage_mult = _lightning_resonance_mult(level)
-				if level >= ResonanceLevel.MAJOR:
-					bonuses.special_effects.append("lightning_resonance_chain_bonus")
-				if level >= ResonanceLevel.PERFECT:
-					bonuses.special_effects.append("lightning_resonance_overload_cd")
-
-			Element.SHADOW:
-				bonuses.shadow_damage_mult = _shadow_resonance_mult(level)
-				if level >= ResonanceLevel.MAJOR:
-					bonuses.special_effects.append("shadow_resonance_crit_bonus")
-				if level >= ResonanceLevel.PERFECT:
-					bonuses.special_effects.append("shadow_resonance_execute_threshold")
-
-			Element.HOLY:
-				bonuses.holy_damage_mult = _holy_resonance_mult(level)
-				if level >= ResonanceLevel.MAJOR:
-					bonuses.special_effects.append("holy_resonance_heal_bonus")
-				if level >= ResonanceLevel.PERFECT:
-					bonuses.special_effects.append("holy_resonance_purify_damage")
-
-	return bonuses
+static func damage_mult(element: String, level: int) -> float:
+	if level < MINOR or not DAMAGE_MULTS.has(element):
+		return 1.0
+	return float(DAMAGE_MULTS[element][level - MINOR])
 
 
-static func _fire_resonance_mult(level: ResonanceLevel) -> float:
+static func level_name(level: int) -> String:
 	match level:
-		ResonanceLevel.MINOR: return 1.15   # +15%
-		ResonanceLevel.MAJOR: return 1.30   # +30%
-		ResonanceLevel.PERFECT: return 1.50 # +50%
-	return 1.0
-
-static func _ice_resonance_mult(level: ResonanceLevel) -> float:
-	match level:
-		ResonanceLevel.MINOR: return 1.15
-		ResonanceLevel.MAJOR: return 1.30
-		ResonanceLevel.PERFECT: return 1.50
-	return 1.0
-
-static func _lightning_resonance_mult(level: ResonanceLevel) -> float:
-	match level:
-		ResonanceLevel.MINOR: return 1.15
-		ResonanceLevel.MAJOR: return 1.35   # 雷系稍高
-		ResonanceLevel.PERFECT: return 1.55
-	return 1.0
-
-static func _shadow_resonance_mult(level: ResonanceLevel) -> float:
-	match level:
-		ResonanceLevel.MINOR: return 1.15
-		ResonanceLevel.MAJOR: return 1.30
-		ResonanceLevel.PERFECT: return 1.50
-	return 1.0
-
-static func _holy_resonance_mult(level: ResonanceLevel) -> float:
-	match level:
-		ResonanceLevel.MINOR: return 1.12   # 圣光偏辅助，伤害加成略低
-		ResonanceLevel.MAJOR: return 1.25
-		ResonanceLevel.PERFECT: return 1.40
-	return 1.0
+		MINOR: return "小共鸣"
+		MAJOR: return "中共鸣"
+		PERFECT: return "大共鸣"
+	return ""
 
 
-## 获取元素名称（用于UI显示）
-static func element_name(elem: Element) -> String:
-	match elem:
-		Element.FIRE: return "火焰"
-		Element.ICE: return "冰霜"
-		Element.LIGHTNING: return "雷电"
-		Element.WIND: return "风"
-		Element.POISON: return "毒"
-		Element.SHADOW: return "暗影"
-		Element.HOLY: return "圣光"
-	return "无"
-
-
-## 获取共鸣等级名称
-static func resonance_name(level: ResonanceLevel) -> String:
-	match level:
-		ResonanceLevel.MINOR: return "小共鸣"
-		ResonanceLevel.MAJOR: return "中共鸣"
-		ResonanceLevel.PERFECT: return "大共鸣"
-	return "无"
+## 共鸣描述（HUD 用），例如「火焰·中共鸣：伤害+30%，爆燃伤害 +50%」。
+static func describe(element: String, level: int) -> String:
+	var text: String = "%s·%s：伤害+%d%%" % [Elements.display_name(element), level_name(level),
+			roundi((damage_mult(element, level) - 1.0) * 100.0)]
+	var specials: Array = SPECIAL_DESC.get(element, [])
+	if level >= MAJOR and specials.size() > 0:
+		text += "，" + str(specials[0])
+	if level >= PERFECT and specials.size() > 1:
+		text += "，" + str(specials[1])
+	return text

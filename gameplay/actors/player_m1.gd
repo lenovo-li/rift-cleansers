@@ -370,19 +370,101 @@ func make_context(enemies: Array) -> SkillContext:
 	ctx.crit_mult = 2.0
 	if stats.has_equipment("backstab_dagger"):
 		ctx.crit_mult = 2.6
+	if stats.has_equipment("critical_focus"):
+		ctx.crit_chance += 0.08
+		ctx.crit_mult = 2.5
 	ctx.area_mult = 1.0
 	if stats.has_equipment("range_lens"):
 		ctx.area_mult *= 1.2
 	if stats.has_equipment("grace_staff"):
 		ctx.area_mult *= 1.25
 	ctx.allies = PlayerQuery.all(get_tree())
-	ctx.crit_chance = crit_chance
 	ctx.rng = _rng
 	ctx.heal_mult = heal_mult
 	# 鼠标瞄准点：本地玩家自己算，主机上的远程玩家来自网络输入；机器人代打时不用
 	ctx.aim_point = aim_point
 	ctx.has_aim = has_aim and not ai_controlled
+
+	# 元素系统：共鸣 + 协同 + 装备
+	_apply_resonance_and_synergy(ctx)
+	_apply_element_equipment(ctx)
+
 	return ctx
+
+
+## 计算元素共鸣与技能协同加成，应用到 damage_mult / 特殊效果。
+func _apply_resonance_and_synergy(ctx: SkillContext) -> void:
+	var skill_ids: Array[String] = []
+	for sid: String in ability_system.pool():
+		if ability_system.get_skill(sid) != null:
+			skill_ids.append(sid)
+
+	# 元素共鸣
+	var resonances: Dictionary = ElementalResonance.calculate_resonance(skill_ids)
+	var res_bonuses: Dictionary = ElementalResonance.get_resonance_bonuses(resonances)
+	# TODO: 根据技能元素类型应用对应的伤害倍率（需要在cast_skill中知道技能ID）
+	# 特殊效果存入 element_mods
+	for eff: String in res_bonuses.special_effects:
+		match eff:
+			"fire_resonance_ignite_chance":
+				ctx.element_mods["ignite_mult"] = 1.5
+			"fire_resonance_burn_spread":
+				ctx.element_mods["dot_mult"] = 1.3
+			"ice_resonance_shatter_aoe":
+				ctx.element_mods["shatter_aoe"] = true
+			"lightning_resonance_chain_bonus":
+				ctx.chain_bonus += 1
+			"lightning_resonance_overload_cd":
+				ctx.element_mods["reaction_cd_mult"] = 0.7
+			"shadow_resonance_crit_bonus":
+				ctx.marked_crit_bonus = 0.2
+			"shadow_resonance_execute_threshold":
+				ctx.execute_bonus = 0.05
+			"holy_resonance_heal_bonus":
+				ctx.heal_mult *= 1.2
+
+	# 技能协同
+	var syn_bonuses: Dictionary = SkillSynergy.calculate_synergy_bonuses(skill_ids)
+	# AOE/单体/DOT/爆发 需要技能标签才能应用，暂时应用通用加成
+	ctx.cc_mult = syn_bonuses.cc_duration
+	ctx.chain_bonus += syn_bonuses.chain_count
+
+
+## 装备对元素的影响。
+func _apply_element_equipment(ctx: SkillContext) -> void:
+	if stats.has_equipment("elemental_focus"):
+		ctx.element_mods["intensity_mult"] = 1.5
+	if stats.has_equipment("reaction_catalyst"):
+		ctx.element_mods["reaction_mult"] = 1.4
+	if stats.has_equipment("resonance_crystal"):
+		pass  # 共鸣提升一档（需要在共鸣计算中实现）
+	if stats.has_equipment("shockwave_ring"):
+		ctx.knockback_mult = 1.4
+		ctx.shatter_mult = 1.3
+	if stats.has_equipment("ignition_core"):
+		ctx.element_mods["ignite_mult"] = ctx.element_mods.get("ignite_mult", 1.0) * 1.5
+	if stats.has_equipment("frost_shard"):
+		ctx.element_mods["slow_mult"] = 1.25
+		ctx.element_mods["freeze_bonus"] = 1.0
+	if stats.has_equipment("storm_conductor"):
+		ctx.element_mods["shock_cap"] = 15
+		ctx.element_mods["chain_range_mult"] = 1.3
+	if stats.has_equipment("toxic_vial"):
+		ctx.element_mods["poison_mult"] = 1.4
+		ctx.element_mods["poison_heal_mult"] = 2.0
+	if stats.has_equipment("overload_amplifier"):
+		ctx.element_mods["overload_mult"] = 1.3
+		ctx.element_mods["overload_radius_mult"] = 1.5
+	if stats.has_equipment("melt_core"):
+		ctx.element_mods["melt_bonus"] = 0.5
+	if stats.has_equipment("chain_conductor"):
+		ctx.chain_bonus += 2
+		ctx.element_mods["chain_range_mult"] = 1.3
+	if stats.has_equipment("dual_element"):
+		# 火焰技能附加冰霜，冰霜技能附加火焰（在 cast_skill 中根据技能元素处理）
+		pass
+	if stats.has_equipment("annihilate_orb"):
+		ctx.element_mods["annihilate_min"] = 2
 
 
 ## 施放技能；未拥有或冷却中返回空字典。use_aim = false 时忽略鼠标瞄准点（自动施放）。

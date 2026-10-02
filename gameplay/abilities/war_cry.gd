@@ -32,7 +32,7 @@ func cast(ctx: SkillContext) -> Dictionary:
 
 	var buffed: int = 0
 	for ally: Variant in ctx.allies_in_radius(ctx.origin, radius):
-		if ally == ctx.caster and ally.has_method("get_node"):
+		if ally != null and ally == ctx.caster and ally.has_method("get_node"):
 			var stats: CharacterStats = ally.stats
 			stats.set_war_cry(duration, attack_speed, move_speed, damage_bonus)
 		buffed += 1

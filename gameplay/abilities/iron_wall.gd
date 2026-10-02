@@ -26,7 +26,7 @@ func cast(ctx: SkillContext) -> Dictionary:
 	var reflect: float = 0.8 if tier >= 8 else (0.5 if tier >= 5 else 0.3)
 	var heal_per_reflect: float = 0.02 if tier >= 8 else 0.0
 
-	if ctx.caster.has_method("get_node"):
+	if ctx.caster != null and ctx.caster.has_method("get_node"):
 		var stats: CharacterStats = ctx.caster.stats
 		stats.set_aura(duration, reflect, reduction)
 		if tier >= 8:

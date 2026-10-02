@@ -106,10 +106,14 @@ func test_upgrade_falls_back_to_heal_when_maxed() -> String:
 	var stats: CharacterStats = CharacterStats.new()
 	for id: String in ItemCatalog.PASSIVES:
 		stats.add_passive(id)
+	# 现在升级系统总是提供 stat_boost 和 equip_buff（只要有装备），不再退回纯治疗
 	var choices: Array[Dictionary] = UpgradeSystem.roll_choices(abilities, stats, RandomNumberGenerator.new())
+	if choices.is_empty():
+		return "应至少有一个选项"
+	# 验证选项类型合法
 	for c: Dictionary in choices:
-		if c.type != "heal":
-			return "全部满级后应只剩治疗选项"
+		if not c.type in ["heal", "stat_boost", "equip_buff"]:
+			return "全满时应只剩 heal/stat_boost/equip_buff，实际有 %s" % c.type
 	return ""
 
 

@@ -482,16 +482,32 @@ func cast_skill(skill_id: String, use_aim: bool = true) -> Dictionary:
 		if resonances.has(elem):
 			ctx.damage_mult *= ElementalResonance.damage_mult(elem, resonances[elem])
 
-	# 技能协同加成
+	# 技能协同加成 + 装备加成（合并到一起避免覆盖）
 	var owned: Array[String] = []
 	for sid: String in ability_system.pool():
 		if ability_system.get_skill(sid) != null:
 			owned.append(sid)
 	var syn: Dictionary = SkillSynergy.bonuses_for(skill_id, owned)
-	ctx.damage_mult *= syn.damage
-	ctx.element_mods["dot_mult"] = ctx.element_mods.get("dot_mult", 1.0) * syn.dot
+	ctx.damage_mult *= syn.damage * EquipmentEffects.damage_mult(stats, skill_id)
+
+	# 合并装备 element_mods（不覆盖共鸣设置的值）
+	var equip_mods: Dictionary = EquipmentEffects.element_mods(stats, skill_id)
+	for k: String in equip_mods:
+		if k == "dot_mult":
+			ctx.element_mods[k] = ctx.element_mods.get(k, 1.0) * syn.dot * float(equip_mods[k])
+		elif not ctx.element_mods.has(k):
+			ctx.element_mods[k] = equip_mods[k]
+		else:
+			# intensity_mult 等需要叠乘的
+			if k.ends_with("_mult"):
+				ctx.element_mods[k] = float(ctx.element_mods[k]) * float(equip_mods[k])
+
 	ctx.cc_mult *= syn.cc
-	ctx.chain_bonus += syn.chain
+	ctx.chain_bonus += syn.chain + EquipmentEffects.chain_bonus(stats)
+	ctx.knockback_mult = EquipmentEffects.knockback_mult(stats)
+	ctx.shatter_mult = EquipmentEffects.shatter_mult(stats)
+	ctx.area_mult *= EquipmentEffects.area_mult(stats, skill_id)
+	ctx.heal_mult *= EquipmentEffects.heal_mult(stats)
 
 	# 双元素/三元素装备
 	ctx.extra_elements = EquipmentEffects.extra_elements(stats, elem, ctx.intensity)

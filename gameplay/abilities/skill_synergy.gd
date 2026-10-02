@@ -1,125 +1,103 @@
 class_name SkillSynergy extends RefCounted
-## 技能协同系统：同标签技能相互强化。
-## 每个技能附带1-2个标签，装备同标签技能越多，该类技能越强。
+## 技能协同（文档 11）：每个技能 1-2 个标签，已学技能中同标签越多，带该标签的技能越强。
+## 范围 +8%/个、单体 +10%/个、持续 +12%/个（持续伤害）、爆发 +10%/个、控制 +15%/个（控制时长）、
+## 机动 -10%/个冷却、防御 +15%/个（护盾/减伤）、辅助 +12%/个（治疗）、连锁 +1 跳/个、召唤 +10%/个。
 
-enum SynergyTag {
-	NONE,
-	AOE,            # 范围伤害
-	SINGLE_TARGET,  # 单体高伤
-	DOT,            # 持续伤害
-	BURST,          # 爆发伤害
-	CROWD_CONTROL,  # 控制
-	MOBILITY,       # 机动性
-	DEFENSIVE,      # 防御
-	SUPPORT,        # 辅助
-	SUMMONING,      # 召唤
-	CHAIN,          # 连锁
+const NAMES: Dictionary = {
+	"aoe": "范围", "single": "单体", "dot": "持续", "burst": "爆发", "cc": "控制",
+	"mobility": "机动", "defensive": "防御", "support": "辅助", "chain": "连锁", "summon": "召唤",
 }
 
-# 技能标签映射
 const SKILL_TAGS: Dictionary = {
 	# 铁卫
-	"shield_bash": [SynergyTag.SINGLE_TARGET, SynergyTag.CROWD_CONTROL],
-	"whirlwind": [SynergyTag.AOE, SynergyTag.DOT],
-	"taunt": [SynergyTag.CROWD_CONTROL, SynergyTag.DEFENSIVE],
-	"charge": [SynergyTag.MOBILITY, SynergyTag.SINGLE_TARGET],
-	"ground_slam": [SynergyTag.AOE, SynergyTag.CROWD_CONTROL],
-	"reflect_aura": [SynergyTag.DEFENSIVE],
-
+	"shield_bash": ["single", "cc"], "whirlwind": ["aoe", "dot"], "taunt": ["cc", "defensive"],
+	"charge": ["mobility", "single"], "ground_slam": ["aoe", "cc"], "reflect_aura": ["defensive"],
+	"iron_wall": ["defensive", "cc"], "war_cry": ["aoe", "support"], "earthquake": ["aoe", "cc"],
+	"flame_cleave": ["aoe", "burst"],
 	# 元素术士
-	"fireball": [SynergyTag.SINGLE_TARGET, SynergyTag.DOT],
-	"ice_lance": [SynergyTag.SINGLE_TARGET, SynergyTag.CROWD_CONTROL],
-	"frost_nova": [SynergyTag.AOE, SynergyTag.CROWD_CONTROL],
-	"chain_lightning": [SynergyTag.CHAIN, SynergyTag.BURST],
-	"meteor": [SynergyTag.AOE, SynergyTag.BURST],
-	"storm_field": [SynergyTag.AOE, SynergyTag.DOT],
-
+	"fireball": ["single", "dot"], "ice_lance": ["single", "cc"], "frost_nova": ["aoe", "cc"],
+	"chain_lightning": ["chain", "burst"], "meteor": ["aoe", "burst"], "storm_field": ["aoe", "dot"],
+	"firestorm": ["aoe", "dot"], "ice_wall": ["cc", "defensive"], "tornado": ["aoe", "cc"],
+	"acid_rain": ["aoe", "dot"],
 	# 影行者
-	"shadow_step": [SynergyTag.MOBILITY, SynergyTag.BURST],
-	"fan_of_knives": [SynergyTag.AOE],
-	"death_mark": [SynergyTag.SINGLE_TARGET, SynergyTag.BURST],
-	"blade_flurry": [SynergyTag.AOE, SynergyTag.BURST],
-	"smoke_bomb": [SynergyTag.CROWD_CONTROL, SynergyTag.DEFENSIVE],
-	"execute": [SynergyTag.SINGLE_TARGET, SynergyTag.BURST],
-
+	"shadow_step": ["mobility", "burst"], "fan_of_knives": ["aoe"], "death_mark": ["single", "burst"],
+	"blade_flurry": ["aoe", "burst"], "smoke_bomb": ["cc", "defensive"], "execute": ["single", "burst"],
+	"shadow_clone": ["summon", "aoe"], "lethal_strike": ["single", "burst"], "venom_blades": ["aoe", "dot"],
+	"shadow_nova": ["aoe", "cc"],
 	# 牧师
-	"holy_nova": [SynergyTag.AOE, SynergyTag.SUPPORT],
-	"smite": [SynergyTag.SINGLE_TARGET, SynergyTag.BURST],
-	"sanctuary": [SynergyTag.AOE, SynergyTag.SUPPORT],
-	"divine_shield": [SynergyTag.DEFENSIVE, SynergyTag.SUPPORT],
-	"blessing": [SynergyTag.SUPPORT],
-	"divine_intervention": [SynergyTag.SUPPORT, SynergyTag.BURST],
+	"holy_nova": ["aoe", "support"], "smite": ["single", "burst"], "sanctuary": ["aoe", "support"],
+	"divine_shield": ["defensive", "support"], "blessing": ["support"], "divine_intervention": ["support", "burst"],
+	"purify": ["support", "aoe"], "judgment": ["aoe", "burst"], "holy_fire": ["aoe", "dot"],
+	"hammer_of_light": ["chain", "cc"],
+	# 通用
+	"wind_blade": ["single", "mobility"], "toxic_cloud": ["aoe", "dot"], "life_drain": ["single", "support"],
+	"thunder_strike": ["burst", "chain"], "cyclone": ["cc", "aoe"],
 }
 
-
-## 计算协同加成
-static func calculate_synergy_bonuses(skill_ids: Array[String]) -> Dictionary:
-	var tag_counts: Dictionary = {}
-
-	for sid: String in skill_ids:
-		var tags: Array = SKILL_TAGS.get(sid, [])
-		for tag in tags:
-			tag_counts[tag] = tag_counts.get(tag, 0) + 1
-
-	var bonuses: Dictionary = {
-		"aoe_damage": 1.0,
-		"single_target_damage": 1.0,
-		"dot_damage": 1.0,
-		"burst_damage": 1.0,
-		"cc_duration": 1.0,
-		"mobility_cooldown": 1.0,
-		"defensive_strength": 1.0,
-		"support_strength": 1.0,
-		"chain_count": 0,
-	}
-
-	for tag in tag_counts:
-		var count: int = tag_counts[tag]
-		match tag:
-			SynergyTag.AOE:
-				bonuses.aoe_damage = 1.0 + 0.08 * count  # 每个+8%
-			SynergyTag.SINGLE_TARGET:
-				bonuses.single_target_damage = 1.0 + 0.10 * count  # 每个+10%
-			SynergyTag.DOT:
-				bonuses.dot_damage = 1.0 + 0.12 * count  # 每个+12%
-			SynergyTag.BURST:
-				bonuses.burst_damage = 1.0 + 0.10 * count  # 每个+10%
-			SynergyTag.CROWD_CONTROL:
-				bonuses.cc_duration = 1.0 + 0.15 * count  # 每个+15%持续时间
-			SynergyTag.MOBILITY:
-				bonuses.mobility_cooldown = 1.0 / (1.0 + 0.10 * count)  # 每个-10%冷却
-			SynergyTag.DEFENSIVE:
-				bonuses.defensive_strength = 1.0 + 0.15 * count
-			SynergyTag.SUPPORT:
-				bonuses.support_strength = 1.0 + 0.12 * count
-			SynergyTag.CHAIN:
-				bonuses.chain_count = count  # 每个连锁技能+1最大连锁数
-
-	return bonuses
+const PER_TAG: Dictionary = {
+	"aoe": 0.08, "single": 0.10, "dot": 0.12, "burst": 0.10, "cc": 0.15,
+	"mobility": 0.10, "defensive": 0.15, "support": 0.12, "summon": 0.10,
+}
+## 直接乘进技能伤害的标签
+const DAMAGE_TAGS: Array[String] = ["aoe", "single", "burst", "summon"]
 
 
-## 获取标签名称（用于UI显示）
-static func tag_name(tag: SynergyTag) -> String:
-	match tag:
-		SynergyTag.AOE: return "范围伤害"
-		SynergyTag.SINGLE_TARGET: return "单体伤害"
-		SynergyTag.DOT: return "持续伤害"
-		SynergyTag.BURST: return "爆发伤害"
-		SynergyTag.CROWD_CONTROL: return "控制"
-		SynergyTag.MOBILITY: return "机动性"
-		SynergyTag.DEFENSIVE: return "防御"
-		SynergyTag.SUPPORT: return "辅助"
-		SynergyTag.SUMMONING: return "召唤"
-		SynergyTag.CHAIN: return "连锁"
-	return "无"
-
-
-## 检查技能是否有某个标签
-static func has_tag(skill_id: String, tag: SynergyTag) -> bool:
-	var tags: Array = SKILL_TAGS.get(skill_id, [])
-	return tag in tags
-
-
-## 获取技能的所有标签
 static func get_tags(skill_id: String) -> Array:
 	return SKILL_TAGS.get(skill_id, [])
+
+
+static func has_tag(skill_id: String, tag: String) -> bool:
+	return tag in get_tags(skill_id)
+
+
+static func tag_name(tag: String) -> String:
+	return str(NAMES.get(tag, tag))
+
+
+## 已学技能的标签计数：{tag: count}
+static func tag_counts(skill_ids: Array[String]) -> Dictionary:
+	var counts: Dictionary = {}
+	for sid: String in skill_ids:
+		for tag: String in get_tags(sid):
+			counts[tag] = int(counts.get(tag, 0)) + 1
+	return counts
+
+
+## 某个标签当前的加成倍率（count 个技能带该标签）。机动返回冷却倍率（<1）。
+static func tag_mult(tag: String, count: int) -> float:
+	if count <= 0:
+		return 1.0
+	if tag == "mobility":
+		return 1.0 / (1.0 + PER_TAG.mobility * count)
+	return 1.0 + float(PER_TAG.get(tag, 0.0)) * count
+
+
+## skill_id 在已学技能 owned 下获得的协同加成：
+## {damage, dot, cc, cooldown, defensive, support, chain}
+static func bonuses_for(skill_id: String, owned: Array[String]) -> Dictionary:
+	var counts: Dictionary = tag_counts(owned)
+	var out: Dictionary = {"damage": 1.0, "dot": 1.0, "cc": 1.0, "cooldown": 1.0, "defensive": 1.0,
+			"support": 1.0, "chain": 0}
+	for tag: String in get_tags(skill_id):
+		var n: int = int(counts.get(tag, 0))
+		if tag in DAMAGE_TAGS:
+			out.damage *= tag_mult(tag, n)
+		match tag:
+			"dot": out.dot = tag_mult(tag, n)
+			"cc": out.cc = tag_mult(tag, n)
+			"mobility": out.cooldown = tag_mult(tag, n)
+			"defensive": out.defensive = tag_mult(tag, n)
+			"support": out.support = tag_mult(tag, n)
+			"chain": out.chain = n
+	return out
+
+
+## HUD 用：已学技能里计数 ≥2 的标签描述列表。
+static func describe(owned: Array[String]) -> Array[String]:
+	var out: Array[String] = []
+	var counts: Dictionary = tag_counts(owned)
+	for tag: String in counts:
+		var n: int = int(counts[tag])
+		if n >= 2:
+			out.append("%s×%d" % [tag_name(tag), n])
+	return out

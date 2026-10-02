@@ -400,32 +400,50 @@ func _apply_resonance_and_synergy(ctx: SkillContext) -> void:
 			skill_ids.append(sid)
 
 	# 元素共鸣
-	var resonances: Dictionary = ElementalResonance.calculate_resonance(skill_ids)
-	var res_bonuses: Dictionary = ElementalResonance.get_resonance_bonuses(resonances)
-	# TODO: 根据技能元素类型应用对应的伤害倍率（需要在cast_skill中知道技能ID）
+	var has_crystal: bool = stats.has_equipment("resonance_crystal")
+	var resonances: Dictionary = ElementalResonance.calculate(skill_ids, has_crystal)
 	# 特殊效果存入 element_mods
-	for eff: String in res_bonuses.special_effects:
-		match eff:
-			"fire_resonance_ignite_chance":
-				ctx.element_mods["ignite_mult"] = 1.5
-			"fire_resonance_burn_spread":
-				ctx.element_mods["dot_mult"] = 1.3
-			"ice_resonance_shatter_aoe":
-				ctx.element_mods["shatter_aoe"] = true
-			"lightning_resonance_chain_bonus":
-				ctx.chain_bonus += 1
-			"lightning_resonance_overload_cd":
-				ctx.element_mods["reaction_cd_mult"] = 0.7
-			"shadow_resonance_crit_bonus":
-				ctx.marked_crit_bonus = 0.2
-			"shadow_resonance_execute_threshold":
-				ctx.execute_bonus = 0.05
-			"holy_resonance_heal_bonus":
-				ctx.heal_mult *= 1.2
+	for elem: String in resonances:
+		var level: int = resonances[elem]
+		match elem:
+			"fire":
+				if level >= ElementalResonance.MAJOR:
+					ctx.element_mods["ignite_mult"] = 1.5
+				if level >= ElementalResonance.PERFECT:
+					ctx.element_mods["dot_mult"] = 1.3
+			"ice":
+				if level >= ElementalResonance.MAJOR:
+					ctx.element_mods["freeze_threshold"] = 45.0
+				if level >= ElementalResonance.PERFECT:
+					ctx.element_mods["shatter_aoe"] = true
+			"lightning":
+				if level >= ElementalResonance.MAJOR:
+					ctx.chain_bonus += 1
+				if level >= ElementalResonance.PERFECT:
+					ctx.element_mods["reaction_cd_mult"] = 0.7
+			"wind":
+				if level >= ElementalResonance.MAJOR:
+					ctx.element_mods["swirl_mult"] = 1.3
+				if level >= ElementalResonance.PERFECT:
+					ctx.knockback_mult *= 1.3
+			"poison":
+				if level >= ElementalResonance.MAJOR:
+					ctx.element_mods["poison_mult"] = 1.3
+				if level >= ElementalResonance.PERFECT:
+					ctx.element_mods["poison_heal_mult"] = 2.0
+			"shadow":
+				if level >= ElementalResonance.MAJOR:
+					ctx.marked_crit_bonus = 0.2
+				if level >= ElementalResonance.PERFECT:
+					ctx.execute_bonus = 0.05
+			"holy":
+				if level >= ElementalResonance.MAJOR:
+					ctx.heal_mult *= 1.2
+				if level >= ElementalResonance.PERFECT:
+					pass  # 净化时灼烧周围敌人（需要在净化反应中实现）
 
 	# 技能协同
 	var syn_bonuses: Dictionary = SkillSynergy.calculate_synergy_bonuses(skill_ids)
-	# AOE/单体/DOT/爆发 需要技能标签才能应用，暂时应用通用加成
 	ctx.cc_mult = syn_bonuses.cc_duration
 	ctx.chain_bonus += syn_bonuses.chain_count
 
@@ -480,6 +498,47 @@ func cast_skill(skill_id: String, use_aim: bool = true) -> Dictionary:
 	var ctx: SkillContext = make_context(enemies)
 	ctx.has_aim = ctx.has_aim and use_aim
 	ctx.damage_mult *= skill.level_bonus()
+
+	# 设置技能元素
+	var elem: String = Elements.of(skill_id)
+	ctx.element = elem
+	ctx.intensity = Elements.intensity_of(skill_id)
+	if ctx.element_mods.has("intensity_mult"):
+		ctx.intensity *= float(ctx.element_mods["intensity_mult"])
+
+	# 元素共鸣伤害加成
+	if not elem.is_empty():
+		var skill_ids: Array[String] = []
+		for sid: String in ability_system.pool():
+			if ability_system.get_skill(sid) != null:
+				skill_ids.append(sid)
+		var has_crystal: bool = stats.has_equipment("resonance_crystal")
+		var resonances: Dictionary = ElementalResonance.calculate(skill_ids, has_crystal)
+		if resonances.has(elem):
+			ctx.damage_mult *= ElementalResonance.damage_mult(elem, resonances[elem])
+
+	# 技能协同加成
+	var owned: Array[String] = []
+	for sid: String in ability_system.pool():
+		if ability_system.get_skill(sid) != null:
+			owned.append(sid)
+	var syn: Dictionary = SkillSynergy.bonuses_for(skill_id, owned)
+	ctx.damage_mult *= syn.damage
+	ctx.element_mods["dot_mult"] = ctx.element_mods.get("dot_mult", 1.0) * syn.dot
+	ctx.cc_mult *= syn.cc
+	ctx.chain_bonus += syn.chain
+
+	# 双元素/三元素装备
+	if stats.has_equipment("dual_element"):
+		if elem == "fire":
+			ctx.extra_elements.append(["ice", ctx.intensity * 0.4])
+		elif elem == "ice":
+			ctx.extra_elements.append(["fire", ctx.intensity * 0.4])
+	if stats.has_equipment("tri_element"):
+		for e: String in ["fire", "ice", "lightning"]:
+			if e != elem:
+				ctx.extra_elements.append([e, ctx.intensity * 0.2])
+
 	if skill_id == "taunt":
 		ctx.area_mult = stats.taunt_radius_multiplier()
 	var result: Dictionary = ability_system.cast(skill_id, ctx)

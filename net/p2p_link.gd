@@ -4,6 +4,8 @@ class_name P2PLink extends RefCounted
 ## 连上后和 ENet 一样走 NetSession 的 RPC（房主 peer id 为 1）。WebRTC 自带 DTLS 加密，
 ## 只有拿到这次邀请码的人能连上；连接码里包含双方的内网/公网 IP，只发给信任的人。
 ## 连接本身由 WebRTCMultiplayerPeer 在每帧 poll 时驱动，这里只需要调用 update() 等候选收集完。
+##
+## 失败时会保存日志到 user://p2p_logs/，玩家可把日志文件发给开发者排查问题。
 
 signal code_ready(code: String)
 
@@ -30,6 +32,9 @@ static var relay_only: bool = false
 static var _turn_cache: Array = []
 static var _turn_loaded: bool = false
 
+const LOG_DIR: String = "user://p2p_logs"
+const MAX_LOGS: int = 20
+
 var peer_id: int = 0
 var conn: WebRTCPeerConnection = null
 ## join() 创建的客户端 MultiplayerPeer，调用方赋给 multiplayer.multiplayer_peer。
@@ -42,6 +47,8 @@ var _is_offer: bool = false
 var _sdp: String = ""
 var _cands: Array = []
 var _elapsed: float = 0.0
+var _log_lines: PackedStringArray = []
+var _log_start: float = 0.0
 
 
 ## RPC 用到的通道 1-3（unreliable_ordered），两端配置必须一致。
@@ -63,6 +70,7 @@ static func invite(host_peer: WebRTCMultiplayerPeer) -> P2PLink:
 	rng.randomize()
 	link.peer_id = rng.randi_range(2, 0x7fffffff)
 	link._is_offer = true
+	link._start_log(true)
 	link._init_conn()
 	host_peer.add_peer(link.conn, link.peer_id)
 	link.conn.create_offer()
@@ -72,11 +80,15 @@ static func invite(host_peer: WebRTCMultiplayerPeer) -> P2PLink:
 ## 好友：用邀请码创建客户端连接并开始生成回应码。失败时 error 非空。
 static func join(offer_code: String) -> P2PLink:
 	var link: P2PLink = P2PLink.new()
+	link._start_log(false)
 	var d: Dictionary = decode(offer_code)
 	link.error = _validate(d, "offer")
 	if not link.error.is_empty():
+		link._log_event("邀请码验证失败: %s" % link.error)
 		return link
 	link.peer_id = int(d.id)
+	link._log_event("解析邀请码成功，分配 peer_id=%d" % link.peer_id)
+	link._log_remote_candidates(d.c)
 	link.client_peer = WebRTCMultiplayerPeer.new()
 	link.client_peer.create_client(link.peer_id, channels())
 	link._init_conn()
@@ -93,7 +105,10 @@ func accept_answer(answer_code: String) -> String:
 	if err.is_empty() and int(d.id) != peer_id:
 		err = "这个回应码不是对应当前邀请码的"
 	if not err.is_empty():
+		_log_event("回应码验证失败: %s" % err)
 		return err
+	_log_event("回应码验证通过，开始连接")
+	_log_remote_candidates(d.c)
 	conn.set_remote_description("answer", d.sdp)
 	_add_candidates(d.c)
 	answered = true
@@ -107,6 +122,7 @@ func update(delta: float) -> void:
 	_elapsed += delta
 	var limit: float = GATHER_TIMEOUT_TURN if not turn_servers().is_empty() else GATHER_TIMEOUT
 	if conn.get_gathering_state() == WebRTCPeerConnection.GATHERING_STATE_COMPLETE or _elapsed >= limit:
+		_log_local_candidates()
 		code = encode({"v": PROTOCOL, "ver": game_version(), "t": "offer" if _is_offer else "answer",
 			"id": peer_id, "sdp": _sdp, "c": _cands})
 		code_ready.emit(code)
@@ -249,3 +265,100 @@ static func _validate(d: Dictionary, want_type: String) -> String:
 	if id < 2 or id > 0x7fffffff:
 		return "连接码无效"
 	return ""
+
+
+## 日志相关函数
+
+func _start_log(is_host: bool) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	_log_start = Time.get_ticks_msec() / 1000.0
+	_log_lines.append("=== P2P 连接日志 ===")
+	_log_lines.append("角色: %s" % ("房主" if is_host else "客户端"))
+	_log_lines.append("游戏版本: %s" % game_version())
+	_log_lines.append("时间: %s" % Time.get_datetime_string_from_system())
+	_log_lines.append("操作系统: %s" % OS.get_name())
+	var turn: Array = turn_servers()
+	if turn.is_empty():
+		_log_lines.append("TURN 中转: 未配置（对称 NAT 可能无法连接）")
+	else:
+		_log_lines.append("TURN 中转: 已配置 %d 个服务器" % turn.size())
+
+
+func _log_event(msg: String) -> void:
+	if _log_lines.is_empty():
+		return
+	_log_lines.append("[%.2fs] %s" % [(Time.get_ticks_msec() / 1000.0 - _log_start), msg])
+
+
+func _log_remote_candidates(cands: Array) -> void:
+	var stats: Dictionary = {}
+	for c: Variant in cands:
+		if c is Array and c.size() == 3:
+			var t: String = candidate_type(str(c[2]))
+			stats[t] = int(stats.get(t, 0)) + 1
+	_log_event("对方候选: %s" % _format_candidates(stats))
+
+
+func _log_local_candidates() -> void:
+	var stats: Dictionary = candidate_stats()
+	_log_event("本地候选: %s" % _format_candidates(stats))
+	if stats.get("srflx", 0) == 0 and stats.get("relay", 0) == 0:
+		_log_event("⚠️ 没有公网候选和中转候选，只能内网连接")
+	elif stats.get("relay", 0) == 0 and not turn_servers().is_empty():
+		_log_event("⚠️ TURN 已配置但没有中转候选，可能是 TURN 服务器不可用")
+
+
+static func _format_candidates(stats: Dictionary) -> String:
+	var parts: PackedStringArray = []
+	for type: String in ["host", "srflx", "relay"]:
+		var n: int = stats.get(type, 0)
+		if n > 0:
+			var name: String = {"host": "本地", "srflx": "公网", "relay": "中转"}[type]
+			parts.append("%s×%d" % [name, n])
+	return ", ".join(parts) if not parts.is_empty() else "无"
+
+
+## 保存失败日志到 user://p2p_logs/，返回文件路径（空字符串表示未保存）
+func save_failure_log(reason: String) -> String:
+	if _log_lines.is_empty():
+		return ""
+	_log_event("❌ 连接失败: %s" % reason)
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(LOG_DIR))
+	var stamp: String = Time.get_datetime_string_from_system().replace(":", "-").replace("T", "_")
+	var role: String = "host" if _is_offer else "client"
+	var path: String = "%s/p2p_%s_%s.log" % [LOG_DIR, role, stamp]
+	var f: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	if f != null:
+		f.store_string("\n".join(_log_lines))
+		f.close()
+		_prune_logs()
+		return ProjectSettings.globalize_path(path)
+	return ""
+
+
+## 连接成功时清空日志（不保存）
+func clear_log() -> void:
+	_log_lines.clear()
+
+
+static func _prune_logs() -> void:
+	var files: PackedStringArray = DirAccess.get_files_at(LOG_DIR)
+	files.sort()
+	for i in maxi(0, files.size() - MAX_LOGS):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path("%s/%s" % [LOG_DIR, files[i]]))
+
+
+static func log_dir_global() -> String:
+	return ProjectSettings.globalize_path(LOG_DIR)
+
+
+## 生成连接方法描述（连上后显示）
+func connection_method() -> String:
+	var stats: Dictionary = candidate_stats()
+	if stats.get("relay", 0) > 0:
+		return "TURN 中转连接"
+	elif stats.get("srflx", 0) > 0:
+		return "直连（公网地址）"
+	else:
+		return "直连（局域网）"

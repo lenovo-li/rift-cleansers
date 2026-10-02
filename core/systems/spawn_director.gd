@@ -6,13 +6,33 @@ signal spawn_requested(enemy_id: String, elite_mod: String)
 signal boss_requested
 signal equipment_drop_due(drop_index: int)
 
-const BOSS_TIME: float = 540.0  # 9:00
+const BOSS_TIME: float = 1080.0  # 18:00（改为18分钟Boss登场）
 const FIRST_ELITE_TIME: float = 300.0  # 5:00
-const EQUIPMENT_DROP_TIMES: Array[float] = [60.0, 180.0, 300.0, 420.0, 520.0]
+const EQUIPMENT_DROP_TIMES: Array[float] = [60.0, 180.0, 300.0, 480.0, 660.0, 840.0, 1020.0]  # 扩展到7个装备掉落
 const ELITE_MODS: Array[String] = ["teleporter", "vampire", "haste", "armored", "explosive", "regenerating", "frost", "burning", "giant"]
-## 存活上限关键帧：[时间秒, 上限]，中间线性插值。
-const ALIVE_CAP_CURVE: Array = [[0.0, 15], [60.0, 25], [180.0, 55], [300.0, 110], [420.0, 220], [540.0, 400]]
-const BOSS_PHASE_CAP: int = 120
+## 精英词缀组合（后期15分钟后30%几率）
+const ELITE_MOD_COMBOS: Dictionary = {
+	"berserker": ["haste", "giant"],
+	"ice_armor": ["frost", "armored"],
+	"regenerating_vampire": ["regenerating", "vampire"],
+	"explosive_teleporter": ["explosive", "teleporter"],
+	"burning_haste": ["burning", "haste"],
+	"frost_vampire": ["frost", "vampire"],
+	"armored_regen": ["armored", "regenerating"],
+	"giant_explosive": ["giant", "explosive"],
+}
+## 存活上限关键帧：[时间秒, 上限]，中间线性插值。20分钟游戏，峰值1000怪。
+const ALIVE_CAP_CURVE: Array = [
+	[0.0, 20],      # 开局20只
+	[60.0, 40],     # 1分钟40只
+	[180.0, 120],   # 3分钟120只
+	[300.0, 220],   # 5分钟220只
+	[600.0, 450],   # 10分钟450只
+	[900.0, 700],   # 15分钟700只
+	[1080.0, 1000], # 18分钟（Boss前）1000只
+	[1200.0, 500],  # Boss战降低普通怪，专注Boss
+]
+const BOSS_PHASE_CAP: int = 500  # Boss战期间的普通怪上限
 
 @export var spawn_interval: float = 1.0
 ## 压力测试用：>0 时忽略时间线，直接把存活数维持在该值。
@@ -63,13 +83,15 @@ func _spawn_wave(t: float) -> void:
 		return
 	var count: int = missing if stress_cap > 0 else mini(missing, maxi(2, cap / 8))
 	for i in count:
-		var mod: String = ""
+		var mods: Array[String] = []
 		if stress_cap <= 0:
 			if not _first_elite_done and t >= FIRST_ELITE_TIME:
 				_first_elite_done = true
-				mod = ELITE_MODS[_rng.randi() % ELITE_MODS.size()]
+				mods = [ELITE_MODS[_rng.randi() % ELITE_MODS.size()]]
 			elif _rng.randf() < get_elite_chance(t):
-				mod = ELITE_MODS[_rng.randi() % ELITE_MODS.size()]
+				mods = _pick_elite_mods(t)
+		# 传递第一个词缀给信号（保持兼容性）
+		var mod: String = mods[0] if mods.size() > 0 else ""
 		spawn_requested.emit(pick_enemy_type(t, _rng.randf(), map_id), mod)
 
 
@@ -106,7 +128,21 @@ static func get_elite_chance(t: float) -> float:
 		return 0.0
 	if t < 420.0:
 		return 0.01
-	return 0.02
+	if t < 900.0:  # 15分钟前
+		return 0.02
+	return 0.03  # 15分钟后提高到3%
+
+
+## 选择精英词缀（15分钟后30%几率双词缀）
+func _pick_elite_mods(t: float) -> Array[String]:
+	if t > 900.0 and _rng.randf() < 0.3:
+		# 双词缀
+		var combo_keys: Array = ELITE_MOD_COMBOS.keys()
+		var combo_key: String = combo_keys[_rng.randi() % combo_keys.size()]
+		return ELITE_MOD_COMBOS[combo_key]
+	else:
+		# 单词缀
+		return [ELITE_MODS[_rng.randi() % ELITE_MODS.size()]]
 
 
 ## 按时间段的种类权重抽取敌人（roll ∈ [0,1)）。读当前地图的敌人池；无池时用默认权重。

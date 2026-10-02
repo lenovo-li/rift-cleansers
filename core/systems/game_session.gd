@@ -57,16 +57,16 @@ func add_experience(amount: float) -> void:
 		required = get_exp_required(player_level)
 
 
-## 文档 05 §2.2 的 20 + 8L，再加 0.6L² 让中后期放缓（目标：5 分钟 Lv15-20，10 分钟 Lv25-30）。
+## 新公式：15 + 5L + 0.3L²（降低基础需求和增长，目标：20分钟达到45-50级）。
 func get_exp_required(level: int) -> float:
-	return 20.0 + float(level) * 8.0 + 0.6 * float(level * level)
+	return 15.0 + float(level) * 5.0 + 0.3 * float(level * level)
 
 
 func get_exp_multiplier() -> float:
-	# 文档 05 §2.2：前 1 分钟双倍，1-3 分钟 1.5 倍
-	if game_time < 60.0:
+	# 延长加成时间：前2分钟双倍，2-5分钟1.5倍
+	if game_time < 120.0:
 		return 2.0
-	elif game_time < 180.0:
+	elif game_time < 300.0:
 		return 1.5
 	return 1.0
 

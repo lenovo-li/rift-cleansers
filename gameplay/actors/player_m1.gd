@@ -112,6 +112,9 @@ var _rig: PlayerRig = null
 var ghost_mesh: Mesh = null
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _fx_parent: Node = null
+## 鼠标瞄准（陨石术等地面投射技能）：每帧射线投射鼠标到地面，存到 aim_point。
+var aim_point: Vector3 = Vector3.ZERO
+var has_aim: bool = false
 
 
 func _ready() -> void:
@@ -227,6 +230,9 @@ func _physics_process(delta: float) -> void:
 	dodge_cooldown_remaining = maxf(0.0, dodge_cooldown_remaining - delta)
 	_invulnerable_time = maxf(0.0, _invulnerable_time - delta)
 
+	if control == ControlMode.LOCAL and not ai_controlled:
+		_update_mouse_aim()
+
 	var enemies: Array = get_tree().get_nodes_in_group("enemies")
 	if ai_controlled and bot != null:
 		bot.think(self, enemies)
@@ -273,6 +279,8 @@ func _predicted_step(delta: float) -> void:
 		return
 	var dir: Vector3 = move_override.normalized() if move_override != Vector3.ZERO else keyboard_direction()
 	_move(delta, dir)
+	if not ai_controlled:
+		_update_mouse_aim()  # 随输入一起发给主机
 	# 误差修正：每帧吸收 15%，误差过大（冲锋、被传送）直接对齐
 	var step: Vector3 = _correction if _correction.length() > 4.0 else _correction * 0.15
 	global_position += step
@@ -371,15 +379,24 @@ func make_context(enemies: Array) -> SkillContext:
 	ctx.crit_chance = crit_chance
 	ctx.rng = _rng
 	ctx.heal_mult = heal_mult
+	# 鼠标瞄准点：本地玩家自己算，主机上的远程玩家来自网络输入；机器人代打时不用
+	ctx.aim_point = aim_point
+	ctx.has_aim = has_aim and not ai_controlled
 	return ctx
 
 
-## 施放技能；未拥有或冷却中返回空字典。
-func cast_skill(skill_id: String) -> Dictionary:
+## 施放技能；未拥有或冷却中返回空字典。use_aim = false 时忽略鼠标瞄准点（自动施放）。
+func cast_skill(skill_id: String, use_aim: bool = true) -> Dictionary:
 	if is_dead or not ability_system.can_cast(skill_id):
 		return {}
+
+	# 施法瞬间：方向性技能自动朝向最近敌人（智能施法）
+	var enemies: Array = get_tree().get_nodes_in_group("enemies")
+	_auto_aim_for_skill(skill_id, enemies)
+
 	var skill: Skill = ability_system.get_skill(skill_id)
-	var ctx: SkillContext = make_context(get_tree().get_nodes_in_group("enemies"))
+	var ctx: SkillContext = make_context(enemies)
+	ctx.has_aim = ctx.has_aim and use_aim
 	ctx.damage_mult *= skill.level_bonus()
 	if skill_id == "taunt":
 		ctx.area_mult = stats.taunt_radius_multiplier()
@@ -588,7 +605,7 @@ func _auto_cast(enemies: Array) -> void:
 		if id == "divine_intervention" and not _someone_needs_rescue():
 			continue
 		if ability_system.can_cast(id):
-			cast_skill(id)
+			cast_skill(id, false)
 			return
 
 
@@ -681,13 +698,40 @@ func set_talents(ranks_dict: Dictionary) -> void:
 	_talents_set = true
 
 
-func apply_net_input(seq: int, move: Vector3, p_facing: Vector3) -> void:
+## aim：客户端的鼠标瞄准点；NO_AIM 表示没有（手柄）。
+func apply_net_input(seq: int, move: Vector3, p_facing: Vector3, aim: Vector3 = NO_AIM) -> void:
 	if seq <= net_input_seq:
 		return
 	net_input_seq = seq
 	net_move = move
 	if p_facing.length_squared() > 0.01:
 		net_facing = p_facing.normalized()
+	has_aim = aim != NO_AIM
+	if has_aim:
+		aim_point = Vector3(aim.x, 0.0, aim.z)
+
+
+## 联机输入里"没有瞄准点"的占位值。
+const NO_AIM: Vector3 = Vector3(0, -1000, 0)
+
+
+## 鼠标射线投射到地面（y = 0），结果写入 aim_point / has_aim。
+## 手柄、窗口没有焦点、鼠标在窗口外或没有相机时 has_aim = false（技能回退到自动目标）。
+func _update_mouse_aim() -> void:
+	has_aim = false
+	if Settings.pad_connected() or not get_window().has_focus():
+		return
+	var vp: Viewport = get_viewport()
+	var cam: Camera3D = vp.get_camera_3d()
+	if cam == null:
+		return
+	var mouse: Vector2 = vp.get_mouse_position()
+	if not vp.get_visible_rect().has_point(mouse):
+		return
+	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(cam.project_ray_origin(mouse), cam.project_ray_normal(mouse))
+	if hit != null:
+		aim_point = hit
+		has_aim = true
 
 
 func add_equipment(item_id: String) -> void:
@@ -802,6 +846,42 @@ func _shake(strength: float) -> void:
 		SkillVfx.record(["shake", strength, net_slot])  # 只震该玩家自己的屏幕
 		return
 	SkillVfx.shake(get_tree(), strength, net_slot)
+
+
+## 施法瞬间智能瞄准：方向性技能自动朝向最近敌人
+func _auto_aim_for_skill(skill_id: String, enemies: Array) -> void:
+	# 需要自动瞄准的技能列表（锥形/直线技能）
+	const DIRECTIONAL_SKILLS: Array[String] = ["shield_bash", "charge", "fireball", "ice_lance", "chain_lightning"]
+
+	if not skill_id in DIRECTIONAL_SKILLS:
+		return
+
+	# 根据技能类型设置搜索范围
+	var search_range: float = 12.0  # 远程技能
+	if skill_id in ["shield_bash", "charge"]:
+		search_range = 8.0  # 近战技能搜索范围小一些
+
+	# 找最近的存活敌人
+	var nearest: Node3D = null
+	var best_dist_sq: float = search_range * search_range
+
+	for enemy: Variant in enemies:
+		if not (enemy is Node3D):
+			continue
+		if "is_alive" in enemy and not enemy.is_alive:
+			continue
+
+		var dist_sq: float = (enemy.global_position - global_position).length_squared()
+		if dist_sq < best_dist_sq:
+			best_dist_sq = dist_sq
+			nearest = enemy as Node3D
+
+	# 如果找到目标，朝向它
+	if nearest != null:
+		var dir: Vector3 = (nearest.global_position - global_position) * Vector3(1, 0, 1)
+		if dir.length_squared() > 0.01:
+			facing = dir.normalized()
+			rotation.y = atan2(-facing.x, -facing.z)  # 立即转向，不插值
 
 
 ## 陨石术落地：表现层播放爆炸。

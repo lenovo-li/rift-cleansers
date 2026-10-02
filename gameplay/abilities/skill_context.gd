@@ -11,6 +11,9 @@ var targets: Array = []
 var new_zones: Array[GroundZone] = []
 ## 延迟打击（陨石术），见 queue_strike。
 var new_strikes: Array[Dictionary] = []
+## 鼠标/摇杆瞄准点（地面投射技能用）。has_aim 为 false 时回退到自动目标。
+var aim_point: Vector3 = Vector3.ZERO
+var has_aim: bool = false
 
 ## 施法者加成（来自被动、装备、怒气）。
 var damage_mult: float = 1.0

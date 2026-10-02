@@ -14,6 +14,8 @@ var new_strikes: Array[Dictionary] = []
 ## 鼠标/摇杆瞄准点（地面投射技能用）。has_aim 为 false 时回退到自动目标。
 var aim_point: Vector3 = Vector3.ZERO
 var has_aim: bool = false
+## 手动瞄准模式：玩家按住鼠标时为 true，技能使用 facing 方向而不是自动锁定敌人。
+var manual_aim: bool = false
 
 ## 施法者加成（来自被动、装备、怒气）。
 var damage_mult: float = 1.0
@@ -186,7 +188,10 @@ func targets_in_cone(center: Vector3, dir: Vector3, max_range: float, half_angle
 
 
 ## 朝最近的敌人瞄准，返回单位方向向量（用于冰枪/火球的自动瞄准）。没有敌人时用面朝方向。
+## 手动瞄准模式下直接返回朝向，不自动锁定。
 func aim_direction(max_range: float) -> Vector3:
+	if manual_aim:
+		return flat_facing()
 	var list: Array = nearest_targets(max_range, 1)
 	if list.is_empty():
 		return flat_facing()

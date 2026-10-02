@@ -313,12 +313,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		match (event as InputEventKey).keycode:
 			KEY_T:
 				_player.auto_cast = not _player.auto_cast
+				Settings.set_value("auto_cast", _player.auto_cast)
 				if net != null:
 					net.send_action(NetSession.Action.AUTO_CAST, int(_player.auto_cast))
 			KEY_F3:
 				_hud.toggle_debug()
 	if event is InputEventJoypadButton and event.pressed and (event as InputEventJoypadButton).button_index == JOY_BUTTON_BACK:
 		_player.auto_cast = not _player.auto_cast  # 手柄 Back = T（自动施放）
+		Settings.set_value("auto_cast", _player.auto_cast)
 		_hud.show_toast("自动施放：%s" % ("开" if _player.auto_cast else "关"), 1.5)
 		if net != null:
 			net.send_action(NetSession.Action.AUTO_CAST, int(_player.auto_cast))

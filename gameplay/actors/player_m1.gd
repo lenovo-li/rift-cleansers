@@ -115,6 +115,8 @@ var _fx_parent: Node = null
 ## 鼠标瞄准（陨石术等地面投射技能）：每帧射线投射鼠标到地面，存到 aim_point。
 var aim_point: Vector3 = Vector3.ZERO
 var has_aim: bool = false
+## 鼠标瞄准模式：按住左键或右键时激活，角色朝向跟随鼠标
+var mouse_aim_active: bool = false
 
 
 func _ready() -> void:
@@ -144,6 +146,8 @@ func _ready() -> void:
 	if control == ControlMode.LOCAL or control == ControlMode.PREDICTED:
 		if not _talents_set:
 			talent_ranks = Talents.ranks(character_id)
+		# 本地玩家从设置读取自动施放开关
+		auto_cast = Settings.get_value("auto_cast")
 	Talents.apply(self, character_id, talent_ranks)
 	shield_bash = ability_system.get_skill("shield_bash") as ShieldBash
 	_mesh = get_node_or_null("Mesh") as MeshInstance3D
@@ -232,6 +236,7 @@ func _physics_process(delta: float) -> void:
 
 	if control == ControlMode.LOCAL and not ai_controlled:
 		_update_mouse_aim()
+		_update_mouse_aim_mode(delta)
 
 	var enemies: Array = get_tree().get_nodes_in_group("enemies")
 	if ai_controlled and bot != null:
@@ -281,6 +286,7 @@ func _predicted_step(delta: float) -> void:
 	_move(delta, dir)
 	if not ai_controlled:
 		_update_mouse_aim()  # 随输入一起发给主机
+		_update_mouse_aim_mode(delta)
 	# 误差修正：每帧吸收 15%，误差过大（冲锋、被传送）直接对齐
 	var step: Vector3 = _correction if _correction.length() > 4.0 else _correction * 0.15
 	global_position += step
@@ -328,8 +334,10 @@ func _move(delta: float, direction: Vector3) -> void:
 		if direction:
 			velocity.x = direction.x * speed
 			velocity.z = direction.z * speed
-			facing = direction
-			rotation.y = lerp_angle(rotation.y, atan2(-direction.x, -direction.z), 0.25)
+			# 瞄准模式：朝向由鼠标控制，不跟随移动方向
+			if not mouse_aim_active:
+				facing = direction
+				rotation.y = lerp_angle(rotation.y, atan2(-direction.x, -direction.z), 0.25)
 		else:
 			velocity.x = move_toward(velocity.x, 0, move_speed)
 			velocity.z = move_toward(velocity.z, 0, move_speed)
@@ -344,7 +352,11 @@ func dodge() -> bool:
 	if dodge_cooldown_remaining > 0.0 or _dash_time > 0.0:
 		return false
 	dodge_cooldown_remaining = stats.dodge_cooldown()
-	_start_dash(facing * DODGE_SPEED, DODGE_TIME)
+	# 闪避方向：优先使用移动方向（WASD），没有移动时用朝向
+	var dodge_dir: Vector3 = _desired_direction()
+	if dodge_dir.length_squared() < 0.01:
+		dodge_dir = facing
+	_start_dash(dodge_dir * DODGE_SPEED, DODGE_TIME)
 	_invulnerable_time = DODGE_TIME + 0.12 + (0.3 if stats.has_equipment("night_cloak") else 0.0)
 	if control == ControlMode.PREDICTED:
 		dodge_requested.emit()
@@ -384,6 +396,7 @@ func make_context(enemies: Array) -> SkillContext:
 	# 鼠标瞄准点：本地玩家自己算，主机上的远程玩家来自网络输入；机器人代打时不用
 	ctx.aim_point = aim_point
 	ctx.has_aim = has_aim and not ai_controlled
+	ctx.manual_aim = mouse_aim_active
 
 	# 元素系统：共鸣 + 协同 + 装备
 	_apply_resonance_and_synergy(ctx)
@@ -462,6 +475,7 @@ func cast_skill(skill_id: String, use_aim: bool = true) -> Dictionary:
 	var skill: Skill = ability_system.get_skill(skill_id)
 	var ctx: SkillContext = make_context(enemies)
 	ctx.has_aim = ctx.has_aim and use_aim
+	ctx.manual_aim = ctx.manual_aim and use_aim  # 自动施放不受鼠标瞄准影响
 	ctx.damage_mult *= skill.level_bonus()
 
 	# 设置技能元素
@@ -871,7 +885,8 @@ func set_talents(ranks_dict: Dictionary) -> void:
 
 
 ## aim：客户端的鼠标瞄准点；NO_AIM 表示没有（手柄）。
-func apply_net_input(seq: int, move: Vector3, p_facing: Vector3, aim: Vector3 = NO_AIM) -> void:
+func apply_net_input(seq: int, move: Vector3, p_facing: Vector3, aim: Vector3 = NO_AIM,
+		aim_active: bool = false) -> void:
 	if seq <= net_input_seq:
 		return
 	net_input_seq = seq
@@ -881,6 +896,8 @@ func apply_net_input(seq: int, move: Vector3, p_facing: Vector3, aim: Vector3 = 
 	has_aim = aim != NO_AIM
 	if has_aim:
 		aim_point = Vector3(aim.x, 0.0, aim.z)
+	# 客户端按住鼠标瞄准：朝向以客户端发来的 facing 为准，技能不自动锁敌
+	mouse_aim_active = aim_active and has_aim
 
 
 ## 联机输入里"没有瞄准点"的占位值。
@@ -904,6 +921,21 @@ func _update_mouse_aim() -> void:
 	if hit != null:
 		aim_point = hit
 		has_aim = true
+
+
+## 鼠标瞄准模式：按住左键或右键时激活，角色朝向跟随鼠标。
+func _update_mouse_aim_mode(delta: float) -> void:
+	var left_held: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	var right_held: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+	var mouse_held: bool = left_held or right_held
+
+	mouse_aim_active = mouse_held and has_aim
+	if mouse_aim_active:
+		var dir: Vector3 = (aim_point - global_position) * Vector3(1, 0, 1)
+		if dir.length_squared() > 0.1:
+			# 逻辑朝向立即对准鼠标（技能方向准确），模型平滑转过去
+			facing = dir.normalized()
+			rotation.y = lerp_angle(rotation.y, atan2(-facing.x, -facing.z), clampf(delta * 18.0, 0.0, 1.0))
 
 
 func add_equipment(item_id: String) -> void:
@@ -1022,6 +1054,10 @@ func _shake(strength: float) -> void:
 
 ## 施法瞬间智能瞄准：方向性技能自动朝向最近敌人
 func _auto_aim_for_skill(skill_id: String, enemies: Array) -> void:
+	# 鼠标瞄准模式下不自动转向
+	if mouse_aim_active:
+		return
+
 	# 需要自动瞄准的技能列表（锥形/直线技能）
 	const DIRECTIONAL_SKILLS: Array[String] = ["shield_bash", "charge", "fireball", "ice_lance", "chain_lightning"]
 

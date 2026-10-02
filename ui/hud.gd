@@ -192,6 +192,13 @@ func _process(delta: float) -> void:
 		_toast.modulate.a = clampf(_toast_time / 0.5, 0.0, 1.0)
 	if player == null or session == null:
 		return
+
+	# 鼠标光标：瞄准模式显示准星，否则显示箭头
+	if player.mouse_aim_active:
+		Input.set_default_cursor_shape(Input.CURSOR_CROSS)
+	else:
+		Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+
 	var stats: CharacterStats = player.stats
 	# 低于 35% 生命时常驻暗角，越低越重；受伤脉冲叠加
 	var low: float = clampf((0.35 - stats.health_ratio()) / 0.35, 0.0, 1.0) * 0.75

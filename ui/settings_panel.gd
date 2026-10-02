@@ -71,12 +71,14 @@ func _build_rows() -> void:
 	_key_buttons.clear()
 	_waiting = ""
 	_hint.text = "点击按键后按下新键；Esc 取消。与其他动作冲突时会互换。\n" + \
-			"手柄（固定）：左摇杆移动  A 闪避  X/Y/B/LB/RB/RT 技能  Back 自动施放  Start 菜单"
+			"按住鼠标左键或右键：角色朝向和技能方向跟随鼠标。T 键可在游戏中切换自动施放。\n" + \
+		"手柄（固定）：左摇杆移动  A 闪避  X/Y/B/LB/RB/RT 技能  Back 自动施放  Start 菜单"
 	_slider("总音量", "master")
 	_slider("音乐", "music")
 	_slider("音效", "sfx")
 	_toggle("伤害数字", "damage_numbers")
 	_toggle("震屏", "screen_shake")
+	_toggle("自动施放技能", "auto_cast")
 	_option("画质", "quality", Settings.QUALITY_NAMES, [0, 1, 2])
 	_toggle("全屏", "fullscreen")
 	_toggle("垂直同步", "vsync")

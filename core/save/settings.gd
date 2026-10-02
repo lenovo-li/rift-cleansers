@@ -33,7 +33,7 @@ static func defaults() -> Dictionary:
 	for a: String in DEFAULT_KEYS:
 		keys[a] = int(DEFAULT_KEYS[a])
 	return {"master": 1.0, "music": 0.8, "sfx": 1.0, "damage_numbers": true, "screen_shake": true, "keys": keys,
-		"quality": QUALITY_HIGH, "fullscreen": false, "vsync": true, "max_fps": 0}
+		"quality": QUALITY_HIGH, "fullscreen": false, "vsync": true, "max_fps": 0, "auto_cast": false}
 
 
 ## 当前设置（缺的字段补默认值）。

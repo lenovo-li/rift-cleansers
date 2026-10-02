@@ -31,8 +31,20 @@ func cast(ctx: SkillContext) -> Dictionary:
 	var damage: float = BASE_DAMAGE * (2.0 if tier >= 8 else 1.0)
 	var burn: float = BURN_DPS * (2.0 if tier >= 5 else 1.0) * ctx.damage_mult
 	var aims: Array[Vector3] = []
-	for t: Variant in ctx.nearest_targets(RANGE, 3 if tier >= 3 else 1):
-		aims.append(t.global_position)
+	if ctx.manual_aim:
+		# 手动瞄准：主弹落在鼠标点（超出射程按方向截断），3 段起两侧各偏 20° 加一发
+		var off: Vector3 = (ctx.aim_point - ctx.origin) * Vector3(1, 0, 1) if ctx.has_aim else ctx.flat_facing() * 8.0
+		if off.length() > RANGE:
+			off = off.normalized() * RANGE
+		if off.length() < 1.0:
+			off = ctx.flat_facing() * 8.0
+		aims.append(ctx.origin + off)
+		if tier >= 3:
+			aims.append(ctx.origin + off.rotated(Vector3.UP, deg_to_rad(20)))
+			aims.append(ctx.origin + off.rotated(Vector3.UP, deg_to_rad(-20)))
+	else:
+		for t: Variant in ctx.nearest_targets(RANGE, 3 if tier >= 3 else 1):
+			aims.append(t.global_position)
 	if aims.is_empty():
 		aims.append(ctx.origin + ctx.flat_facing() * 8.0)  # 没有目标时朝面前打
 	var hits: int = 0

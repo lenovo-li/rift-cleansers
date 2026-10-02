@@ -20,6 +20,7 @@ var _wait: float = -1.0  # 等待连接的秒数，< 0 表示还没开始等
 var _done: bool = false
 var _was_paused: bool = false
 var _note: String = ""  # 房主：生成新邀请码时保留在状态栏前面的上一条提示
+var _open_log_btn: Button = null  # 连接失败后显示的"打开日志文件夹"按钮
 
 
 static func build(p_is_host: bool) -> P2PPanel:
@@ -71,6 +72,8 @@ func _ready() -> void:
 	_status.add_theme_font_size_override("font_size", 18)
 	_status.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
 	box.add_child(_status)
+	_open_log_btn = _row_button(box, "打开日志文件夹", _open_log_folder)
+	_open_log_btn.visible = false
 	_row_button(box, "完成" if is_host else "返回", _close)
 	if is_host:
 		_was_paused = get_tree().paused
@@ -100,9 +103,14 @@ func _process(delta: float) -> void:
 		_wait += delta
 		var limit: float = HOST_CONNECT_TIMEOUT if is_host else JOIN_CONNECT_TIMEOUT
 		if _link.has_failed() or _wait > limit:
+			var reason: String = "ICE 连接失败" if _link.has_failed() else "等待 %.0f 秒超时" % limit
 			_wait = -1.0
+			var log_path: String = _link.save_failure_log(reason)
 			_note = "连接失败：双方网络可能无法直连（例如都在运营商 NAT 后面）。\n" + \
 					"可以重试一次，或者改用 Tailscale / ZeroTier 等虚拟局域网，再用「局域网」方式联机"
+			if not log_path.is_empty():
+				_note += "\n诊断日志已保存，点下方按钮打开文件夹"
+				_open_log_btn.visible = true
 			_set_status(_note)
 			if is_host:
 				_new_invite()  # 新邀请码生成后提示会接在 _note 后面
@@ -135,14 +143,16 @@ func _on_confirm() -> void:
 
 
 func _on_connected() -> void:
+	var method: String = _link.connection_method() if _link != null else "未知"
+	_link.clear_log()  # 成功连接，清空日志不保存
 	if is_host:
 		var n: int = (multiplayer.multiplayer_peer as WebRTCMultiplayerPeer).get_peers().size()
-		_note = "好友已连上（当前 %d 位好友）。点「完成」继续游戏，或者把新邀请码发给下一位" % n
+		_note = "好友已连上（%s，当前 %d 位好友）。点「完成」继续游戏，或者把新邀请码发给下一位" % [method, n]
 		_set_status(_note)
 		_new_invite()
 		return
 	_done = true
-	_set_status("已连上房主，进入游戏…")
+	_set_status("已连上房主（%s），进入游戏…" % method)
 	joined.emit()
 
 
@@ -221,3 +231,7 @@ func _row_button(parent: Node, text: String, cb: Callable) -> Button:
 
 func _set_status(text: String) -> void:
 	_status.text = text
+
+
+func _open_log_folder() -> void:
+	OS.shell_open(P2PLink.log_dir_global())

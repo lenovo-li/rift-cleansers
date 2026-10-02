@@ -294,7 +294,8 @@ func _client_tick() -> void:
 	var dir: Vector3 = p.move_override.normalized() if p.move_override != Vector3.ZERO else p.keyboard_direction()
 	p.net_input_seq += 1
 	p.record_prediction(p.net_input_seq)
-	_send(1, &"rpc_input", [p.net_input_seq, dir, p.facing])
+	var aim: Vector3 = p.aim_point if p.has_aim else p.NO_AIM
+	_send(1, &"rpc_input", [p.net_input_seq, dir, p.facing, aim])
 	if _timers.ping >= 1.0:
 		_timers.ping = 0.0
 		_send(1, &"rpc_ping", [Time.get_ticks_msec()])
@@ -352,12 +353,12 @@ func rpc_hello(token: String, display: String, char_id: String = CharacterCatalo
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered", 1)
-func rpc_input(seq: int, move: Vector3, facing_dir: Vector3) -> void:
+func rpc_input(seq: int, move: Vector3, facing_dir: Vector3, aim: Vector3 = Vector3(0, -1000, 0)) -> void:
 	var player: CharacterBody3D = _sender_player()
 	if player == null:
 		return
 	_count_in([seq, move, facing_dir])
-	player.apply_net_input(seq, move.limit_length(1.0), facing_dir)
+	player.apply_net_input(seq, move.limit_length(1.0), facing_dir, aim)
 
 
 @rpc("any_peer", "call_remote", "reliable")

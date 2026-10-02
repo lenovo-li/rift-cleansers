@@ -112,6 +112,9 @@ var _rig: PlayerRig = null
 var ghost_mesh: Mesh = null
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _fx_parent: Node = null
+## 鼠标瞄准（陨石术等地面投射技能）：每帧射线投射鼠标到地面，存到 aim_point。
+var aim_point: Vector3 = Vector3.ZERO
+var has_aim: bool = false
 
 
 func _ready() -> void:
@@ -227,6 +230,9 @@ func _physics_process(delta: float) -> void:
 	dodge_cooldown_remaining = maxf(0.0, dodge_cooldown_remaining - delta)
 	_invulnerable_time = maxf(0.0, _invulnerable_time - delta)
 
+	if control == ControlMode.LOCAL and not ai_controlled:
+		_update_mouse_aim()
+
 	var enemies: Array = get_tree().get_nodes_in_group("enemies")
 	if ai_controlled and bot != null:
 		bot.think(self, enemies)
@@ -273,6 +279,8 @@ func _predicted_step(delta: float) -> void:
 		return
 	var dir: Vector3 = move_override.normalized() if move_override != Vector3.ZERO else keyboard_direction()
 	_move(delta, dir)
+	if not ai_controlled:
+		_update_mouse_aim()  # 随输入一起发给主机
 	# 误差修正：每帧吸收 15%，误差过大（冲锋、被传送）直接对齐
 	var step: Vector3 = _correction if _correction.length() > 4.0 else _correction * 0.15
 	global_position += step
@@ -362,25 +370,171 @@ func make_context(enemies: Array) -> SkillContext:
 	ctx.crit_mult = 2.0
 	if stats.has_equipment("backstab_dagger"):
 		ctx.crit_mult = 2.6
+	if stats.has_equipment("critical_focus"):
+		ctx.crit_chance += 0.08
+		ctx.crit_mult = 2.5
 	ctx.area_mult = 1.0
 	if stats.has_equipment("range_lens"):
 		ctx.area_mult *= 1.2
 	if stats.has_equipment("grace_staff"):
 		ctx.area_mult *= 1.25
 	ctx.allies = PlayerQuery.all(get_tree())
-	ctx.crit_chance = crit_chance
 	ctx.rng = _rng
 	ctx.heal_mult = heal_mult
+	# 鼠标瞄准点：本地玩家自己算，主机上的远程玩家来自网络输入；机器人代打时不用
+	ctx.aim_point = aim_point
+	ctx.has_aim = has_aim and not ai_controlled
+
+	# 元素系统：共鸣 + 协同 + 装备
+	_apply_resonance_and_synergy(ctx)
+	_apply_element_equipment(ctx)
+
 	return ctx
 
 
-## 施放技能；未拥有或冷却中返回空字典。
-func cast_skill(skill_id: String) -> Dictionary:
+## 计算元素共鸣与技能协同加成，应用到 damage_mult / 特殊效果。
+func _apply_resonance_and_synergy(ctx: SkillContext) -> void:
+	var skill_ids: Array[String] = []
+	for sid: String in ability_system.pool():
+		if ability_system.get_skill(sid) != null:
+			skill_ids.append(sid)
+
+	# 元素共鸣
+	var has_crystal: bool = stats.has_equipment("resonance_crystal")
+	var resonances: Dictionary = ElementalResonance.calculate(skill_ids, has_crystal)
+	# 特殊效果存入 element_mods
+	for elem: String in resonances:
+		var level: int = resonances[elem]
+		match elem:
+			"fire":
+				if level >= ElementalResonance.MAJOR:
+					ctx.element_mods["ignite_mult"] = 1.5
+				if level >= ElementalResonance.PERFECT:
+					ctx.element_mods["dot_mult"] = 1.3
+			"ice":
+				if level >= ElementalResonance.MAJOR:
+					ctx.element_mods["freeze_threshold"] = 45.0
+				if level >= ElementalResonance.PERFECT:
+					ctx.element_mods["shatter_aoe"] = true
+			"lightning":
+				if level >= ElementalResonance.MAJOR:
+					ctx.chain_bonus += 1
+				if level >= ElementalResonance.PERFECT:
+					ctx.element_mods["reaction_cd_mult"] = 0.7
+			"wind":
+				if level >= ElementalResonance.MAJOR:
+					ctx.element_mods["swirl_mult"] = 1.3
+				if level >= ElementalResonance.PERFECT:
+					ctx.knockback_mult *= 1.3
+			"poison":
+				if level >= ElementalResonance.MAJOR:
+					ctx.element_mods["poison_mult"] = 1.3
+				if level >= ElementalResonance.PERFECT:
+					ctx.element_mods["poison_heal_mult"] = 2.0
+			"shadow":
+				if level >= ElementalResonance.MAJOR:
+					ctx.marked_crit_bonus = 0.2
+				if level >= ElementalResonance.PERFECT:
+					ctx.execute_bonus = 0.05
+			"holy":
+				if level >= ElementalResonance.MAJOR:
+					ctx.heal_mult *= 1.2
+				if level >= ElementalResonance.PERFECT:
+					pass  # 净化时灼烧周围敌人（需要在净化反应中实现）
+
+
+
+## 装备对元素的影响。
+func _apply_element_equipment(ctx: SkillContext) -> void:
+	if stats.has_equipment("elemental_focus"):
+		ctx.element_mods["intensity_mult"] = 1.5
+	if stats.has_equipment("reaction_catalyst"):
+		ctx.element_mods["reaction_mult"] = 1.4
+	if stats.has_equipment("resonance_crystal"):
+		pass  # 共鸣提升一档（需要在共鸣计算中实现）
+	if stats.has_equipment("shockwave_ring"):
+		ctx.knockback_mult = 1.4
+		ctx.shatter_mult = 1.3
+	if stats.has_equipment("ignition_core"):
+		ctx.element_mods["ignite_mult"] = ctx.element_mods.get("ignite_mult", 1.0) * 1.5
+	if stats.has_equipment("frost_shard"):
+		ctx.element_mods["slow_mult"] = 1.25
+		ctx.element_mods["freeze_bonus"] = 1.0
+	if stats.has_equipment("storm_conductor"):
+		ctx.element_mods["shock_cap"] = 15
+		ctx.element_mods["chain_range_mult"] = 1.3
+	if stats.has_equipment("toxic_vial"):
+		ctx.element_mods["poison_mult"] = 1.4
+		ctx.element_mods["poison_heal_mult"] = 2.0
+	if stats.has_equipment("overload_amplifier"):
+		ctx.element_mods["overload_mult"] = 1.3
+		ctx.element_mods["overload_radius_mult"] = 1.5
+	if stats.has_equipment("melt_core"):
+		ctx.element_mods["melt_bonus"] = 0.5
+	if stats.has_equipment("chain_conductor"):
+		ctx.chain_bonus += 2
+		ctx.element_mods["chain_range_mult"] = 1.3
+	if stats.has_equipment("dual_element"):
+		# 火焰技能附加冰霜，冰霜技能附加火焰（在 cast_skill 中根据技能元素处理）
+		pass
+	if stats.has_equipment("annihilate_orb"):
+		ctx.element_mods["annihilate_min"] = 2
+
+
+## 施放技能；未拥有或冷却中返回空字典。use_aim = false 时忽略鼠标瞄准点（自动施放）。
+func cast_skill(skill_id: String, use_aim: bool = true) -> Dictionary:
 	if is_dead or not ability_system.can_cast(skill_id):
 		return {}
+
+	# 施法瞬间：方向性技能自动朝向最近敌人（智能施法）
+	var enemies: Array = get_tree().get_nodes_in_group("enemies")
+	_auto_aim_for_skill(skill_id, enemies)
+
 	var skill: Skill = ability_system.get_skill(skill_id)
-	var ctx: SkillContext = make_context(get_tree().get_nodes_in_group("enemies"))
+	var ctx: SkillContext = make_context(enemies)
+	ctx.has_aim = ctx.has_aim and use_aim
 	ctx.damage_mult *= skill.level_bonus()
+
+	# 设置技能元素
+	var elem: String = Elements.of(skill_id)
+	ctx.element = elem
+	ctx.intensity = Elements.intensity_of(skill_id)
+	if ctx.element_mods.has("intensity_mult"):
+		ctx.intensity *= float(ctx.element_mods["intensity_mult"])
+
+	# 元素共鸣伤害加成
+	if not elem.is_empty():
+		var skill_ids: Array[String] = []
+		for sid: String in ability_system.pool():
+			if ability_system.get_skill(sid) != null:
+				skill_ids.append(sid)
+		var has_crystal: bool = stats.has_equipment("resonance_crystal")
+		var resonances: Dictionary = ElementalResonance.calculate(skill_ids, has_crystal)
+		if resonances.has(elem):
+			ctx.damage_mult *= ElementalResonance.damage_mult(elem, resonances[elem])
+
+	# 技能协同加成
+	var owned: Array[String] = []
+	for sid: String in ability_system.pool():
+		if ability_system.get_skill(sid) != null:
+			owned.append(sid)
+	var syn: Dictionary = SkillSynergy.bonuses_for(skill_id, owned)
+	ctx.damage_mult *= syn.damage
+	ctx.element_mods["dot_mult"] = ctx.element_mods.get("dot_mult", 1.0) * syn.dot
+	ctx.cc_mult *= syn.cc
+	ctx.chain_bonus += syn.chain
+
+	# 双元素/三元素装备
+	if stats.has_equipment("dual_element"):
+		if elem == "fire":
+			ctx.extra_elements.append(["ice", ctx.intensity * 0.4])
+		elif elem == "ice":
+			ctx.extra_elements.append(["fire", ctx.intensity * 0.4])
+	if stats.has_equipment("tri_element"):
+		for e: String in ["fire", "ice", "lightning"]:
+			if e != elem:
+				ctx.extra_elements.append([e, ctx.intensity * 0.2])
+
 	if skill_id == "taunt":
 		ctx.area_mult = stats.taunt_radius_multiplier()
 	var result: Dictionary = ability_system.cast(skill_id, ctx)
@@ -588,7 +742,7 @@ func _auto_cast(enemies: Array) -> void:
 		if id == "divine_intervention" and not _someone_needs_rescue():
 			continue
 		if ability_system.can_cast(id):
-			cast_skill(id)
+			cast_skill(id, false)
 			return
 
 
@@ -681,13 +835,40 @@ func set_talents(ranks_dict: Dictionary) -> void:
 	_talents_set = true
 
 
-func apply_net_input(seq: int, move: Vector3, p_facing: Vector3) -> void:
+## aim：客户端的鼠标瞄准点；NO_AIM 表示没有（手柄）。
+func apply_net_input(seq: int, move: Vector3, p_facing: Vector3, aim: Vector3 = NO_AIM) -> void:
 	if seq <= net_input_seq:
 		return
 	net_input_seq = seq
 	net_move = move
 	if p_facing.length_squared() > 0.01:
 		net_facing = p_facing.normalized()
+	has_aim = aim != NO_AIM
+	if has_aim:
+		aim_point = Vector3(aim.x, 0.0, aim.z)
+
+
+## 联机输入里"没有瞄准点"的占位值。
+const NO_AIM: Vector3 = Vector3(0, -1000, 0)
+
+
+## 鼠标射线投射到地面（y = 0），结果写入 aim_point / has_aim。
+## 手柄、窗口没有焦点、鼠标在窗口外或没有相机时 has_aim = false（技能回退到自动目标）。
+func _update_mouse_aim() -> void:
+	has_aim = false
+	if Settings.pad_connected() or not get_window().has_focus():
+		return
+	var vp: Viewport = get_viewport()
+	var cam: Camera3D = vp.get_camera_3d()
+	if cam == null:
+		return
+	var mouse: Vector2 = vp.get_mouse_position()
+	if not vp.get_visible_rect().has_point(mouse):
+		return
+	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(cam.project_ray_origin(mouse), cam.project_ray_normal(mouse))
+	if hit != null:
+		aim_point = hit
+		has_aim = true
 
 
 func add_equipment(item_id: String) -> void:
@@ -802,6 +983,42 @@ func _shake(strength: float) -> void:
 		SkillVfx.record(["shake", strength, net_slot])  # 只震该玩家自己的屏幕
 		return
 	SkillVfx.shake(get_tree(), strength, net_slot)
+
+
+## 施法瞬间智能瞄准：方向性技能自动朝向最近敌人
+func _auto_aim_for_skill(skill_id: String, enemies: Array) -> void:
+	# 需要自动瞄准的技能列表（锥形/直线技能）
+	const DIRECTIONAL_SKILLS: Array[String] = ["shield_bash", "charge", "fireball", "ice_lance", "chain_lightning"]
+
+	if not skill_id in DIRECTIONAL_SKILLS:
+		return
+
+	# 根据技能类型设置搜索范围
+	var search_range: float = 12.0  # 远程技能
+	if skill_id in ["shield_bash", "charge"]:
+		search_range = 8.0  # 近战技能搜索范围小一些
+
+	# 找最近的存活敌人
+	var nearest: Node3D = null
+	var best_dist_sq: float = search_range * search_range
+
+	for enemy: Variant in enemies:
+		if not (enemy is Node3D):
+			continue
+		if "is_alive" in enemy and not enemy.is_alive:
+			continue
+
+		var dist_sq: float = (enemy.global_position - global_position).length_squared()
+		if dist_sq < best_dist_sq:
+			best_dist_sq = dist_sq
+			nearest = enemy as Node3D
+
+	# 如果找到目标，朝向它
+	if nearest != null:
+		var dir: Vector3 = (nearest.global_position - global_position) * Vector3(1, 0, 1)
+		if dir.length_squared() > 0.01:
+			facing = dir.normalized()
+			rotation.y = atan2(-facing.x, -facing.z)  # 立即转向，不插值
 
 
 ## 陨石术落地：表现层播放爆炸。

@@ -17,6 +17,10 @@ var slow_duration: float = 0.0
 var burn_dps: float = 0.0
 ## 元素术士：区域伤害是否算重击（引爆燃烧 = 爆燃反应）。
 var heavy: bool = false
+## 元素系统：区域附着的元素与强度
+var element: String = ""
+var intensity: float = 0.0
+var element_mods: Dictionary = {}
 ## 表现层用的类型标签（flame / whirl / slam / aura / frost / lightning）。
 var kind: String = ""
 ## 可选：每秒治疗区域内的队友（牧师圣域）。队友需有 is_dead、global_position、heal(float)。
@@ -64,6 +68,9 @@ func tick(delta: float, targets: Array) -> int:
 		for t: Variant in targets:
 			if is_instance_valid(t) and t.is_alive and contains(t.global_position):
 				t.take_damage(damage_per_tick)
+				# 应用元素（区域每跳附着30%强度）
+				if t.is_alive and not element.is_empty():
+					Elements.apply(t, element, intensity * 0.3, damage_per_tick, targets, element_mods)
 				if heavy and t.is_alive:
 					Reactions.ignite(t, targets)  # 目标在燃烧时引爆（爆燃）
 				if slow_factor > 0.0 and t.has_method("apply_slow"):
@@ -71,7 +78,7 @@ func tick(delta: float, targets: Array) -> int:
 				if burn_dps > 0.0:
 					var s: StatusEffects = Reactions.status_of(t)
 					if s != null:
-						s.apply_burn(burn_dps, 3.0)
+						s.apply_burn(burn_dps, 3.0, intensity * 0.3)
 				hits += 1
 	return hits
 

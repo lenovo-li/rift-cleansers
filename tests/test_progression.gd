@@ -114,9 +114,9 @@ func test_upgrade_falls_back_to_heal_when_maxed() -> String:
 
 
 func test_spawn_timeline_matches_design() -> String:
-	# 文档 05 §2.1：0-1 分钟 10-20，7-9 分钟 250-400
-	if SpawnDirector.get_alive_cap(30.0) > 25 or SpawnDirector.get_alive_cap(540.0) != 400:
-		return "存活上限曲线不符: 30s=%d 540s=%d" % [SpawnDirector.get_alive_cap(30.0), SpawnDirector.get_alive_cap(540.0)]
+	# 更新到20分钟版本：0-1分钟20-40，18分钟1000
+	if SpawnDirector.get_alive_cap(30.0) > 40 or SpawnDirector.get_alive_cap(1080.0) != 1000:
+		return "存活上限曲线不符: 30s=%d 1080s=%d" % [SpawnDirector.get_alive_cap(30.0), SpawnDirector.get_alive_cap(1080.0)]
 	if SpawnDirector.get_elite_chance(299.0) > 0.0 or SpawnDirector.get_elite_chance(301.0) <= 0.0:
 		return "精英应从 5:00 开始出现"
 	if SpawnDirector.pick_enemy_type(10.0, 0.99) != "zombie":

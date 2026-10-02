@@ -138,6 +138,10 @@ func register_player(p: CharacterBody3D) -> void:
 
 ## 每秒按敌人数量和 Boss 是否在场切换音乐（客户端的数量和 Boss 信息来自主机快照，同样可用）。
 func _process(delta: float) -> void:
+	# 光标：没有界面时显示十字准星，否则显示系统箭头
+	var in_combat: bool = _pause_menu == null and _invite_panel == null and _game_over_panel == null and not _upgrade_panel.is_open()
+	GameCursor.set_combat(in_combat)
+
 	_music_timer -= delta
 	if _music_timer <= 0.0 and _session.is_running:
 		_music_timer = 1.0

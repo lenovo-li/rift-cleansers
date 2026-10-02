@@ -11,6 +11,8 @@ var strikes: Array[Dictionary] = []
 var skill_pool: Array[String] = []
 ## 所有技能冷却倍率（天赋）。
 var cooldown_mult: float = 1.0
+## 单个技能的冷却倍率（协同「机动」、多重施法等），施放前由施法者写入。
+var cooldown_overrides: Dictionary = {}
 var _skills: Dictionary = {}  # skill_id -> Skill
 var _cooldowns: Dictionary = {}  # skill_id -> 剩余秒数
 
@@ -60,7 +62,13 @@ func cast(skill_id: String, ctx: SkillContext) -> Dictionary:
 	var skill: Skill = _skills[skill_id]
 	var result: Dictionary = skill.cast(ctx)
 	# 技能可以用 result.cooldown 覆盖本次冷却（影步击杀刷新、处决斩杀返还）
-	_cooldowns[skill_id] = float(result.get("cooldown", skill.get_cooldown())) * cooldown_mult
+	_cooldowns[skill_id] = float(result.get("cooldown", skill.get_cooldown())) * cooldown_mult \
+			* float(cooldown_overrides.get(skill_id, 1.0))
+	for zone: GroundZone in ctx.new_zones:
+		if zone.element.is_empty():
+			zone.element = ctx.element
+			zone.intensity = ctx.intensity
+			zone.element_mods = ctx.element_mods
 	zones.append_array(ctx.new_zones)
 	strikes.append_array(ctx.new_strikes)
 	skill_cast.emit(skill_id, result)
@@ -95,6 +103,9 @@ static func resolve_strike(s: Dictionary, targets: Array) -> int:
 	ctx.origin = s.center
 	ctx.targets = targets
 	ctx.magnet = s.get("magnet", false)
+	ctx.element = str(s.get("element", ""))
+	ctx.intensity = float(s.get("intensity", 0.0))
+	ctx.element_mods = s.get("element_mods", {})
 	var hits: int = 0
 	for t: Variant in ctx.targets_in_radius(s.center, s.radius):
 		hits += 1
@@ -106,7 +117,7 @@ static func resolve_strike(s: Dictionary, targets: Array) -> int:
 		ctx.push(t, dir * float(s.knockback), dealt)
 		var st: StatusEffects = Reactions.status_of(t)
 		if st != null and float(s.burn) > 0.0:
-			st.apply_burn(s.burn, 4.0)
+			st.apply_burn(s.burn, 4.0, ctx.intensity * 0.3)
 	if s.get("second_wave", false):
 		for t: Variant in ctx.targets_in_radius(s.center, s.radius * 1.6):
 			var d: float = ((t.global_position - s.center) * Vector3(1, 0, 1)).length()

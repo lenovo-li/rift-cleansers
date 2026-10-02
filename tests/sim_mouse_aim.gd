@@ -1,7 +1,7 @@
 extends SceneTree
 ## 测试鼠标瞄准模式：验证按住鼠标时角色朝向跟随，技能朝鼠标方向释放。
 ## 用法（需要开窗口，不能 --headless）:
-##   godot --fixed-fps 60 --path . --script res://tests/test_mouse_aim.gd
+##   godot --fixed-fps 60 --path . --script res://tests/sim_mouse_aim.gd
 
 var _scene: Node = null
 var _player: Node = null

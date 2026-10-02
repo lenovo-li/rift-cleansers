@@ -50,6 +50,8 @@ var _retarget_timer: float = 0.0
 var effects_parent: Node = null
 var knockback_velocity: Vector3 = Vector3.ZERO
 var knockback_resist: float = 0.0
+## 冰冻时长倍率（Boss 0.3）
+var freeze_resist: float = 1.0
 ## 多人时 Boss 血量倍率（加入场景树前设置）。
 var health_scale: float = 1.0
 ## 与邻近敌人的分离向量（由 EnemySpawner 每帧写入）。

@@ -442,10 +442,6 @@ func _apply_resonance_and_synergy(ctx: SkillContext) -> void:
 				if level >= ElementalResonance.PERFECT:
 					pass  # 净化时灼烧周围敌人（需要在净化反应中实现）
 
-	# 技能协同
-	var syn_bonuses: Dictionary = SkillSynergy.calculate_synergy_bonuses(skill_ids)
-	ctx.cc_mult = syn_bonuses.cc_duration
-	ctx.chain_bonus += syn_bonuses.chain_count
 
 
 ## 装备对元素的影响。

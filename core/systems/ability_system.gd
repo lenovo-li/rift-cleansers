@@ -17,13 +17,44 @@ var _skills: Dictionary = {}  # skill_id -> Skill
 var _cooldowns: Dictionary = {}  # skill_id -> 剩余秒数
 
 
+## 技能栏：已学技能按习得顺序排列（最多 UpgradeSystem.MAX_SKILLS 个），按键 skill_i 施放 equipped[i]。
+## 技能池可以远大于技能栏（文档 10：每角色 15 个可选，只能装 6 个）。
+var equipped: Array[String] = []
+
+
 func pool() -> Array[String]:
 	return skill_pool if not skill_pool.is_empty() else SkillFactory.SKILL_IDS
+
+
+## 第 i 个技能栏位的技能 id；空栏位返回 ""。
+func slot_id(i: int) -> String:
+	return equipped[i] if i >= 0 and i < equipped.size() else ""
 
 
 func add_skill(skill: Skill) -> void:
 	_skills[skill.skill_id] = skill
 	_cooldowns[skill.skill_id] = 0.0
+	if not skill.skill_id in equipped:
+		equipped.append(skill.skill_id)
+
+
+## 卸下技能（技能替换用）。返回原栏位下标，未拥有返回 -1。
+func remove_skill(skill_id: String) -> int:
+	var idx: int = equipped.find(skill_id)
+	_skills.erase(skill_id)
+	_cooldowns.erase(skill_id)
+	if idx >= 0:
+		equipped.remove_at(idx)
+	return idx
+
+
+## 替换：卸下 old_id，新技能放到同一栏位。
+func replace_skill(old_id: String, skill: Skill) -> void:
+	var idx: int = remove_skill(old_id)
+	add_skill(skill)
+	if idx >= 0:
+		equipped.erase(skill.skill_id)
+		equipped.insert(mini(idx, equipped.size()), skill.skill_id)
 
 
 func get_skill(skill_id: String) -> Skill:

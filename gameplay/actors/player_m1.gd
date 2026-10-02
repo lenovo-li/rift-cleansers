@@ -247,7 +247,7 @@ func _physics_process(delta: float) -> void:
 	if control == ControlMode.LOCAL and not ai_controlled:
 		for i in SKILL_ACTIONS.size():
 			if InputMap.has_action(SKILL_ACTIONS[i]) and Input.is_action_just_pressed(SKILL_ACTIONS[i]):
-				cast_skill(ability_system.pool()[i])
+				cast_skill(ability_system.slot_id(i))
 		if InputMap.has_action("dash") and Input.is_action_just_pressed("dash"):
 			dodge()
 	if auto_cast or ai_controlled:

@@ -368,8 +368,8 @@ func rpc_action(kind: int, value: int) -> void:
 		return
 	match kind:
 		Action.SKILL:
-			if value >= 0 and value < player.ability_system.pool().size() and not player.is_dead:
-				player.cast_skill(player.ability_system.pool()[value])
+			if not player.ability_system.slot_id(value).is_empty() and not player.is_dead:
+				player.cast_skill(player.ability_system.slot_id(value))
 		Action.DODGE:
 			if not player.is_dead:
 				player.dodge()

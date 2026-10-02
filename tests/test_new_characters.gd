@@ -67,8 +67,8 @@ func _at(skill: Skill, level: int) -> Skill:
 func test_factory_and_catalog() -> String:
 	for cid: String in ["shadow_walker", "cleric"]:
 		var def: Dictionary = CharacterCatalog.get_def(cid)
-		if def.skills.size() != 6 or not CharacterCatalog.is_valid(cid):
-			return "%s 应有 6 个技能" % cid
+		if def.skills.size() != 10 or not CharacterCatalog.is_valid(cid):
+			return "%s 应有 10 个技能，实际 %d" % [cid, def.skills.size()]
 		for id: String in def.skills:
 			var s: Skill = SkillFactory.create(id)
 			if s == null or s.skill_id != id or s.get_tier_thresholds() != [1, 3, 5, 8]:

@@ -324,7 +324,7 @@ func _move(delta: float, direction: Vector3) -> void:
 		_dash_time -= delta
 		velocity = _dash_velocity
 	else:
-		var speed: float = move_speed * status.speed_multiplier()
+		var speed: float = move_speed * status.speed_multiplier() * stats.move_speed_multiplier()
 		if direction:
 			velocity.x = direction.x * speed
 			velocity.z = direction.z * speed
@@ -366,7 +366,7 @@ func make_context(enemies: Array) -> SkillContext:
 	ctx.targets = enemies
 	ctx.damage_mult = stats.damage_multiplier()
 	ctx.magnet = stats.has_equipment("magnetic_boots")
-	ctx.crit_chance = crit_chance
+	ctx.crit_chance = crit_chance + stats.bonus_crit
 	ctx.crit_mult = 2.0
 	if stats.has_equipment("backstab_dagger"):
 		ctx.crit_mult = 2.6

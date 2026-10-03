@@ -601,6 +601,8 @@ func _queue_delayed_equipment_effects(skill_id: String, ctx: SkillContext, resul
 ## 技能结算后的位移、状态和手感（音效 / 震屏 / 顿帧）；视觉特效交给 SkillFx 按段位编排。
 func _apply_skill_result(skill_id: String, result: Dictionary, ctx: SkillContext) -> void:
 	var tier: int = int(result.get("tier", 1))
+	var skill: Skill = ability_system.get_skill(skill_id)
+	var intensity: float = skill.vfx_intensity() if skill != null else 1.0
 	var hits: int = int(result.get("hits", 0))
 	match skill_id:
 		"shield_bash":
@@ -754,7 +756,7 @@ func _apply_skill_result(skill_id: String, result: Dictionary, ctx: SkillContext
 			if result.has("center"):
 				SfxManager.play(_fx_parent, "sk_holy_wrath")
 				_shake(0.25 + 0.1 * tier)
-	SkillFx.play(_fx_parent, self, skill_id, result, ctx.origin, ctx.flat_facing(), tier)
+	SkillFx.play(_fx_parent, self, skill_id, result, ctx.origin, ctx.flat_facing(), tier, intensity)
 	for zone: GroundZone in ctx.new_zones:
 		if zone.anchor == null:
 			var color: Color = Color(0.6, 0.45, 0.2, 0.3)

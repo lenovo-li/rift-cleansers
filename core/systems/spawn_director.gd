@@ -101,6 +101,11 @@ func _player_scale() -> float:
 	return 1.0 + 0.5 * float(maxi(0, n - 1))
 
 
+## 敌人强度倍率：按游戏时间递增血量和伤害，每分钟 +8%，18 分钟时约 2.5 倍。
+func enemy_scaling(t: float) -> float:
+	return 1.0 + t / 60.0 * 0.08
+
+
 func on_enemy_spawned() -> void:
 	alive_count += 1
 

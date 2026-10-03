@@ -33,13 +33,13 @@ const POSES: Dictionary = {
 }
 
 
-static func play(p: Node, caster: Node3D, id: String, r: Dictionary, origin: Vector3, facing: Vector3, tier: int) -> void:
+static func play(p: Node, caster: Node3D, id: String, r: Dictionary, origin: Vector3, facing: Vector3, tier: int, intensity: float = 1.0) -> void:
 	# 16 个新技能走专属特效系统
 	if id in UniqueFx.IDS:
 		var action: String = POSES.get(id, "cast")
 		var dur: float = float(r.get("duration", -1.0)) if action == "spin" else -1.0
 		SkillVfx.pose(p, int(caster.get("net_slot")), action, dur)
-		UniqueFx.play(p, caster, id, origin, facing, tier, r)
+		UniqueFx.play(p, caster, id, origin, facing, tier, r, intensity)
 		return
 
 	var action: String = POSES.get(id, "cast")
@@ -47,13 +47,13 @@ static func play(p: Node, caster: Node3D, id: String, r: Dictionary, origin: Vec
 	SkillVfx.pose(p, int(caster.get("net_slot")), action, dur)
 	match id:
 		"shield_bash", "whirlwind", "taunt", "charge", "ground_slam", "reflect_aura":
-			_iron_guard(p, caster, id, r, origin, facing, tier)
+			_iron_guard(p, caster, id, r, origin, facing, tier, intensity)
 		"fireball", "ice_lance", "frost_nova", "chain_lightning", "meteor", "storm_field":
-			_elementalist(p, caster, id, r, origin, tier)
+			_elementalist(p, caster, id, r, origin, tier, intensity)
 		"shadow_step", "fan_of_knives", "death_mark", "blade_flurry", "smoke_bomb", "execute":
-			_shadow_walker(p, caster, id, r, origin, tier)
+			_shadow_walker(p, caster, id, r, origin, tier, intensity)
 		_:
-			_cleric(p, caster, id, r, origin, tier)
+			_cleric(p, caster, id, r, origin, tier, intensity)
 
 
 static func _up(v: Vector3, h: float) -> Vector3:
@@ -61,17 +61,17 @@ static func _up(v: Vector3, h: float) -> Vector3:
 
 
 # ---------------- 铁卫 ----------------
-static func _iron_guard(p: Node, caster: Node3D, id: String, r: Dictionary, origin: Vector3, facing: Vector3, tier: int) -> void:
+static func _iron_guard(p: Node, caster: Node3D, id: String, r: Dictionary, origin: Vector3, facing: Vector3, tier: int, intensity: float) -> void:
 	var slot: int = int(caster.get("net_slot"))
 	match id:
 		"shield_bash":
 			var radius: float = ShieldBash.BASE_RANGE * (1.5 if tier >= 5 else 1.0)
-			SkillVfx.shield_bash_tiered(p, origin, facing, radius, tier, r.get("hit_points", []), r.get("chain_links", []))
+			SkillVfx.shield_bash_tiered(p, origin, facing, radius, tier, r.get("hit_points", []), r.get("chain_links", []), intensity)
 			var front: Vector3 = origin + facing * radius * 0.55
 			SkillVfx.rune(p, front, radius * 0.6, Color(EMBER if tier >= 8 else BLUE, 0.7), "expand", 0.35, "pulse_sigil")
 			if tier >= 8:
-				SkillVfx.spike_ring(p, front, radius * 0.8, "rock", 6)
-				SkillVfx.crack_decal(p, front, radius * 0.7, FIRE, 2.0)
+				SkillVfx.spike_ring(p, front, radius * 0.8 * intensity, "rock", 6)
+				SkillVfx.crack_decal(p, front, radius * 0.7 * intensity, FIRE, 2.0)
 		"whirlwind":
 			SkillVfx.whirlwind(p, caster, float(r.radius), float(r.duration),
 					Color(1.0, 0.6, 0.3, 0.5) if tier >= 8 else Color(0.55, 1.0, 0.7, 0.5), "whirl", tier)
@@ -123,7 +123,7 @@ static func _iron_guard(p: Node, caster: Node3D, id: String, r: Dictionary, orig
 
 
 # ---------------- 元素术士 ----------------
-static func _elementalist(p: Node, caster: Node3D, id: String, r: Dictionary, origin: Vector3, tier: int) -> void:
+static func _elementalist(p: Node, caster: Node3D, id: String, r: Dictionary, origin: Vector3, tier: int, intensity: float) -> void:
 	var hand: Vector3 = _up(caster.global_position, 1.3)
 	match id:
 		"fireball":
@@ -186,7 +186,7 @@ static func meteor_landed(p: Node, center: Vector3, radius: float, second_wave: 
 
 
 # ---------------- 影行者 ----------------
-static func _shadow_walker(p: Node, caster: Node3D, id: String, r: Dictionary, origin: Vector3, tier: int) -> void:
+static func _shadow_walker(p: Node, caster: Node3D, id: String, r: Dictionary, origin: Vector3, tier: int, intensity: float) -> void:
 	var slot: int = int(caster.get("net_slot"))
 	match id:
 		"shadow_step":
@@ -268,7 +268,7 @@ static func _shadow_walker(p: Node, caster: Node3D, id: String, r: Dictionary, o
 
 
 # ---------------- 牧师 ----------------
-static func _cleric(p: Node, caster: Node3D, id: String, r: Dictionary, origin: Vector3, tier: int) -> void:
+static func _cleric(p: Node, caster: Node3D, id: String, r: Dictionary, origin: Vector3, tier: int, intensity: float) -> void:
 	match id:
 		"holy_nova":
 			var radius: float = float(r.radius)

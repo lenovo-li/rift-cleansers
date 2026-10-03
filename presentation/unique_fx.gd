@@ -21,7 +21,7 @@ const BLOOD: Color = Color(1.0, 0.12, 0.2)
 const VENOM: Color = Color(0.45, 1.0, 0.3)
 
 
-static func play(parent: Node, caster: Node3D, id: String, origin: Vector3, facing: Vector3, tier: int, r: Dictionary) -> void:
+static func play(parent: Node, caster: Node3D, id: String, origin: Vector3, facing: Vector3, tier: int, r: Dictionary, intensity: float = 1.0) -> void:
 	var data: Dictionary = {"slot": int(caster.get("net_slot"))}
 	for k: String in DATA_KEYS:
 		if r.has(k):

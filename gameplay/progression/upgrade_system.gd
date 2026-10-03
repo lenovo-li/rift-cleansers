@@ -3,7 +3,7 @@ class_name UpgradeSystem extends RefCounted
 ## 选项格式：{type, id, title, desc, weight}
 ## type ∈ skill_new / skill_up / skill_swap / passive / stat_boost / equip_buff / heal
 
-const CHOICE_COUNT: int = 3
+const CHOICE_COUNT: int = 5
 const MAX_SKILLS: int = 6
 const HEAL_AMOUNT: float = 200.0
 const WEIGHT_SKILL_UP: float = 3.0

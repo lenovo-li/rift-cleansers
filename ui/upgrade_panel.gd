@@ -1,17 +1,21 @@
 extends Control
-## 升级面板 v2：卡牌式三选一，带动画效果
+## 升级面板 v3：卡牌式五选一，带刷新按钮
 ## 保持与原版相同的接口，可无缝替换
 
 signal chosen(choice: Dictionary, index: int)
+signal refresh_requested  # 联机客户端：请求主机重新抽取
 
 var _queue: int = 0
 var _choices: Array[Dictionary] = []
 var _cards: Array = []
 var _title: Label
 var _dim: ColorRect
+var _refresh_btn: Button
 var roll_choices: Callable = Callable()
 var pause_game: bool = true
 var _remote: bool = false
+var _can_refresh: bool = true  # 每次升级允许刷新一次
+var _focus: int = 0  # 手柄焦点
 
 
 func _ready() -> void:
@@ -31,14 +35,19 @@ func _ready() -> void:
 	vbox.anchor_right = 0.5
 	vbox.anchor_top = 0.5
 	vbox.anchor_bottom = 0.5
-	vbox.offset_left = -500
-	vbox.offset_right = 500
-	vbox.offset_top = -320
-	vbox.add_theme_constant_override("separation", 24)
+	vbox.offset_left = -780
+	vbox.offset_right = 780
+	vbox.offset_top = -340
+	vbox.add_theme_constant_override("separation", 20)
 	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(vbox)
 
-	# 标题
+	# 标题行（标题 + 刷新按钮）
+	var title_row: HBoxContainer = HBoxContainer.new()
+	title_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	title_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(title_row)
+
 	_title = Label.new()
 	_title.add_theme_font_size_override("font_size", 42)
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -46,17 +55,25 @@ func _ready() -> void:
 	_title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	_title.add_theme_constant_override("outline_size", 7)
 	_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(_title)
+	title_row.add_child(_title)
+
+	# 刷新按钮
+	_refresh_btn = Button.new()
+	_refresh_btn.text = "🔄 刷新"
+	_refresh_btn.custom_minimum_size = Vector2(120, 48)
+	_refresh_btn.add_theme_font_size_override("font_size", 24)
+	_refresh_btn.pressed.connect(_on_refresh)
+	title_row.add_child(_refresh_btn)
 
 	# 卡牌横排容器
 	var cards_container: HBoxContainer = HBoxContainer.new()
 	cards_container.alignment = BoxContainer.ALIGNMENT_CENTER
-	cards_container.add_theme_constant_override("separation", 32)
+	cards_container.add_theme_constant_override("separation", 20)
 	cards_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(cards_container)
 
-	# 创建三张卡牌
-	for i in 3:
+	# 创建五张卡牌
+	for i in 5:
 		var card: Control = load("res://ui/upgrade_card.gd").new()
 		card.clicked.connect(_pick.bind(i))
 		# 设置缩放中心点
@@ -84,12 +101,14 @@ func _open() -> void:
 		_queue = 0
 		return
 	_remote = false
+	_can_refresh = true  # 每次升级重置刷新次数
 	_display(roll_choices.call())
 
 
-func show_remote(choices: Array, remaining: int) -> void:
+func show_remote(choices: Array, remaining: int, can_refresh: bool = true) -> void:
 	_remote = true
 	_queue = remaining
+	_can_refresh = can_refresh
 	_display(choices)
 
 
@@ -99,24 +118,31 @@ func _display(choices: Array) -> void:
 		_choices.append(c)
 
 	_update_title()
+	_refresh_btn.disabled = not _can_refresh
+	_refresh_btn.visible = true
+	_set_focus(0)
 
-	# 设置卡牌内容
-	for i in mini(_choices.size(), _cards.size()):
-		_cards[i].set_choice(_choices[i], i)
+	# 设置卡牌内容，隐藏多余卡牌
+	for i in _cards.size():
+		if i < _choices.size():
+			_cards[i].set_choice(_choices[i], i)
+			_cards[i].visible = true
+		else:
+			_cards[i].visible = false
 
 	visible = true
 	_dim.color.a = 0.65 if pause_game else 0.25
 
 	# 卡牌入场动画
-	for i in _cards.size():
+	for i in mini(_choices.size(), _cards.size()):
 		var card: Control = _cards[i] as Control
 		card.modulate.a = 0.0
 		card.scale = Vector2(0.7, 0.7)
 		var tw: Tween = card.create_tween()
 		tw.set_ease(Tween.EASE_OUT)
 		tw.set_trans(Tween.TRANS_BACK)
-		tw.tween_property(card, "modulate:a", 1.0, 0.3).set_delay(i * 0.08)
-		tw.parallel().tween_property(card, "scale", Vector2.ONE, 0.35).set_delay(i * 0.08)
+		tw.tween_property(card, "modulate:a", 1.0, 0.3).set_delay(i * 0.06)
+		tw.parallel().tween_property(card, "scale", Vector2.ONE, 0.35).set_delay(i * 0.06)
 
 	if pause_game:
 		get_tree().paused = true
@@ -130,9 +156,24 @@ func close() -> void:
 
 
 func _update_title() -> void:
-	var keys: String = "十字键 ←/↑/→" if Settings.pad_connected() else "1/2/3"
+	var pad: bool = Settings.pad_connected()
+	var keys: String = "十字键 ←/→ + A" if pad else "1-%d" % _cards.size()
 	var queue_text: String = ("   还有 %d 次" % (_queue - 1)) if _queue > 1 else ""
 	_title.text = "✦ 升级！选择一项 (%s) ✦%s" % [keys, queue_text]
+	_refresh_btn.text = "刷新 (%s)" % ("Y" if pad else "R")
+	_refresh_btn.disabled = not _can_refresh
+
+
+## 刷新：换一批选项，每次升级限一次。联机客户端交给主机重新抽取。
+func _on_refresh() -> void:
+	if not visible or not _can_refresh:
+		return
+	_can_refresh = false
+	if _remote:
+		_refresh_btn.disabled = true
+		refresh_requested.emit()
+	elif roll_choices.is_valid():
+		_display(roll_choices.call())
 
 
 func _pick(index: int) -> void:
@@ -151,16 +192,25 @@ func _pick(index: int) -> void:
 		_open()
 
 
-# 键盘/手柄快捷键
-const PAD_PICKS: Dictionary = {JOY_BUTTON_DPAD_LEFT: 0, JOY_BUTTON_DPAD_UP: 1, JOY_BUTTON_DPAD_RIGHT: 2}
+func _set_focus(index: int) -> void:
+	_focus = clampi(index, 0, maxi(0, _choices.size() - 1))
+	for i in _cards.size():
+		_cards[i].set_highlight(i == _focus)
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible or not event.is_pressed() or event.is_echo():
 		return
 
-	if event is InputEventJoypadButton and PAD_PICKS.has((event as InputEventJoypadButton).button_index):
-		_pick(PAD_PICKS[(event as InputEventJoypadButton).button_index])
+	# 手柄：十字键左右移动焦点，A 确认，Y 刷新
+	var jb: InputEventJoypadButton = event as InputEventJoypadButton
+	if jb != null:
+		match jb.button_index:
+			JOY_BUTTON_DPAD_LEFT: _set_focus(_focus - 1)
+			JOY_BUTTON_DPAD_RIGHT: _set_focus(_focus + 1)
+			JOY_BUTTON_A: _pick(_focus)
+			JOY_BUTTON_Y: _on_refresh()
+			_: return
 		get_viewport().set_input_as_handled()
 		return
 
@@ -168,6 +218,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	var k: Key = (event as InputEventKey).keycode
-	if k >= KEY_1 and k <= KEY_3:
+	if k >= KEY_1 and k < KEY_1 + _cards.size():
 		_pick(int(k - KEY_1))
+		get_viewport().set_input_as_handled()
+	elif k == KEY_R:
+		_on_refresh()
 		get_viewport().set_input_as_handled()

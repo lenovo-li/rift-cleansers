@@ -23,6 +23,7 @@ var _title: Label
 var _desc: Label
 var _hover: bool = false
 var _pressed: bool = false
+var _highlight: bool = false  # 手柄焦点高亮
 
 
 func _ready() -> void:
@@ -123,10 +124,15 @@ static func _glyph(choice: Dictionary) -> String:
 	return name.substr(0, 1) if not name.is_empty() else "?"
 
 
+## 手柄焦点高亮（升级面板手柄模式下调用）
+func set_highlight(on: bool) -> void:
+	_highlight = on
+
+
 func _process(delta: float) -> void:
-	var target: float = (1.07 if _hover else 1.0) * (0.95 if _pressed else 1.0)
+	var target: float = (1.07 if (_hover or _highlight) else 1.0) * (0.95 if _pressed else 1.0)
 	scale = scale.lerp(Vector2.ONE * target, clampf(delta * 14.0, 0.0, 1.0))
-	_style.shadow_size = 18 if _hover else 10
+	_style.shadow_size = 18 if (_hover or _highlight) else 10
 
 
 func _gui_input(event: InputEvent) -> void:

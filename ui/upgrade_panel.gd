@@ -169,6 +169,7 @@ func _on_refresh() -> void:
 	if not visible or not _can_refresh:
 		return
 	_can_refresh = false
+	SfxManager.play(self, "ui_click")
 	if _remote:
 		_refresh_btn.disabled = true
 		refresh_requested.emit()
@@ -183,6 +184,7 @@ func _pick(index: int) -> void:
 	var c: Dictionary = _choices[index]
 	_queue -= 1
 	visible = false
+	SfxManager.play(self, "ui_click")
 	if pause_game:
 		get_tree().paused = false
 

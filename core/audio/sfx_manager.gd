@@ -60,6 +60,22 @@ const CATEGORIES: Dictionary = {
 	"sk_purify": ["sk_purify", 90, -3.0, Vector2(0.95, 1.05)],
 	"sk_resurrection": ["sk_resurrection", 120, -2.0, Vector2(0.95, 1.05)],
 	"sk_holy_wrath": ["sk_holy_wrath", 90, -2.0, Vector2(0.95, 1.05)],
+
+	# 游戏进度
+	"level_up": ["level_up", 200, 0.0, Vector2(1.0, 1.0)],
+	"wave_start": ["wave_start", 150, -1.0, Vector2(1.0, 1.0)],
+	"wave_complete": ["wave_complete", 180, 0.0, Vector2(1.0, 1.0)],
+	"boss_roar": ["boss_roar", 300, -1.0, Vector2(0.95, 1.05)],
+
+	# 拾取（经验 / 金币类掉落频繁，间隔短、音量低）
+	"item_pickup": ["item_pickup", 80, -2.0, Vector2(0.98, 1.02)],
+	"coin_pickup": ["coin_pickup", 60, -4.0, Vector2(0.95, 1.08)],
+
+	# UI
+	"ui_hover": ["ui_hover", 40, -6.0, Vector2(1.0, 1.0)],
+	"ui_click": ["ui_click", 50, -4.0, Vector2(1.0, 1.0)],
+	"ui_open": ["ui_open", 100, -3.0, Vector2(1.0, 1.0)],
+	"ui_close": ["ui_close", 100, -3.0, Vector2(1.0, 1.0)],
 }
 const VARIANTS: int = 5
 ## 同时存在的播放器上限（500 敌人同时挨打时不让音频线程爆掉）

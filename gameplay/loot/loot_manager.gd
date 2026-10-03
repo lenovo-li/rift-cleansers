@@ -82,5 +82,7 @@ func _on_collected(p: Node3D, player: Node3D) -> void:
 		_pending.erase(p.item_id)
 		player.add_equipment(p.item_id)
 		equipment_collected.emit(p.item_id)
+		SfxManager.play(player, "item_pickup")
 	else:
 		player.heal(p.amount)
+		SfxManager.play(player, "coin_pickup")

@@ -88,11 +88,63 @@ func test_upgrade_choices_are_unique_and_apply() -> String:
 			keys["%s:%s" % [c.type, c.id]] = true
 		if keys.size() != 5 and choices[0].type != "heal":
 			return "选项不应重复: %s" % str(keys.keys())
-		if not UpgradeSystem.apply(choices[0], abilities, stats):
-			return "选项应能应用: %s" % choices[0].title
+		var skill_cards: int = 0
+		var pick: Dictionary = choices[0]
+		for c: Dictionary in choices:
+			if UpgradeSystem.SKILL_TYPES.has(c.type):
+				skill_cards += 1
+			if c.type == "skill_new":
+				pick = c  # 优先学新技能，验证技能最终都能学到
+		if skill_cards > UpgradeSystem.MAX_SKILL_CARDS:
+			return "技能类卡牌不应超过 %d 张，实际 %d" % [UpgradeSystem.MAX_SKILL_CARDS, skill_cards]
+		if not UpgradeSystem.apply(pick, abilities, stats):
+			return "选项应能应用: %s" % pick.title
 	for id: String in abilities.pool():
 		if abilities.get_skill(id) == null:
 			return "40 次升级后应已学会全部技能，缺 %s" % id
+	return ""
+
+
+func test_skill_swap_inherits_level_and_unlimited_level() -> String:
+	var abilities: AbilitySystem = AbilitySystem.new()
+	var s: Skill = ShieldBash.new()
+	s.set_level(37)
+	if s.level != 37:
+		return "技能等级应无上限（8 级以上），实际 %d" % s.level
+	if not is_equal_approx(s.area_multiplier(), 1.0 + 0.05 * 36):
+		return "范围倍率应为每级 +5%%，实际 %.2f" % s.area_multiplier()
+	abilities.add_skill(s)
+	var new_id: String = "whirlwind"
+	var choice: Dictionary = {"type": "skill_swap", "id": "shield_bash→%s" % new_id, "title": "", "desc": "", "weight": 1.0}
+	if not UpgradeSystem.apply(choice, abilities, CharacterStats.new()):
+		return "替换应成功"
+	var replaced: Skill = abilities.get_skill(new_id)
+	if replaced == null or replaced.level != 37:
+		return "替换后的技能应继承 37 级，实际 %s" % (str(replaced.level) if replaced else "null")
+	return ""
+
+
+func test_equipment_quality_upgrade_and_enhance() -> String:
+	var s: CharacterStats = CharacterStats.new()
+	s.add_equipment("war_drum", 2)
+	if s.equipment_quality("war_drum") != 2:
+		return "首次拾取应为掉落品质（稀有）"
+	s.add_equipment("war_drum")
+	s.add_equipment("war_drum")
+	if s.equipment_quality("war_drum") != EquipmentQuality.LEGENDARY:
+		return "重复拾取两次应升到传说，实际 %d" % s.equipment_quality("war_drum")
+	s.add_equipment("war_drum")
+	s.add_equipment("war_drum")
+	if s.equipment_enhance_level("war_drum") != 2 or s.equipment.size() != 1:
+		return "传说后继续拾取应强化 +2，且仍只占 1 格"
+	# 传说 15% + 强化 2×2% = 19% 伤害（战鼓本身 ×1.15）
+	if not is_equal_approx(s.damage_multiplier(), 1.15 * 1.19):
+		return "品质伤害加成错误：%.4f" % s.damage_multiplier()
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 3
+	for i in 50:
+		if EquipmentQuality.roll(600.0, EquipmentQuality.Source.BOSS, rng) < 3:
+			return "Boss 掉落应至少史诗"
 	return ""
 
 

@@ -554,12 +554,12 @@ func _players_state() -> Array:
 	return out
 
 
-## [时间, 等级, 经验, 进行中, 击杀, 敌人数, Boss信息, {slot: [装备, 被动]}]
+## [时间, 等级, 经验, 进行中, 击杀, 敌人数, Boss信息, {slot: [装备{id: 品质}, 被动, 强化{id: 等级}]}]
 func _world_state() -> Array:
 	var loadouts: Dictionary = {}
 	for slot: int in players_by_slot:
 		var p: CharacterBody3D = players_by_slot[slot]
-		loadouts[slot] = [p.stats.equipment.keys(), p.stats.passives.keys()]
+		loadouts[slot] = [p.stats.equipment, p.stats.passives.keys(), p.stats.equipment_enhance]
 	return [session.get_game_time(), session.get_player_level(), session.get_player_exp(), session.is_running,
 		spawner.kills, spawner.get_enemy_count(), spawner.get_boss_info(), loadouts, _pickups_state()]
 
@@ -567,7 +567,7 @@ func _world_state() -> Array:
 func _pickups_state() -> Array:
 	var out: Array = []
 	for n: Node in get_tree().get_nodes_in_group("pickups"):
-		out.append([n.get_instance_id(), n.kind, n.item_id, n.global_position])
+		out.append([n.get_instance_id(), n.kind, n.item_id, n.global_position, n.item_quality])
 	return out
 
 
@@ -748,14 +748,14 @@ func _apply_world(w: Array) -> void:
 		var p: CharacterBody3D = players_by_slot.get(int(slot))
 		if p == null:
 			continue
-		var equip: Dictionary = {}
-		for id: String in loadouts[slot][0]:
-			equip[id] = true
+		# loadouts[slot] = [equipment{id: quality}, passives[], equipment_enhance{id: level}]
+		p.stats.equipment = loadouts[slot][0]
 		var passives: Dictionary = {}
 		for id: String in loadouts[slot][1]:
 			passives[id] = true
-		p.stats.equipment = equip
 		p.stats.passives = passives
+		p.stats.equipment_enhance = loadouts[slot][2] if loadouts[slot].size() > 2 else {}
+		p.stats.refresh_quality_bonus()
 	_apply_pickups(w[8])
 
 
@@ -767,7 +767,8 @@ func _apply_pickups(list: Array) -> void:
 		var view: Node3D = _pickup_views.get(id)
 		if view == null or not is_instance_valid(view):
 			view = PickupScript.new()
-			view.setup(item[1], item[2], 0.0)
+			var quality: int = item[4] if item.size() > 4 else 0
+			view.setup(item[1], item[2], 0.0, quality)
 			view.visual_only = true
 			scene.add_child(view)
 			_pickup_views[id] = view

@@ -12,6 +12,8 @@ signal revived
 ## 客户端预测闪避时发出，NetSession 转发给主机。
 signal dodge_requested
 signal equipment_added(item_id: String)
+## 重复拾取：品质提升或传说强化
+signal equipment_upgraded(item_id: String)
 ## 实际扣血后发出（HUD 受伤闪红、飘字）。
 signal hurt(amount: float)
 
@@ -378,7 +380,7 @@ func make_context(enemies: Array) -> SkillContext:
 	ctx.targets = enemies
 	ctx.damage_mult = stats.damage_multiplier()
 	ctx.magnet = stats.has_equipment("magnetic_boots")
-	ctx.crit_chance = crit_chance + stats.bonus_crit
+	ctx.crit_chance = crit_chance + stats.bonus_crit + stats.quality_bonus("crit")
 	ctx.crit_mult = 2.0
 	if stats.has_equipment("backstab_dagger"):
 		ctx.crit_mult = 2.6
@@ -390,6 +392,7 @@ func make_context(enemies: Array) -> SkillContext:
 		ctx.area_mult *= 1.2
 	if stats.has_equipment("grace_staff"):
 		ctx.area_mult *= 1.25
+	ctx.area_mult *= 1.0 + stats.quality_bonus("area")
 	ctx.allies = PlayerQuery.all(get_tree())
 	ctx.rng = _rng
 	ctx.heal_mult = heal_mult
@@ -1010,9 +1013,16 @@ func _update_mouse_aim_mode(delta: float) -> void:
 			rotation.y = lerp_angle(rotation.y, atan2(-facing.x, -facing.z), clampf(delta * 18.0, 0.0, 1.0))
 
 
-func add_equipment(item_id: String) -> void:
-	stats.add_equipment(item_id)
-	# 固定属性：装备时立即应用
+func add_equipment(item_id: String, quality: int = 0) -> void:
+	var first: bool = not stats.has_equipment(item_id)
+	stats.add_equipment(item_id, quality)
+	if not first:
+		# 重复拾取：只升品质 / 强化，不重复叠加固定属性
+		SkillVfx.burst(_fx_parent, "star", global_position + Vector3(0, 1, 0), 1.5, EquipmentQuality.color(stats.equipment_quality(item_id)))
+		SfxManager.play(_fx_parent, "pickup")
+		equipment_upgraded.emit(item_id)
+		return
+	# 固定属性：首次装备时立即应用
 	match item_id:
 		"hp_pendant":
 			stats.max_health *= 1.25

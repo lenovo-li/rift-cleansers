@@ -23,7 +23,9 @@ var health: float = 1000.0
 var shield: float = 0.0
 var rage: float = 0.0
 var passives: Dictionary = {}   # passive_id -> true
-var equipment: Dictionary = {}  # equipment_id -> true
+var equipment: Dictionary = {}  # equipment_id -> quality (0-4)
+var equipment_enhance: Dictionary = {}  # equipment_id -> enhance_level (legendary only)
+var _quality_bonus: Dictionary = {}
 var revenge_remaining: float = 0.0
 var aura_remaining: float = 0.0
 var aura_reflect: float = 0.0
@@ -83,15 +85,15 @@ func set_war_cry(duration: float, attack_speed: float, move_speed: float, damage
 
 ## 移速倍率：属性加成 + 战吼。
 func move_speed_multiplier() -> float:
-	var mult: float = 1.0 + bonus_move_speed
+	var mult: float = 1.0 + bonus_move_speed + quality_bonus("move_speed")
 	if war_cry_remaining > 0.0:
 		mult *= 1.0 + war_cry_move_speed
 	return mult
 
 
-## 装备强化带来的技能冷却倍率。
+## 装备强化 + 装备品质带来的技能冷却倍率。
 func equipment_cooldown_multiplier() -> float:
-	return 1.0 / (1.0 + 0.02 * equipment_power * equipment.size())
+	return (1.0 - quality_bonus("cooldown")) / (1.0 + 0.02 * equipment_power * equipment.size())
 
 
 ## 回光返照：若本次伤害会致死且还没用过，保住 1 点生命并回复 30%。返回是否触发。
@@ -116,12 +118,82 @@ func has_equipment(id: String) -> bool:
 	return equipment.has(id)
 
 
+## 装备品质（0-4）
+func equipment_quality(id: String) -> int:
+	return int(equipment.get(id, 0))
+
+
+## 装备强化等级（传说品质）
+func equipment_enhance_level(id: String) -> int:
+	return int(equipment_enhance.get(id, 0))
+
+
 func add_passive(id: String) -> void:
 	passives[id] = true
 
 
-func add_equipment(id: String) -> void:
-	equipment[id] = true
+## 添加装备或升级品质/强化。initial_quality：首次拾取的品质。
+func add_equipment(id: String, initial_quality: int = 0) -> void:
+	if not equipment.has(id):
+		# 首次获得：设置初始品质
+		equipment[id] = clampi(initial_quality, 0, 4)
+	else:
+		# 重复拾取：升品质或强化
+		var q: int = equipment_quality(id)
+		if q < 4:
+			# 品质未满：升品质（或取掉落品质和当前品质的较大值）
+			equipment[id] = maxi(q + 1, initial_quality)
+		else:
+			# 传说品质：强化
+			equipment_enhance[id] = equipment_enhance.get(id, 0) + 1
+	refresh_quality_bonus()
+
+
+## 缓存的品质加成（add_equipment / 联机同步装备后调用 refresh_quality_bonus 更新）
+func quality_bonus(key: String) -> float:
+	return float(_quality_bonus.get(key, 0.0))
+
+
+func refresh_quality_bonus() -> void:
+	_quality_bonus = equipment_quality_bonuses()
+
+
+## 装备品质加成：按品质和强化等级计算全局属性加成
+## 返回 {damage, cooldown, area, crit, move_speed}
+func equipment_quality_bonuses() -> Dictionary:
+	const QUALITY_DAMAGE: Array[float] = [0.0, 0.03, 0.06, 0.10, 0.15]  # 普通0、优秀+3%...传说+15%
+	const QUALITY_CDR: Array[float] = [0.0, 0.0, 0.03, 0.05, 0.08]      # 稀有开始有冷却缩减
+	const QUALITY_AREA: Array[float] = [0.0, 0.0, 0.0, 0.05, 0.08]      # 史诗开始有范围
+	const QUALITY_CRIT: Array[float] = [0.0, 0.0, 0.0, 0.03, 0.05]      # 史诗开始有暴击
+	const QUALITY_MOVE: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.05]       # 传说才有移速
+
+	var damage: float = 0.0
+	var cdr: float = 0.0
+	var area: float = 0.0
+	var crit: float = 0.0
+	var move: float = 0.0
+
+	for id: String in equipment:
+		var q: int = equipment_quality(id)
+		damage += QUALITY_DAMAGE[q]
+		cdr += QUALITY_CDR[q]
+		area += QUALITY_AREA[q]
+		crit += QUALITY_CRIT[q]
+		move += QUALITY_MOVE[q]
+
+		# 传说品质的强化：每级 +2% 伤害、+1% 冷却缩减
+		if q == 4:
+			var enh: int = equipment_enhance_level(id)
+			damage += float(enh) * 0.02
+			cdr += float(enh) * 0.01
+
+	return {
+		"damage": damage,
+		"cooldown": minf(cdr, 0.4),  # 冷却缩减上限 40%
+		"area": area,
+		"crit": crit,
+		"move_speed": move,
+	}
 
 
 func is_alive() -> bool:
@@ -151,6 +223,7 @@ func damage_multiplier() -> float:
 		mult *= 1.0 + war_cry_damage
 	if equipment_power > 0:
 		mult *= 1.0 + 0.03 * equipment_power * equipment.size()
+	mult *= 1.0 + quality_bonus("damage")
 	return mult
 
 

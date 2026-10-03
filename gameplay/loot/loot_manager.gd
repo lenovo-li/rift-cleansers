@@ -7,11 +7,13 @@ const PickupScript: GDScript = preload("res://gameplay/loot/pickup.gd")
 
 var _pending: Array[String] = []
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var _session: GameSession = null
 
 
 func _ready() -> void:
 	_rng.randomize()
 	await get_tree().process_frame
+	_session = get_tree().root.find_child("GameSession", true, false) as GameSession
 	var director: SpawnDirector = get_tree().root.find_child("SpawnDirector", true, false) as SpawnDirector
 	if director:
 		director.equipment_drop_due.connect(func(_i: int) -> void: drop_equipment_near_player())
@@ -21,8 +23,11 @@ func _ready() -> void:
 
 
 func _on_enemy_killed(enemy: Enemy) -> void:
-	if enemy.is_elite() and DropSystem.rolls_elite_equipment(_rng.randf()):
-		drop_equipment(enemy.global_position)
+	if enemy is Boss:
+		# Boss 必掉史诗以上装备
+		drop_equipment(enemy.global_position, EquipmentQuality.Source.BOSS)
+	elif enemy.is_elite() and DropSystem.rolls_elite_equipment(_rng.randf()):
+		drop_equipment(enemy.global_position, EquipmentQuality.Source.ELITE)
 	elif DropSystem.rolls_heal_orb(_rng.randf()):
 		_spawn("heal", "", DropSystem.HEAL_ORB_AMOUNT, enemy.global_position)
 
@@ -38,24 +43,24 @@ func drop_equipment_near_player() -> void:
 	drop_equipment(target.global_position + Vector3(cos(angle) * r, 0.0, sin(angle) * r))
 
 
-func drop_equipment(pos: Vector3) -> void:
-	# 按离掉落点最近的玩家抽（通用 + 他的角色专属），排除他已有的；没有玩家时只抽通用
+## source：EquipmentQuality.Source（时间表 / 精英 / Boss），决定品质保底。
+func drop_equipment(pos: Vector3, source: int = EquipmentQuality.Source.SCHEDULE) -> void:
+	# 按离掉落点最近的玩家抽（通用 + 他的角色专属）：优先未拥有的，都有了就掉重复的用来升品质
 	var target: Node3D = PlayerQuery.nearest_alive(get_tree(), pos)
 	var char_id: String = str(target.character_id) if target != null else "-"
 	var owned: Dictionary = target.stats.equipment if target != null else {}
-	var id: String = ""
-	if owned.size() < DropSystem.MAX_EQUIPMENT:
-		id = DropSystem.pick_equipment(owned, _pending, char_id, _rng)
+	var id: String = DropSystem.pick_equipment(owned, _pending, char_id, _rng)
 	if id.is_empty():
 		_spawn("heal", "", DropSystem.HEAL_ORB_AMOUNT * 3.0, pos)
 		return
 	_pending.append(id)
-	_spawn("equipment", id, 0.0, pos)
+	var t: float = _session.get_game_time() if _session != null else 0.0
+	_spawn("equipment", id, 0.0, pos, EquipmentQuality.roll(t, source, _rng))
 
 
-func _spawn(kind: String, item_id: String, amount: float, pos: Vector3) -> void:
+func _spawn(kind: String, item_id: String, amount: float, pos: Vector3, quality: int = 0) -> void:
 	var p: Node3D = PickupScript.new()
-	p.setup(kind, item_id, amount)
+	p.setup(kind, item_id, amount, quality)
 	p.collected.connect(_on_collected)
 	add_child(p)
 	var clamped: Vector3 = Vector3(clampf(pos.x, -95.0, 95.0), 0.0, clampf(pos.z, -95.0, 95.0))
@@ -80,7 +85,7 @@ func _owned_by_everyone() -> Dictionary:
 func _on_collected(p: Node3D, player: Node3D) -> void:
 	if p.kind == "equipment":
 		_pending.erase(p.item_id)
-		player.add_equipment(p.item_id)
+		player.add_equipment(p.item_id, p.item_quality)
 		equipment_collected.emit(p.item_id)
 	else:
 		player.heal(p.amount)

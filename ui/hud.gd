@@ -23,7 +23,7 @@ var _shield_label: Label
 var _rage_bar: ProgressBar
 var _exp_bar: ProgressBar
 var _info_label: Label
-var _items_label: Label
+var _items_label: RichTextLabel
 var _skill_panels: Array[Dictionary] = []
 var _boss_box: VBoxContainer
 var _boss_bar: ProgressBar
@@ -66,9 +66,9 @@ func _ready() -> void:
 	_exp_bar = _bar(top_left, Color(0.3, 0.6, 1.0), 10.0)
 	_info_label = _label(top_left, 18)
 
-	_items_label = _label(self, 16)
+	_items_label = _rich_label(self, 16)
 	_place(_items_label, Vector4(1, 0, 1, 0), Vector4(-300, 16, -16, 416))
-	_items_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_items_label.text = ""
 
 	_build_skill_bar()
 	_build_boss_bar()
@@ -109,6 +109,19 @@ func _bar(parent: Node, color: Color, height: float = 22.0) -> ProgressBar:
 func _label(parent: Node, font_size: int) -> Label:
 	var l: Label = Label.new()
 	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	l.add_theme_constant_override("outline_size", 4)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(l)
+	return l
+
+
+## 右对齐的富文本标签（装备列表按品质着色）。
+func _rich_label(parent: Node, font_size: int) -> RichTextLabel:
+	var l: RichTextLabel = RichTextLabel.new()
+	l.bbcode_enabled = true
+	l.scroll_active = false
+	l.add_theme_font_size_override("normal_font_size", font_size)
 	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	l.add_theme_constant_override("outline_size", 4)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -275,14 +288,20 @@ func _update_items(stats: CharacterStats) -> void:
 	if not stats.equipment.is_empty():
 		lines.append("装备")
 		for id: String in stats.equipment:
-			lines.append("%s" % ItemCatalog.equipment_name(id))
+			var q: int = stats.equipment_quality(id)
+			var enh: int = stats.equipment_enhance_level(id)
+			var name: String = ItemCatalog.equipment_name(id)
+			var suffix: String = " +%d" % enh if enh > 0 else ""
+			lines.append("[color=#%s]%s%s[/color]" % [EquipmentQuality.color(q).to_html(false), name, suffix])
 	if not stats.passives.is_empty():
 		lines.append("被动")
 		for id: String in stats.passives:
 			lines.append("%s" % ItemCatalog.passive_name(id))
 	lines.append("")
 	lines.append("FPS %d   敌人 %d" % [Engine.get_frames_per_second(), spawner.get_enemy_count() if spawner else 0])
-	_items_label.text = "\n".join(lines)
+	var text: String = "[right]%s[/right]" % "\n".join(lines)
+	if _items_label.text != text:  # 避免每帧重新解析 BBCode
+		_items_label.text = text
 
 
 func _update_boss() -> void:

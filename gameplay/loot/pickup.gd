@@ -9,6 +9,7 @@ const ORB_LIFETIME: float = 30.0
 
 var kind: String = "heal"  # heal / equipment
 var item_id: String = ""
+var item_quality: int = 0  # 装备品质（0-4）
 var amount: float = 0.0
 ## 客户端显示用：不拾取（拾取由主机判定）。
 var visual_only: bool = false
@@ -16,16 +17,17 @@ var _time: float = 0.0
 var _body: MeshInstance3D = null
 
 
-func setup(p_kind: String, p_item_id: String, p_amount: float) -> void:
+func setup(p_kind: String, p_item_id: String, p_amount: float, p_quality: int = 0) -> void:
 	kind = p_kind
 	item_id = p_item_id
 	amount = p_amount
+	item_quality = p_quality
 
 
 func _ready() -> void:
 	add_to_group("pickups")
 	var is_equipment: bool = kind == "equipment"
-	var color: Color = Color(1.0, 0.8, 0.2) if is_equipment else Color(0.3, 1.0, 0.4)
+	var color: Color = EquipmentQuality.color(item_quality) if is_equipment else Color(0.3, 1.0, 0.4)
 	_body = MeshInstance3D.new()
 	if is_equipment:
 		var box: BoxMesh = BoxMesh.new()
@@ -66,9 +68,9 @@ func _process(delta: float) -> void:
 			var dist: float = d.length()
 			if dist < ORB_MAGNET_RADIUS and dist > 0.01:
 				global_position += d / dist * minf(dist, 14.0 * delta)
-	# 任意存活玩家都能拾取；装备只给还没有这件的玩家（队友可以让给对方）
+	# 装备可以重复拾取（升品质），满 30 个才停止拾取
 	for p: Node3D in PlayerQuery.alive_in_radius(get_tree(), global_position, COLLECT_RADIUS):
-		if kind == "equipment" and (p.stats.has_equipment(item_id) or not ItemCatalog.can_use(item_id, p.character_id) \
+		if kind == "equipment" and (not ItemCatalog.can_use(item_id, p.character_id) \
 				or p.stats.equipment.size() >= DropSystem.MAX_EQUIPMENT):
 			continue
 		collected.emit(self, p)

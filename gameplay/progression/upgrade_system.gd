@@ -6,7 +6,7 @@ class_name UpgradeSystem extends RefCounted
 const CHOICE_COUNT: int = 5
 ## 五张卡里技能类（升级 / 新学 / 替换）最多几张
 const MAX_SKILL_CARDS: int = 2
-const SKILL_TYPES: Array[String] = ["skill_up", "skill_new", "skill_swap"]
+const SKILL_TYPES: Array[String] = ["skill_up", "skill_new", "skill_swap", "skill_reset"]
 const MAX_SKILLS: int = 6
 const HEAL_AMOUNT: float = 200.0
 const WEIGHT_SKILL_UP: float = 3.0

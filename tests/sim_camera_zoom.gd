@@ -1,6 +1,6 @@
 extends SceneTree
 ## 镜头缩放和 Boss 箭头指示测试：开局 5 秒后刷 Boss，测试箭头是否正确显示，并模拟滚轮缩放。
-## 用法: godot --fixed-fps 60 --path . --script res://tests/test_camera_zoom.gd
+## 用法: godot --fixed-fps 60 --path . --script res://tests/sim_camera_zoom.gd
 
 var _scene: Node = null
 var _session: GameSession = null

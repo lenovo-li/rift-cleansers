@@ -82,7 +82,7 @@ func spawn_enemy(enemy_id: String, elite_mods: Array, center: Variant = null, ra
 	# 敌人随游戏时间变强（血量 + 伤害）
 	var power: float = _director.enemy_scaling(_session.get_game_time()) if _director != null and _session != null else 1.0
 	enemy.health_scale *= power
-	enemy.damage_scale = power
+	enemy.def.attack_damage *= power
 	_add(enemy, center, radius)
 	return enemy
 

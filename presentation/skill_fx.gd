@@ -66,7 +66,7 @@ static func _iron_guard(p: Node, caster: Node3D, id: String, r: Dictionary, orig
 	match id:
 		"shield_bash":
 			var radius: float = ShieldBash.BASE_RANGE * (1.5 if tier >= 5 else 1.0)
-			SkillVfx.shield_bash_tiered(p, origin, facing, radius, tier, r.get("hit_points", []), r.get("chain_links", []), intensity)
+			SkillVfx.shield_bash_tiered(p, origin, facing, radius, tier, r.get("hit_points", []), r.get("chain_links", []))
 			var front: Vector3 = origin + facing * radius * 0.55
 			SkillVfx.rune(p, front, radius * 0.6, Color(EMBER if tier >= 8 else BLUE, 0.7), "expand", 0.35, "pulse_sigil")
 			if tier >= 8:

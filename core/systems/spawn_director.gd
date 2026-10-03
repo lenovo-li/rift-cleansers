@@ -3,10 +3,11 @@ class_name SpawnDirector extends Node
 ## 只决定「刷什么、何时刷」，实际生成由 EnemySpawner 完成。
 
 signal spawn_requested(enemy_id: String, elite_mod: String)
-signal boss_requested
+signal boss_requested(boss_index: int)  # boss_index: 0-5 对应第几个 Boss
 signal equipment_drop_due(drop_index: int)
 
-const BOSS_TIME: float = 1080.0  # 18:00（改为18分钟Boss登场）
+## Boss 时间表：每 3 分钟一个，共 6 个
+const BOSS_TIMES: Array[float] = [180.0, 360.0, 540.0, 720.0, 900.0, 1080.0]  # 3/6/9/12/15/18 分钟
 const FIRST_ELITE_TIME: float = 300.0  # 5:00
 const EQUIPMENT_DROP_TIMES: Array[float] = [60.0, 180.0, 300.0, 480.0, 660.0, 840.0, 1020.0]  # 扩展到7个装备掉落
 const ELITE_MODS: Array[String] = ["teleporter", "vampire", "haste", "armored", "explosive", "regenerating", "frost", "burning", "giant"]
@@ -43,7 +44,7 @@ var map_id: String = ""
 var alive_count: int = 0
 ## 多人：返回玩家人数，存活上限 ×(1 + 0.5 × (人数-1))。
 var player_count_provider: Callable = Callable()
-var boss_spawned: bool = false
+var boss_count: int = 0  # 已刷出的 Boss 数量（0-6）
 var game_session: GameSession = null
 var _spawn_timer: float = 0.0
 var _first_elite_done: bool = false
@@ -67,9 +68,10 @@ func _process(delta: float) -> void:
 	while _next_drop < EQUIPMENT_DROP_TIMES.size() and t >= EQUIPMENT_DROP_TIMES[_next_drop]:
 		equipment_drop_due.emit(_next_drop)
 		_next_drop += 1
-	if not boss_spawned and t >= BOSS_TIME and stress_cap <= 0:
-		boss_spawned = true
-		boss_requested.emit()
+	# 检查每个 Boss 时间点
+	while boss_count < BOSS_TIMES.size() and t >= BOSS_TIMES[boss_count] and stress_cap <= 0:
+		boss_requested.emit(boss_count)
+		boss_count += 1
 	_spawn_timer -= delta
 	if _spawn_timer <= 0.0:
 		_spawn_timer = spawn_interval
@@ -77,7 +79,7 @@ func _process(delta: float) -> void:
 
 
 func _spawn_wave(t: float) -> void:
-	var cap: int = stress_cap if stress_cap > 0 else int(get_alive_cap(t, boss_spawned) * _player_scale())
+	var cap: int = stress_cap if stress_cap > 0 else int(get_alive_cap(t, boss_count > 0) * _player_scale())
 	var missing: int = cap - alive_count
 	if missing <= 0:
 		return

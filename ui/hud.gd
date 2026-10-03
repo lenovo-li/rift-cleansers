@@ -389,7 +389,7 @@ func _update_boss_indicator() -> void:
 
 	# 设置箭头位置和旋转
 	_boss_indicator_arrow.position = arrow_pos
-	_boss_indicator_arrow.rotation = direction.angle() + PI * 0.5
+	_boss_indicator_arrow.rotation = direction.angle() - PI * 0.5  # 箭头尖默认朝 +y，转到朝外指向 Boss
 
 
 ## Boss 出现时调用，重置箭头计时

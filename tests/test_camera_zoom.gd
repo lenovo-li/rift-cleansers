@@ -12,6 +12,14 @@ var _done: bool = false
 var _test_time: float = 0.0
 var _zoom_tested: bool = false
 var _arrow_tested: bool = false
+var _expire_tested: bool = false
+var _failures: int = 0
+
+
+func _check(ok: bool, what: String) -> void:
+	print("[test_camera] %s %s" % ["✅" if ok else "❌", what])
+	if not ok:
+		_failures += 1
 
 
 func _init() -> void:
@@ -55,16 +63,22 @@ func _process(_delta: float) -> bool:
 		_test_zoom()
 		_zoom_tested = true
 
-	# 测试箭头指示（15-20 秒）
-	if t > 15.0 and t < 20.0 and not _arrow_tested:
+	# 测试箭头指示（Boss 5 秒刷出，箭头显示 10 秒，7 秒时应可见）
+	if t > 7.0 and not _arrow_tested:
 		_test_arrow_indicator()
 		_arrow_tested = true
 
-	# 25 秒后结束
-	if t > 25.0:
-		print("[test_camera] 测试完成")
+	# 超时后（Boss 刷出 10 秒以上）箭头应隐藏
+	if t > 17.0 and not _expire_tested:
+		_expire_tested = true
+		var indicator: Control = _hud.get("_boss_indicator")
+		_check(not indicator.visible, "10 秒后箭头隐藏")
+
+	# 20 秒后结束
+	if t > 20.0:
+		print("[test_camera] 测试完成，失败 %d 项" % _failures)
 		_done = true
-		quit(0)
+		quit(1 if _failures > 0 else 0)
 
 	return false
 
@@ -115,16 +129,19 @@ func _test_arrow_indicator() -> void:
 	var indicator: Control = _hud.get("_boss_indicator")
 	var indicator_time: float = _hud.get("_boss_indicator_time") if _hud.get("_boss_indicator_time") != null else 0.0
 
-	print("[test_camera] Boss 箭头指示器存在: %s" % indicator)
-	print("[test_camera] 箭头显示时间: %.1fs" % indicator_time)
-	print("[test_camera] 箭头可见性: %s" % indicator.visible)
-
-	if indicator.visible:
-		var arrow: Polygon2D = _hud.get("_boss_indicator_arrow")
-		if arrow:
-			print("[test_camera] ✅ 箭头位置: %s, 旋转: %.2f度" % [arrow.position, rad_to_deg(arrow.rotation)])
-	else:
-		print("[test_camera] ⚠️ 箭头不可见（可能 Boss 在屏幕内或时间已过）")
+	print("[test_camera] 箭头剩余显示时间: %.2fs" % indicator_time)
+	_check(indicator_time > 0.0, "Boss 刷出后箭头计时已启动")
+	_check(indicator.visible, "Boss 在屏幕外时箭头可见")
+	var arrow: Polygon2D = _hud.get("_boss_indicator_arrow")
+	var cam: Camera3D = _camera
+	var boss_screen: Vector2 = cam.unproject_position(_spawner.get_boss_info().pos)
+	var view: Vector2 = _hud.get_viewport_rect().size
+	# 箭头尖（多边形原点）默认朝 +y，旋转后的朝向应与「屏幕中心 → Boss」一致
+	var tip_dir: Vector2 = Vector2(0, 1).rotated(arrow.rotation)
+	var want: Vector2 = (boss_screen - view * 0.5).normalized()
+	print("[test_camera] 箭头位置 %s，屏幕 %s，朝向 %s，应朝 %s" % [arrow.position, view, tip_dir, want])
+	_check(tip_dir.dot(want) > 0.99, "箭头尖指向 Boss")
+	_check(Rect2(Vector2.ZERO, view).has_point(arrow.position), "箭头在屏幕内")
 
 	# 检查 Boss 位置信息
 	var boss_info: Dictionary = _spawner.get_boss_info()

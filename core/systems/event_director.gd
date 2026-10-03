@@ -70,7 +70,7 @@ func trigger(ev: Dictionary) -> void:
 				var id: String = SpawnDirector.pick_enemy_type(t, _rng.randf(), _map_id)
 				var mod: String = SpawnDirector.ELITE_MODS[_rng.randi() % SpawnDirector.ELITE_MODS.size()]
 				var a: float = TAU * i / float(count)
-				_spawner.spawn_enemy(id, mod, anchor + Vector3(cos(a), 0, sin(a)) * ELITE_RING_RADIUS, 0.0)
+				_spawner.spawn_enemy(id, [mod], anchor + Vector3(cos(a), 0, sin(a)) * ELITE_RING_RADIUS, 0.0)
 				SkillVfx.rune(parent, anchor + Vector3(cos(a), 0, sin(a)) * ELITE_RING_RADIUS, 1.6, Color(COLORS[kind], 0.9),
 						"implode", 0.6)
 			pos = anchor

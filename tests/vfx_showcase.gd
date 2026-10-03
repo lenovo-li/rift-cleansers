@@ -50,7 +50,7 @@ func _spawn_ring() -> void:
 	var p: Vector3 = _player.global_position
 	for i in 10:
 		var a: float = TAU * i / 10.0
-		spawner.spawn_enemy("zombie", "", p + Vector3(sin(a), 0, -cos(a)) * 5.0 + Vector3(0, 0, -2.0), 0.5)
+		spawner.spawn_enemy("zombie", [], p + Vector3(sin(a), 0, -cos(a)) * 5.0 + Vector3(0, 0, -2.0), 0.5)
 
 
 func _shot(tag: String) -> void:

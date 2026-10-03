@@ -105,9 +105,10 @@ func _open() -> void:
 	_display(roll_choices.call())
 
 
-func show_remote(choices: Array, remaining: int) -> void:
+func show_remote(choices: Array, remaining: int, can_refresh: bool = true) -> void:
 	_remote = true
 	_queue = remaining
+	_can_refresh = can_refresh
 	_display(choices)
 
 
@@ -117,9 +118,9 @@ func _display(choices: Array) -> void:
 		_choices.append(c)
 
 	_update_title()
-	_refresh_btn.disabled = not _can_refresh or _remote
-	_refresh_btn.visible = not _remote
-	_focus = 0
+	_refresh_btn.disabled = not _can_refresh
+	_refresh_btn.visible = true
+	_set_focus(0)
 
 	# 设置卡牌内容，隐藏多余卡牌
 	for i in _cards.size():

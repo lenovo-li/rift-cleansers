@@ -6,10 +6,10 @@ class_name NetSession extends Node
 ## 局域网原型：没有鉴权和加密，只校验 RPC 发送者与槽位对应。
 
 signal toast_received(text: String)
-signal upgrade_choices_received(choices: Array, remaining: int)
+signal upgrade_choices_received(choices: Array, remaining: int, can_refresh: bool)
 signal game_over_received(reason: String, victory: bool)
 
-enum Action { SKILL, DODGE, UPGRADE, AUTO_CAST }
+enum Action { SKILL, DODGE, UPGRADE, AUTO_CAST, REFRESH_UPGRADE }
 
 const PlayerScene: PackedScene = preload("res://gameplay/actors/player_m1.tscn")
 const ProjectileScript: GDScript = preload("res://gameplay/actors/enemy_projectile.gd")
@@ -44,7 +44,8 @@ var _peer_by_slot: Dictionary = {}     # 主机：slot -> peer id
 var _slot_by_peer: Dictionary = {}     # 主机：peer id -> slot
 var _disconnect_timers: Dictionary = {}  # 主机：slot -> 剩余托管秒数
 var _pending_upgrades: Dictionary = {}   # 主机：slot -> 待选次数
-var _offered: Dictionary = {}            # 主机：slot -> 当前三个选项
+var _offered: Dictionary = {}            # 主机：slot -> 当前五个选项
+var _can_refresh: Dictionary = {}        # 主机：slot -> 是否还能刷新
 var _fx_batch: Array = []
 var _timers: Dictionary = {"player": 0.0, "enemy": 0.0, "world": 0.0, "hello": 0.0, "ping": 0.0}
 var _outbox: Array = []  # 模拟延迟：[到期毫秒, peer, 方法, 参数]
@@ -379,6 +380,8 @@ func rpc_action(kind: int, value: int) -> void:
 			_on_upgrade_pick(player.net_slot, value)
 		Action.AUTO_CAST:
 			player.auto_cast = value != 0
+		Action.REFRESH_UPGRADE:
+			_on_upgrade_refresh(player.net_slot)
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -468,13 +471,24 @@ func queue_upgrade(slot: int) -> void:
 		_offer_upgrade(slot)
 
 
-func _offer_upgrade(slot: int) -> void:
+func _offer_upgrade(slot: int, refreshed: bool = false) -> void:
 	var player: CharacterBody3D = players_by_slot.get(slot)
 	if player == null or not _peer_by_slot.has(slot):
 		return
+	if not refreshed:
+		_can_refresh[slot] = true  # 每次升级可刷新一次
 	var choices: Array[Dictionary] = UpgradeSystem.roll_choices(player.ability_system, player.stats, _rng)
 	_offered[slot] = choices
-	_send(_peer_by_slot[slot], &"rpc_upgrade_choices", [choices, int(_pending_upgrades.get(slot, 1))])
+	_send(_peer_by_slot[slot], &"rpc_upgrade_choices",
+			[choices, int(_pending_upgrades.get(slot, 1)), bool(_can_refresh.get(slot, false))])
+
+
+## 客户端请求刷新：主机校验次数后重新抽取并下发。
+func _on_upgrade_refresh(slot: int) -> void:
+	if int(_pending_upgrades.get(slot, 0)) <= 0 or not bool(_can_refresh.get(slot, false)):
+		return
+	_can_refresh[slot] = false
+	_offer_upgrade(slot, true)
 
 
 func _on_upgrade_pick(slot: int, index: int) -> void:
@@ -628,8 +642,8 @@ func rpc_toast(text: String) -> void:
 
 
 @rpc("authority", "call_remote", "reliable")
-func rpc_upgrade_choices(choices: Array, remaining: int) -> void:
-	upgrade_choices_received.emit(choices, remaining)
+func rpc_upgrade_choices(choices: Array, remaining: int, can_refresh: bool) -> void:
+	upgrade_choices_received.emit(choices, remaining, can_refresh)
 
 
 @rpc("authority", "call_remote", "reliable")

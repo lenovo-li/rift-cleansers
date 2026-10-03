@@ -54,6 +54,9 @@ func _ready() -> void:
 	_upgrade_panel.roll_choices = func() -> Array[Dictionary]:
 		return UpgradeSystem.roll_choices(_player.ability_system, _player.stats, _rng)
 	_upgrade_panel.chosen.connect(_on_upgrade_chosen)
+	_upgrade_panel.refresh_requested.connect(func() -> void:
+		if net != null:
+			net.send_action(NetSession.Action.REFRESH_UPGRADE, 0))
 	_hud.player = _player
 	_hud.session = _session
 	_hud.spawner = _spawner
@@ -206,12 +209,12 @@ func _on_level_up(_new_level: int) -> void:
 		_upgrade_panel.request()
 
 
-## 客户端：主机发来的三个选项。
-func _on_remote_upgrade_choices(choices: Array, remaining: int) -> void:
+## 客户端：主机发来的五个选项。
+func _on_remote_upgrade_choices(choices: Array, remaining: int, can_refresh: bool) -> void:
 	if auto_pick_upgrades:
 		net.send_action(NetSession.Action.UPGRADE, 0)
 	else:
-		_upgrade_panel.show_remote(choices, remaining)
+		_upgrade_panel.show_remote(choices, remaining, can_refresh)
 
 
 func _on_upgrade_chosen(choice: Dictionary, index: int) -> void:

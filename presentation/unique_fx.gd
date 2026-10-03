@@ -253,7 +253,7 @@ static func _flame_cleave(p: Node, o: Vector3, f: Vector3, t: int) -> void:
 static func _thunderstorm(p: Node, o: Vector3, t: int, d: Dictionary) -> void:
 	var root: Node3D = _root(p, o)
 	var dur: float = float(d.get("duration", 1.4))
-	var cloud: MeshInstance3D = _add(root, "ThunderCloud", "solid", Color(0.25, 0.3, 0.5), Vector3.UP * 8.5, Basis.IDENTITY, Vector3(8, 1.2, 8))
+	var cloud: MeshInstance3D = _add(root, "ThunderCloud", "solid", Color(0.25, 0.3, 0.5), Vector3.UP * 6.0, Basis.IDENTITY, Vector3(8, 1.2, 8))
 	var bolt_count: int = 3 if t < 5 else (5 if t < 8 else 7)
 	var bolt_interval: float = dur / float(bolt_count)
 	SkillVfx._run(root, dur, func(el: float, dt: float) -> bool:
@@ -289,7 +289,7 @@ static func _frost_barrier(p: Node, o: Vector3, t: int, d: Dictionary) -> void:
 				Basis(Vector3.UP, a + PI * 0.5) * Basis(Vector3.RIGHT, randf_range(-0.15, 0.15)))
 	var dome: MeshInstance3D = null
 	if t >= 8:
-		dome = _add(root, "FrostDome_B", "fresnel", FROST, Vector3.ZERO, Basis.IDENTITY, Vector3.ONE * 2.4)
+		dome = _add(root, "FrostDome_B", "fresnel", Color(FROST, 0.4), Vector3.ZERO, Basis.IDENTITY, Vector3.ONE * 2.4)
 		if dome:
 			dome.scale = Vector3.ZERO
 	SkillVfx._run(root, dur, func(el: float, dt: float) -> bool:
@@ -326,7 +326,7 @@ static func _arcane_barrage(p: Node, o: Vector3, _f: Vector3, t: int, d: Diction
 			var target: Vector3 = impacts[idx - 1]
 			var dir: Vector3 = (target - o).normalized()
 			var shard: MeshInstance3D = _add(root, "ArcaneShard", "solid", ARCANE, o + Vector3.UP * 1.5,
-					VfxKit.aim_basis(dir), Vector3.ONE * (1.0 if t < 5 else 1.3))
+					VfxKit.aim_basis(dir), Vector3.ONE * (1.5 if t < 5 else 2.0))
 			if shard:
 				shard.set_meta("target", target)
 				shard.set_meta("spawn_t", el)
@@ -405,15 +405,15 @@ static func _shadow_clone(p: Node, o: Vector3, t: int, _d: Dictionary) -> void:
 	var count: int = 1 if t < 5 else (2 if t < 8 else 3)
 	var dur: float = 0.6
 	for k in count:
-		var veil: MeshInstance3D = _add(root, "ShadowVeil", "fresnel", SHADOW, Vector3(k * 0.5, 0, 0))
+		var veil: MeshInstance3D = _add(root, "ShadowVeil", "fresnel", SHADOW, Vector3(k * 0.5, 1.2, 0), Basis.IDENTITY, Vector3.ONE * 1.5)
 		if veil:
 			veil.set_meta("idx", k)
 	SkillVfx._run(root, dur, func(el: float, _dt: float) -> bool:
 		for c: Node in root.get_children():
 			var k: int = (c as Node3D).get_meta("idx", 0)
 			var t_v: float = clampf((el - k * 0.08) / 0.5, 0.0, 1.0)
-			(c as Node3D).scale = Vector3.ONE * (0.8 + 0.7 * _out(t_v))
-			_fade(c, 0.7 * (1.0 - t_v))
+			(c as Node3D).scale = Vector3.ONE * 1.5 * (0.8 + 1.2 * _out(t_v))
+			_fade(c, 0.85 * (1.0 - t_v))
 		return true)
 	_quiet(func() -> void: SkillVfx.burst(p, "smoke", o + Vector3.UP * 1.2, 1.5, SHADOW))
 
@@ -453,7 +453,7 @@ static func _poison_blade(p: Node, o: Vector3, t: int, d: Dictionary) -> void:
 				var target: Vector3 = link[1]
 				var dir: Vector3 = (target - o).normalized()
 				var drop: MeshInstance3D = _add(root, "PoisonDrop", "solid", VENOM, o + Vector3.UP * 1.3,
-						VfxKit.aim_basis(dir), Vector3.ONE * 1.2)
+						VfxKit.aim_basis(dir), Vector3.ONE * 1.8)
 				if drop:
 					drop.set_meta("target", target)
 					drop.set_meta("spawn_t", el)
@@ -482,8 +482,8 @@ static func _guardian_angel(p: Node, o: Vector3, t: int, d: Dictionary) -> void:
 	var dur: float = float(d.get("aura_duration", 10.0))
 	var scale_base: float = 1.0 if t < 5 else 1.3
 	for side in [-1, 1]:
-		var wing: MeshInstance3D = _add(root, "HolyWing", "solid", HOLY, Vector3(side * 0.6, 1.5, -0.3),
-				Basis(Vector3.UP, PI if side < 0 else 0.0), Vector3(side, 1, 1) * scale_base)
+		var wing: MeshInstance3D = _add(root, "HolyWing", "solid", HOLY, Vector3(side * 0.9, 1.8, -0.4),
+				Basis(Vector3.UP, PI if side < 0 else 0.0), Vector3(side, 1, 1) * scale_base * 1.5)
 		if wing:
 			wing.set_meta("side", side)
 	SkillVfx._run(root, dur, func(el: float, dt: float) -> bool:
@@ -524,11 +524,11 @@ static func _purify(p: Node, o: Vector3, t: int, _d: Dictionary) -> void:
 		_quiet(func() -> void: SkillVfx.pillar(p, o, 1.0, 6.0, Color(HOLY, 0.85)))
 
 ## 复活术：在每个目标位置升起光柱 + 翅膀，5 段更高更亮，8 段金色冲天光束。
-static func _resurrection(p: Node, _o: Vector3, t: int, d: Dictionary) -> void:
-	var guarded: Array = d.get("guarded", [])
-	if guarded.is_empty():
-		guarded = [o]
-	for pos: Vector3 in guarded:
+static func _resurrection(p: Node, o: Vector3, t: int, d: Dictionary) -> void:
+	var healed: Array = d.get("healed", [])
+	if healed.is_empty():
+		healed = [o]
+	for pos: Vector3 in healed:
 		var root: Node3D = _root(p, pos)
 		var dur: float = 1.6
 		var spire: MeshInstance3D = _add(root, "ResurrectionSpire", "beam", HOLY, Vector3.ZERO, Basis.IDENTITY,

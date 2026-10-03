@@ -50,6 +50,28 @@ var war_cry_move_speed: float = 0.0
 var war_cry_damage: float = 0.0
 ## 铁壁 8 段：光环反弹伤害时回复该比例的最大生命（每次受击）
 var aura_heal_ratio: float = 0.0
+## 守护天使：剩余秒数、触发时回复比例、触发后无敌秒数
+var guardian_remaining: float = 0.0
+var guardian_heal_ratio: float = 0.0
+var guardian_invuln: float = 0.0
+
+
+func set_guardian(duration: float, heal_ratio: float, invuln: float) -> void:
+	guardian_remaining = maxf(guardian_remaining, duration)
+	guardian_heal_ratio = maxf(guardian_heal_ratio, heal_ratio)
+	guardian_invuln = maxf(guardian_invuln, invuln)
+
+
+## 致命伤时触发守护：回复生命并消耗守护。返回触发后的无敌秒数；没有触发返回 -1。
+func try_guardian() -> float:
+	if health > 0.0 or guardian_remaining <= 0.0:
+		return -1.0
+	health = maxf(1.0, max_health * guardian_heal_ratio)
+	guardian_remaining = 0.0
+	guardian_heal_ratio = 0.0
+	var invuln: float = guardian_invuln
+	guardian_invuln = 0.0
+	return invuln
 
 
 func set_war_cry(duration: float, attack_speed: float, move_speed: float, damage: float) -> void:
@@ -255,6 +277,10 @@ func tick(delta: float) -> void:
 	aura_remaining = maxf(0.0, aura_remaining - delta)
 	if aura_remaining <= 0.0:
 		aura_heal_ratio = 0.0
+	guardian_remaining = maxf(0.0, guardian_remaining - delta)
+	if guardian_remaining <= 0.0:
+		guardian_heal_ratio = 0.0
+		guardian_invuln = 0.0
 	war_cry_remaining = maxf(0.0, war_cry_remaining - delta)
 	if war_cry_remaining <= 0.0:
 		war_cry_attack_speed = 0.0

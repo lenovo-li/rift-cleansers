@@ -246,3 +246,31 @@ func test_divine_intervention_revives_at_tier5() -> String:
 	if not down.revived or not is_equal_approx(down.stats.health, 350.0):
 		return "5 档应复活并恢复 35%%，实际 %.0f" % down.stats.health
 	return ""
+
+
+func test_guardian_angel_prevents_death() -> String:
+	var a1: FakeAlly = FakeAlly.new(Vector3(5, 0, 0), 500.0)
+	var a2: FakeAlly = FakeAlly.new(Vector3(20, 0, 0), 500.0)
+	_at(GuardianAngel.new(), 3).cast(_ctx([], [a1, a2]))
+	if a1.stats.guardian_remaining <= 0.0:
+		return "12m 内的队友应获得守护"
+	if a2.stats.guardian_remaining > 0.0:
+		return "超过 12m 的队友不应获得守护"
+	a1.stats.health = 0.0
+	var invuln: float = a1.stats.try_guardian()
+	if invuln < 0.0:
+		return "致命伤时应触发守护"
+	if not is_equal_approx(a1.stats.health, 500.0):
+		return "3 档守护触发后应回复 50%%，实际 %.0f" % a1.stats.health
+	if a1.stats.guardian_remaining > 0.0:
+		return "触发后应消耗守护"
+	a2.global_position = Vector3(3, 0, 0)
+	_at(GuardianAngel.new(), 8).cast(_ctx([], [a2]))
+	a2.stats.health = 0.0
+	var invuln8: float = a2.stats.try_guardian()
+	if not is_equal_approx(invuln8, 5.0):
+		return "8 档触发后应给 5 秒无敌，实际 %.1f" % invuln8
+	if not is_equal_approx(a2.stats.health, 1000.0):
+		return "8 档应回复 100%%，实际 %.0f" % a2.stats.health
+	return ""
+

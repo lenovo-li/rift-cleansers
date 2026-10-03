@@ -14,6 +14,10 @@ var _t: float = 0.0
 var _shots: Array[float] = [0.15, 0.5]
 var _shot_i: int = 0
 var _attack_t: float = 0.0
+## 开局时场景根下已有的子节点（地图、刷怪器、相机等），清理残留特效时保留
+var _baseline: Dictionary = {}
+## --only=id1,id2：只截这些技能（迭代单个特效时用）
+var _only: PackedStringArray = []
 const SLOT_TIME: float = 2.4
 
 
@@ -25,6 +29,8 @@ func _init() -> void:
 			_level = int(arg.get_slice("=", 1))
 		elif arg.begins_with("--out="):
 			_out = arg.get_slice("=", 1)
+		elif arg.begins_with("--only="):
+			_only = arg.get_slice("=", 1).split(",")
 	DirAccess.make_dir_recursive_absolute(_out)
 	Talents.enabled = false
 	NetConfig.character_id = _char
@@ -37,9 +43,12 @@ func _init() -> void:
 
 ## 玩家 _ready 之后（第一帧）才有 ability_system。
 func _setup_skills() -> void:
+	for c: Node in _scene.get_children():
+		_baseline[c.get_instance_id()] = true
 	var cdef: Dictionary = CharacterCatalog.get_def(_char)
 	for id: String in cdef.skills:
-		_skills.append(id)
+		if _only.is_empty() or id in _only:
+			_skills.append(id)
 		if _player.ability_system.get_skill(id) == null:
 			_player.ability_system.add_skill(SkillFactory.create(id))
 		_player.ability_system.set_level(id, _level)
@@ -101,8 +110,15 @@ func _next() -> void:
 	_shot_i = 0
 	if _index >= _skills.size():
 		return
+	# 清理上一个技能的残留：敌人尸体、地面区域、特效节点
 	for e: Node in get_nodes_in_group("enemies"):
 		e.queue_free()
+	_player.ability_system.zones.clear()
+	_player.ability_system.strikes.clear()
+	# 特效节点都挂在场景根下：开局时记下原有子节点，之后新增的一律当残留特效删掉
+	for c: Node in _scene.get_children():
+		if not _baseline.has(c.get_instance_id()):
+			c.queue_free()
 	_spawn_ring()
 	var id: String = _skills[_index]
 	_player.ability_system.set_cooldown_remaining(id, 0.0)

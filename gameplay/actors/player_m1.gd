@@ -884,6 +884,15 @@ func take_damage(amount: float, source: Variant = null) -> void:
 		hurt.emit(float(result.taken))
 		if float(result.taken) >= 20.0:
 			SfxManager.play(_fx_parent, "hurt")
+	if not stats.is_alive():
+		# 守护天使：免死并回复，优先于回光返照（不消耗装备的一次性效果）
+		var guard_invuln: float = stats.try_guardian()
+		if guard_invuln >= 0.0:
+			_invulnerable_time = maxf(_invulnerable_time, maxf(guard_invuln, 0.5))
+			SkillVfx.pillar(_fx_parent, global_position, 0.9, 6.0, Color(1.0, 0.95, 0.7, 0.9))
+			SkillVfx.burst(_fx_parent, "star", global_position + Vector3(0, 1.5, 0), 1.8, Color(1.0, 0.95, 0.7))
+			SfxManager.play(_fx_parent, "sk_guardian_angel")
+			return
 	if not stats.is_alive() and stats.try_second_wind():
 		_invulnerable_time = maxf(_invulnerable_time, 2.0)
 		SkillVfx.burst(_fx_parent, "star", global_position + Vector3(0, 1, 0), 1.6, Color(1.0, 0.9, 0.5))

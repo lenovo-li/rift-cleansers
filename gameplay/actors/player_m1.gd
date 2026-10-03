@@ -477,6 +477,7 @@ func cast_skill(skill_id: String, use_aim: bool = true) -> Dictionary:
 	ctx.has_aim = ctx.has_aim and use_aim
 	ctx.manual_aim = ctx.manual_aim and use_aim  # 自动施放不受鼠标瞄准影响
 	ctx.damage_mult *= skill.level_bonus()
+	ctx.area_mult *= skill.area_multiplier()  # 技能等级提升范围
 
 	# 设置技能元素
 	var elem: String = Elements.of(skill_id)

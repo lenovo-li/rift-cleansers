@@ -11,7 +11,7 @@ const RANGE: float = 15.0
 func _init() -> void:
 	skill_id = "holy_wrath"
 	display_name = "圣怒"
-	max_level = 8
+	max_level = 999
 
 func get_tier_thresholds() -> Array[int]:
 	return [1, 3, 5, 8]

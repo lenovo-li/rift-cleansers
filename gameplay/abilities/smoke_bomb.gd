@@ -12,7 +12,7 @@ const BASE_DPS: float = 10.0
 func _init() -> void:
 	skill_id = "smoke_bomb"
 	display_name = "烟雾弹"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

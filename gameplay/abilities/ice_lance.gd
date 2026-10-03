@@ -14,7 +14,7 @@ const KNOCKBACK: float = 4.5
 func _init() -> void:
 	skill_id = "ice_lance"
 	display_name = "冰枪术"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

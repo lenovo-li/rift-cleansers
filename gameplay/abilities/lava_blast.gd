@@ -11,7 +11,7 @@ const BASE_DAMAGE: float = 80.0
 func _init() -> void:
 	skill_id = "lava_blast"
 	display_name = "熔岩爆发"
-	max_level = 8
+	max_level = 999
 
 func get_tier_thresholds() -> Array[int]:
 	return [1, 3, 5, 8]

@@ -10,7 +10,7 @@ const KNOCKBACK_FORCE: float = 5.0
 func _init() -> void:
 	skill_id = "shield_bash"
 	display_name = "盾击"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

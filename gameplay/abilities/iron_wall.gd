@@ -8,7 +8,7 @@ class_name IronWall extends Skill
 func _init() -> void:
 	skill_id = "iron_wall"
 	display_name = "铁壁"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

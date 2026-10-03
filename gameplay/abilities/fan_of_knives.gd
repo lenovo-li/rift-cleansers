@@ -12,7 +12,7 @@ const BASE_DAMAGE: float = 35.0
 func _init() -> void:
 	skill_id = "fan_of_knives"
 	display_name = "刀扇"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

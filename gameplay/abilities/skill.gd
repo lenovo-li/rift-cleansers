@@ -5,7 +5,7 @@ class_name Skill extends RefCounted
 var skill_id: String = ""
 var display_name: String = ""
 var level: int = 1
-var max_level: int = 8
+var max_level: int = 999
 
 
 func set_level(value: int) -> void:
@@ -33,6 +33,23 @@ func get_cooldown() -> float:
 ## 档位之间的普通等级：每级伤害 +10%（例如 Lv4 = 3 档 × 1.1）。由施法者乘进 SkillContext.damage_mult。
 func level_bonus() -> float:
 	return 1.0 + 0.1 * float(level - get_tier())
+
+
+## 特效强度倍率：9级后每2级增强一次（+20%粒子/大小）
+func vfx_intensity() -> float:
+	if level <= 8:
+		return 1.0
+	return 1.0 + float((level - 8) / 2) * 0.2
+
+
+## 范围倍率：每级 +5%，高等级可达全屏
+func area_multiplier() -> float:
+	return 1.0 + 0.05 * float(level - 1)
+
+
+## 里程碑等级：每10级触发额外爆发特效（冲击波/闪光）
+func is_milestone_level() -> bool:
+	return level >= 10 and level % 10 == 0
 
 
 ## 执行技能。返回结果字典，至少包含 hits(int) 和 damage(float)。

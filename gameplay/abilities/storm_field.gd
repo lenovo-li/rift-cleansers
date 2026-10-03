@@ -12,7 +12,7 @@ const BASE_DPS: float = 12.0
 func _init() -> void:
 	skill_id = "storm_field"
 	display_name = "雷暴领域"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

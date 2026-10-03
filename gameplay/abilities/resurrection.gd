@@ -8,7 +8,7 @@ class_name Resurrection extends Skill
 func _init() -> void:
 	skill_id = "resurrection"
 	display_name = "复活术"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

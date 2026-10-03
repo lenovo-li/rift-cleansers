@@ -13,7 +13,7 @@ const KNOCKBACK_FORCE: float = 6.0
 func _init() -> void:
 	skill_id = "ground_slam"
 	display_name = "震地"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

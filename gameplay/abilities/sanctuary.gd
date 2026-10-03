@@ -13,7 +13,7 @@ const BASE_HEAL: float = 15.0
 func _init() -> void:
 	skill_id = "sanctuary"
 	display_name = "圣域"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

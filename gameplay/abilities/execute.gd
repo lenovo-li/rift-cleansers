@@ -13,7 +13,7 @@ const CLEAVE_RADIUS: float = 2.5
 func _init() -> void:
 	skill_id = "execute"
 	display_name = "处决"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

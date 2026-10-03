@@ -17,7 +17,7 @@ const MAX_RANGE: float = 22.0
 func _init() -> void:
 	skill_id = "meteor"
 	display_name = "陨石术"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

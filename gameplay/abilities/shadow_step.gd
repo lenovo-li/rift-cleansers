@@ -15,7 +15,7 @@ const RESET_COOLDOWN: float = 1.0
 func _init() -> void:
 	skill_id = "shadow_step"
 	display_name = "影步"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

@@ -13,7 +13,7 @@ const DURATION: float = 8.0
 func _init() -> void:
 	skill_id = "death_mark"
 	display_name = "死亡标记"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

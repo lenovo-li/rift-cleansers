@@ -18,7 +18,7 @@ const BURN_DPS: float = 15.0
 func _init() -> void:
 	skill_id = "charge"
 	display_name = "冲锋"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

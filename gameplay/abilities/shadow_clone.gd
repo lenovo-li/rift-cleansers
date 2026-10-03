@@ -8,7 +8,7 @@ class_name ShadowClone extends Skill
 func _init() -> void:
 	skill_id = "shadow_clone"
 	display_name = "影分身"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

@@ -11,7 +11,7 @@ const BASE_RADIUS: float = 10.0
 func _init() -> void:
 	skill_id = "earthquake"
 	display_name = "地震"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

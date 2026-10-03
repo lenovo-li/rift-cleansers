@@ -10,7 +10,7 @@ const BASE_RADIUS: float = 10.0
 func _init() -> void:
 	skill_id = "thunderstorm"
 	display_name = "雷暴"
-	max_level = 8
+	max_level = 999
 
 func get_tier_thresholds() -> Array[int]:
 	return [1, 3, 5, 8]

@@ -14,7 +14,7 @@ const AURA_DPS: float = 20.0
 func _init() -> void:
 	skill_id = "reflect_aura"
 	display_name = "反射光环"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

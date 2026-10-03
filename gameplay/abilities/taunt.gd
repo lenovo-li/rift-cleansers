@@ -19,7 +19,7 @@ const TAUNT_DURATION: float = 4.0
 func _init() -> void:
 	skill_id = "taunt"
 	display_name = "嘲讽"
-	max_level = 8
+	max_level = 999
 
 
 func get_tier_thresholds() -> Array[int]:

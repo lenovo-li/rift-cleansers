@@ -6,9 +6,18 @@ const POOL_SIZE: int = 60
 const LIFE: float = 0.7
 const BIG_DAMAGE: float = 50.0
 
-enum Kind { NORMAL, BIG, BURN, PLAYER }
-const COLORS: Array[Color] = [Color(1, 1, 1), Color(1.0, 0.85, 0.2), Color(1.0, 0.55, 0.15), Color(1.0, 0.3, 0.3)]
-const SIZES: Array[int] = [56, 84, 48, 72]
+enum Kind { NORMAL, BIG, BURN, PLAYER, CRIT, ICE, POISON, LIGHTNING }
+const COLORS: Array[Color] = [
+	Color(1, 1, 1),           # NORMAL - 白色
+	Color(1.0, 0.85, 0.2),    # BIG - 黄色
+	Color(1.0, 0.55, 0.15),   # BURN - 橙色
+	Color(1.0, 0.3, 0.3),     # PLAYER - 红色
+	Color(1.0, 0.9, 0.0),     # CRIT - 金色
+	Color(0.4, 0.8, 1.0),     # ICE - 冰蓝
+	Color(0.5, 0.9, 0.3),     # POISON - 毒绿
+	Color(0.7, 0.5, 1.0)      # LIGHTNING - 紫电
+]
+const SIZES: Array[int] = [56, 84, 48, 72, 96, 64, 60, 68]
 
 static var _pool: Array[Label3D] = []
 static var _next: int = 0
@@ -28,15 +37,20 @@ static func spawn(parent: Node, pos: Vector3, amount: float, kind: int = -1) -> 
 	label.text = str(roundi(amount))
 	label.modulate = COLORS[kind]
 	label.font_size = SIZES[kind]
-	label.outline_size = 12
+	label.outline_size = 12 if kind != Kind.CRIT else 16
 	var jitter: Vector3 = Vector3(randf_range(-0.6, 0.6), 0.0, randf_range(-0.3, 0.3))
 	label.global_position = pos + Vector3(0, 2.2, 0) + jitter
 	label.visible = true
-	label.scale = Vector3.ONE * (1.4 if kind == Kind.BIG else 1.0)
+	# 暴击特效：更大、带弹性动画
+	var is_crit: bool = (kind == Kind.CRIT)
+	label.scale = Vector3.ONE * (1.8 if is_crit else (1.4 if kind == Kind.BIG else 1.0))
 	var tw: Tween = label.create_tween().set_parallel(true)
-	tw.tween_property(label, "global_position:y", label.global_position.y + 1.6, LIFE).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
-	tw.tween_property(label, "scale", Vector3.ONE, 0.15)
+	tw.tween_property(label, "global_position:y", label.global_position.y + (2.0 if is_crit else 1.6), LIFE).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	tw.tween_property(label, "scale", Vector3.ONE * (1.2 if is_crit else 1.0), 0.15).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	tw.tween_property(label, "modulate:a", 0.0, LIFE * 0.5).set_delay(LIFE * 0.5)
+	# 暴击额外旋转效果
+	if is_crit:
+		tw.tween_property(label, "rotation:y", randf() * PI, LIFE * 0.3)
 	tw.chain().tween_callback(func() -> void: label.visible = false)
 
 

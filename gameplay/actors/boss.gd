@@ -109,6 +109,7 @@ func _behavior_velocity(delta: float, dir: Vector3, dist: float) -> Vector3:
 	if new_phase != phase:
 		phase = new_phase
 		phase_changed.emit(phase)
+		_phase_transition_vfx(new_phase)
 		if affix == "volatile":
 			_rain_on_players(2, 2.5, 1.2, 35.0, Color(1.0, 0.4, 0.1, 0.45), "爆裂坠石")
 	if affix == "berserk":
@@ -359,6 +360,47 @@ func die() -> void:
 	if _telegraph != null:
 		_telegraph.visible = false
 	super.die()
+
+
+## Boss 阶段转换特效：冲击波、粒子爆发、震屏
+func _phase_transition_vfx(new_phase: int) -> void:
+	var pos: Vector3 = global_position
+	var color: Color = def.color
+
+	# 根据 Boss 变体调整颜色
+	match variant:
+		"frost_lich": color = Color(0.4, 0.8, 1.0)
+		"ember_tyrant": color = Color(1.0, 0.4, 0.1)
+		"void_reaper": color = Color(0.5, 0.1, 0.7)
+		"rotwood_treant": color = Color(0.5, 0.8, 0.3)
+
+	# 阶段 2：中等强度转换
+	if new_phase == 2:
+		SkillVfx.shockwave(effects_parent, pos, 8.0, Color(color, 0.9), 0.6)
+		SkillVfx.burst(effects_parent, "magic", pos + Vector3(0, 1.5, 0), 2.0, color)
+		SkillVfx.pulse_ring(effects_parent, pos, 10.0, Color(color, 0.7), 0.5)
+		SkillVfx.shake(get_tree(), 0.25)
+		# 短暂无敌帧
+		set_physics_process(false)
+		await get_tree().create_timer(0.3).timeout
+		set_physics_process(true)
+
+	# 阶段 3：超强转换特效
+	elif new_phase == 3:
+		SkillVfx.shockwave(effects_parent, pos, 12.0, Color(color, 1.0), 0.8)
+		SkillVfx.burst(effects_parent, "star", pos + Vector3(0, 2.0, 0), 2.5, color)
+		SkillVfx.pulse_ring(effects_parent, pos, 15.0, Color(color, 0.9), 0.6)
+		SkillVfx.rune(effects_parent, pos, 10.0, Color(color, 0.8), "expand", 0.8, "rune_circle")
+		# 环形冲击波
+		for i in 12:
+			var angle: float = i * TAU / 12.0
+			var offset: Vector3 = Vector3(cos(angle), 0, sin(angle)) * 6.0
+			SkillVfx.burst(effects_parent, "magic", pos + offset, 1.0, color)
+		SkillVfx.shake(get_tree(), 0.4)
+		# 更长的无敌帧
+		set_physics_process(false)
+		await get_tree().create_timer(0.5).timeout
+		set_physics_process(true)
 
 
 # ---------- 烬焰暴君 ----------

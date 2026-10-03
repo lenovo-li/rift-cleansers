@@ -117,6 +117,21 @@ func _ready() -> void:
 	_retarget_timer = randf() * 0.5
 	if effects_parent == null:
 		effects_parent = get_parent()
+	# 双词缀精英：生成时的华丽特效
+	if elite_mods.size() >= 2:
+		_spawn_elite_vfx()
+
+
+## 双词缀精英生成特效：冲击波 + 粒子爆发
+func _spawn_elite_vfx() -> void:
+	if effects_parent == null:
+		return
+	await get_tree().process_frame
+	var pos: Vector3 = global_position
+	var color: Color = ELITE_COLORS.get(elite_mod, Color.WHITE)
+	SkillVfx.shockwave(effects_parent, pos, 4.0, Color(color, 0.8), 0.4)
+	SkillVfx.burst(effects_parent, "star", pos + Vector3(0, 1.0, 0), 1.5, color)
+	SkillVfx.pulse_ring(effects_parent, pos, 5.0, Color(color, 0.6), 0.5)
 
 
 func get_display_name() -> String:

@@ -63,32 +63,39 @@ static func _up(v: Vector3, h: float) -> Vector3:
 # ---------------- 铁卫 ----------------
 static func _iron_guard(p: Node, caster: Node3D, id: String, r: Dictionary, origin: Vector3, facing: Vector3, tier: int, intensity: float) -> void:
 	var slot: int = int(caster.get("net_slot"))
+	# 强度加成：每 10 级额外爆发、每 20 级额外震屏
+	var burst_bonus: int = int(intensity / 10.0)
+	var shake_bonus: float = 0.05 * floor(intensity / 20.0)
 	match id:
 		"shield_bash":
 			var radius: float = ShieldBash.BASE_RANGE * (1.5 if tier >= 5 else 1.0)
 			SkillVfx.shield_bash_tiered(p, origin, facing, radius, tier, r.get("hit_points", []), r.get("chain_links", []))
 			var front: Vector3 = origin + facing * radius * 0.55
-			SkillVfx.rune(p, front, radius * 0.6, Color(EMBER if tier >= 8 else BLUE, 0.7), "expand", 0.35, "pulse_sigil")
+			SkillVfx.rune(p, front, radius * 0.6 * intensity, Color(EMBER if tier >= 8 else BLUE, 0.7), "expand", 0.35, "pulse_sigil")
 			if tier >= 8:
-				SkillVfx.spike_ring(p, front, radius * 0.8 * intensity, "rock", 6)
+				SkillVfx.spike_ring(p, front, radius * 0.8 * intensity, "rock", 6 + burst_bonus)
 				SkillVfx.crack_decal(p, front, radius * 0.7 * intensity, FIRE, 2.0)
+			for i in burst_bonus:
+				SkillVfx.burst(p, "magic", _up(front, 0.5 + i * 0.3), 0.8, BLUE)
 		"whirlwind":
-			SkillVfx.whirlwind(p, caster, float(r.radius), float(r.duration),
+			SkillVfx.whirlwind(p, caster, float(r.radius) * intensity, float(r.duration),
 					Color(1.0, 0.6, 0.3, 0.5) if tier >= 8 else Color(0.55, 1.0, 0.7, 0.5), "whirl", tier)
-			SkillVfx.rune(p, origin, float(r.radius), Color(0.55, 1.0, 0.7, 0.6), "expand", 0.4, "glow_ring")
+			SkillVfx.rune(p, origin, float(r.radius) * intensity, Color(0.55, 1.0, 0.7, 0.6), "expand", 0.4, "glow_ring")
+			for i in burst_bonus:
+				SkillVfx.burst(p, "wind", origin + Vector3(randf() * 2 - 1, 1.5, randf() * 2 - 1), 1.0)
 		"taunt":
-			var radius: float = float(r.radius)
+			var radius: float = float(r.radius) * intensity
 			# 拉拢：法阵从外向内收缩，和敌人被拉过来的方向一致
 			SkillVfx.rune(p, origin, radius, Color(1.0, 0.3, 0.2, 0.9), "implode", 0.5, "rune_circle")
 			SkillVfx.shockwave(p, origin, radius, Color(1.0, 0.25, 0.2, 1.0), 0.5)
-			SkillVfx.burst(p, "magic", _up(origin, 1.5), 1.0, Color(1.0, 0.35, 0.25))
+			SkillVfx.burst(p, "magic", _up(origin, 1.5), 1.0 + burst_bonus * 0.2, Color(1.0, 0.35, 0.25))
 			if tier >= 3:
 				SkillVfx.pulse_ring(p, origin, radius * 0.9, Color(0.6, 0.8, 1.0, 0.5), 0.5)  # 减速
 			if tier >= 5 and float(r.get("shield", 0.0)) > 0.0:
-				SkillVfx.shield_pulse(p, origin, 2.2, BLUE, 4)
+				SkillVfx.shield_pulse(p, origin, 2.2 * intensity, BLUE, 4)
 			if tier >= 8:
-				SkillVfx.shockwave(p, origin, 3.0, Color(1.0, 0.6, 0.3, 1.0), 0.35)
-				SkillVfx.spike_ring(p, origin, 2.6, "rock", 8)
+				SkillVfx.shockwave(p, origin, 3.0 * intensity, Color(1.0, 0.6, 0.3, 1.0), 0.35)
+				SkillVfx.spike_ring(p, origin, 2.6 * intensity, "rock", 8 + burst_bonus)
 		"charge":
 			var end: Vector3 = r.end_position
 			var color: Color = Color(1.0, 0.5, 0.1, 0.45) if tier >= 8 else Color(0.5, 0.8, 1.0, 0.4)

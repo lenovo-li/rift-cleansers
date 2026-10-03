@@ -250,6 +250,7 @@ func _on_boss_spawned(boss: Boss) -> void:
 	_boss_spawn_time = _session.get_game_time()
 	_boss_affix = boss.affix
 	_broadcast_toast("%s 降临！" % boss.get_display_name())
+	_hud.on_boss_spawned()  # 通知 HUD 启动箭头指示
 	boss.phase_changed.connect(func(phase: int) -> void:
 		SkillVfx.shockwave(self, boss.global_position, 12.0, Color(0.9, 0.1, 0.25, 1.0), 0.7)
 		SfxManager.play(self, "slam")

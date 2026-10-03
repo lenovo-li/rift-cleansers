@@ -1,4 +1,4 @@
-"""生成游戏里的全部模型（4 个角色、10 种敌人、4 个 Boss、石堆、地面装饰、4 套地图零件），导出到 assets/models/*.glb。
+"""生成游戏里的全部模型（4 个角色、10 种敌人、6 个 Boss、石堆、地面装饰、4 套地图零件），导出到 assets/models/*.glb。
 用法（项目根目录）：
   blender --background --factory-startup --python tools/blender/build_models.py -- [--preview] [名字 ...]
 --preview 额外渲染 tools/blender/previews/<名字>.png 用于检查造型（零件包横向排开渲染）。
@@ -34,6 +34,7 @@ MODELS = {
     "sand_scarab": (enemies.sand_scarab, 0.8), "spore_shambler": (enemies.spore_shambler, 1.4),
     "corrupted_knight": (bosses.corrupted_knight, 1.3), "frost_lich": (bosses.frost_lich, 1.3),
     "sand_colossus": (bosses.sand_colossus, 1.3), "rotwood_treant": (bosses.rotwood_treant, 1.3),
+    "ember_tyrant": (bosses.ember_tyrant, 1.3), "void_reaper": (bosses.void_reaper, 1.3),
     "rocks": (kits.rocks, 1.0),
 }
 # 零件包：函数返回 {网格名: [零件...]}，每组导出为同一个 glb 里的独立网格

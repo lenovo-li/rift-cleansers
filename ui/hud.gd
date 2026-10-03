@@ -28,6 +28,11 @@ var _skill_panels: Array[Dictionary] = []
 var _boss_box: VBoxContainer
 var _boss_bar: ProgressBar
 var _boss_label: Label
+var _boss_indicator: Control  # Boss 屏幕外箭头指示器
+var _boss_indicator_arrow: Polygon2D
+var _boss_position: Vector3 = Vector3.ZERO  # 当前 Boss 的位置
+var _boss_indicator_time: float = 0.0  # 箭头显示时长（Boss 出现后 10 秒内显示）
+const BOSS_INDICATOR_DURATION: float = 10.0
 var _toast: Label
 var _toast_time: float = 0.0
 var _team_label: Label
@@ -198,6 +203,17 @@ func _build_boss_bar() -> void:
 	_boss_bar.custom_minimum_size = Vector2(700, 18)
 	_boss_box.visible = false
 
+	# Boss 屏幕外箭头指示器
+	_boss_indicator = Control.new()
+	_boss_indicator.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_boss_indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_boss_indicator)
+	_boss_indicator_arrow = Polygon2D.new()
+	_boss_indicator_arrow.polygon = PackedVector2Array([Vector2(-20, -30), Vector2(20, -30), Vector2(0, 0)])
+	_boss_indicator_arrow.color = Color(0.9, 0.1, 0.2, 0.85)
+	_boss_indicator.add_child(_boss_indicator_arrow)
+	_boss_indicator.visible = false
+
 
 func _process(delta: float) -> void:
 	if _toast_time > 0.0:
@@ -205,6 +221,10 @@ func _process(delta: float) -> void:
 		_toast.modulate.a = clampf(_toast_time / 0.5, 0.0, 1.0)
 	if player == null or session == null:
 		return
+
+	# Boss 箭头指示器倒计时
+	if _boss_indicator_time > 0.0:
+		_boss_indicator_time -= delta
 
 	# 鼠标光标：瞄准模式显示准星，否则显示箭头
 	if player.mouse_aim_active:
@@ -232,6 +252,7 @@ func _process(delta: float) -> void:
 	_update_skills()
 	_update_items(stats)
 	_update_boss()
+	_update_boss_indicator()
 	_update_team()
 	if _debug_label.visible:
 		_debug_label.text = net.debug_text() if net != null else "[单人] F3 调试（联机时显示网络状态）"
@@ -311,3 +332,66 @@ func _update_boss() -> void:
 		_boss_label.text = "%s  阶段 %d" % [info.name, info.phase]
 		_boss_bar.max_value = info.max_hp
 		_boss_bar.value = info.hp
+		# 更新 Boss 位置
+		if info.has("pos"):
+			_boss_position = info.pos
+	else:
+		_boss_position = Vector3.ZERO
+
+
+## Boss 屏幕外箭头指示器：Boss 出现后 10 秒内，如果 Boss 不在屏幕内，在屏幕边缘显示指向 Boss 的箭头
+func _update_boss_indicator() -> void:
+	if _boss_position == Vector3.ZERO or _boss_indicator_time <= 0.0:
+		_boss_indicator.visible = false
+		return
+
+	var cam: Camera3D = get_viewport().get_camera_3d()
+	if cam == null:
+		_boss_indicator.visible = false
+		return
+
+	var screen_pos: Vector2 = cam.unproject_position(_boss_position)
+	var viewport_size: Vector2 = get_viewport_rect().size
+
+	# 检查 Boss 是否在屏幕内
+	var margin: float = 100.0
+	var in_screen: bool = screen_pos.x > -margin and screen_pos.x < viewport_size.x + margin \
+						and screen_pos.y > -margin and screen_pos.y < viewport_size.y + margin
+
+	# 检查 Boss 是否在镜头后方
+	var cam_to_boss: Vector3 = _boss_position - cam.global_position
+	var is_behind: bool = cam_to_boss.dot(-cam.global_transform.basis.z) < 0.0
+
+	if in_screen and not is_behind:
+		_boss_indicator.visible = false
+		return
+
+	# Boss 在屏幕外，显示箭头
+	_boss_indicator.visible = true
+
+	# 计算箭头位置：屏幕中心到 Boss 的方向，限制在屏幕边缘
+	var center: Vector2 = viewport_size * 0.5
+	var direction: Vector2 = (screen_pos - center).normalized()
+	var edge_margin: float = 60.0
+
+	# 计算箭头在屏幕边缘的位置
+	var t_x: float = INF
+	var t_y: float = INF
+
+	if abs(direction.x) > 0.001:
+		t_x = ((viewport_size.x - edge_margin if direction.x > 0 else edge_margin) - center.x) / direction.x
+
+	if abs(direction.y) > 0.001:
+		t_y = ((viewport_size.y - edge_margin if direction.y > 0 else edge_margin) - center.y) / direction.y
+
+	var t: float = min(t_x, t_y)
+	var arrow_pos: Vector2 = center + direction * t
+
+	# 设置箭头位置和旋转
+	_boss_indicator_arrow.position = arrow_pos
+	_boss_indicator_arrow.rotation = direction.angle() + PI * 0.5
+
+
+## Boss 出现时调用，重置箭头计时
+func on_boss_spawned() -> void:
+	_boss_indicator_time = BOSS_INDICATOR_DURATION

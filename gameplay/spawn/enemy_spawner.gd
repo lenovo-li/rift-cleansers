@@ -255,4 +255,5 @@ func get_boss_info() -> Dictionary:
 		"max_hp": latest.max_health,
 		"index": latest.boss_index,
 		"alive": bosses.size(),
+		"pos": latest.global_position,
 	}

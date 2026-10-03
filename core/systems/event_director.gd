@@ -106,7 +106,7 @@ func trigger(ev: Dictionary) -> void:
 	# 从天而降的光柱 + 地面法阵，远处也能看到事件位置（经 SkillVfx 录制，联机客户端同样可见）
 	SkillVfx.pillar(parent, pos, 0.9, 14.0, Color(COLORS[kind], 0.85))
 	SkillVfx.rune(parent, pos, 2.5, Color(COLORS[kind], 0.9), "flash", 2.5, "glow_ring")
-	SfxManager.play(parent, "evolve")
+	SfxManager.play(parent, "wave_start" if kind == Kind.ELITE_WAVE else "evolve")
 	event_triggered.emit(kind, TEXTS[kind])
 	print("[Event] %s t=%.0f at %s" % [Kind.keys()[kind], _session.get_game_time(), pos])
 
@@ -145,4 +145,3 @@ func _spawn_healing_zone(pos: Vector3, radius: float, heal_per_sec: float, durat
 					SkillVfx.burst(get_tree().current_scene, "magic", player.global_position + Vector3(0, 1.0, 0), 0.8, Color(0.4, 1.0, 0.6))
 
 	zone.queue_free()
-

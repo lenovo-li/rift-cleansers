@@ -51,6 +51,7 @@ func _ready() -> void:
 	_session.level_up.connect(_on_level_up)
 	_spawner.boss_spawned.connect(_on_boss_spawned)
 	_spawner.boss_defeated.connect(func(boss_name: String, is_final: bool) -> void:
+		SfxManager.play(self, "wave_complete")  # 一轮 Boss 波次结束
 		if is_final:
 			_session.end_game("击败了全部 Boss！", true)
 		else:
@@ -93,6 +94,7 @@ func _ready() -> void:
 	_director.player_count_provider = func() -> int: return PlayerQuery.all(get_tree()).size()
 	_session.player_count_provider = _director.player_count_provider
 	_session.start_game()
+	SfxManager.play(self, "wave_start")  # 开局音效
 	var keys: PackedStringArray = []
 	var slots: Array[String] = _player.ability_system.equipped
 	for i in slots.size():
@@ -350,6 +352,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _open_pause_menu() -> void:
 	if _pause_menu != null or _invite_panel != null or _game_over_panel != null or _upgrade_panel.is_open():
 		return
+	SfxManager.play(self, "ui_open")
 	var solo: bool = not NetConfig.is_online()
 	_pause_menu = PauseMenu.build(solo)
 	_pause_menu.show_invite = NetConfig.is_host() and NetConfig.p2p
@@ -377,6 +380,7 @@ func _open_invite_panel() -> void:
 func _close_pause_menu() -> void:
 	if _pause_menu == null:
 		return
+	SfxManager.play(self, "ui_close")
 	_pause_menu.queue_free()
 	_pause_menu = null
 	if not NetConfig.is_online():

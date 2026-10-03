@@ -150,6 +150,8 @@ func _gui_input(event: InputEvent) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_MOUSE_ENTER:
+		if not _hover and is_inside_tree():
+			SfxManager.play(self, "ui_hover")
 		_hover = true
 	elif what == NOTIFICATION_MOUSE_EXIT:
 		_hover = false

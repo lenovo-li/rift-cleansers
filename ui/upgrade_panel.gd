@@ -130,6 +130,8 @@ func _display(choices: Array) -> void:
 		else:
 			_cards[i].visible = false
 
+	if not visible:  # 刷新选项也会走这里，只在真正打开面板时播
+		SfxManager.play(self, "ui_open")
 	visible = true
 	_dim.color.a = 0.65 if pause_game else 0.25
 
@@ -149,6 +151,8 @@ func _display(choices: Array) -> void:
 
 
 func close() -> void:
+	if visible:
+		SfxManager.play(self, "ui_close")
 	visible = false
 	_queue = 0
 	if pause_game:
@@ -195,7 +199,10 @@ func _pick(index: int) -> void:
 
 
 func _set_focus(index: int) -> void:
+	var prev: int = _focus
 	_focus = clampi(index, 0, maxi(0, _choices.size() - 1))
+	if visible and _focus != prev:  # 十字键 / 方向键切换选中卡片
+		SfxManager.play(self, "ui_hover")
 	for i in _cards.size():
 		_cards[i].set_highlight(i == _focus)
 

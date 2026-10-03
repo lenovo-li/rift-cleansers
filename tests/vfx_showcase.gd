@@ -43,6 +43,7 @@ func _init() -> void:
 
 ## 玩家 _ready 之后（第一帧）才有 ability_system。
 func _setup_skills() -> void:
+	_player.auto_cast = false  # 存档里可能开着自动施放，会把别的技能混进截图
 	for c: Node in _scene.get_children():
 		_baseline[c.get_instance_id()] = true
 	var cdef: Dictionary = CharacterCatalog.get_def(_char)
@@ -117,7 +118,8 @@ func _next() -> void:
 	_player.ability_system.strikes.clear()
 	# 特效节点都挂在场景根下：开局时记下原有子节点，之后新增的一律当残留特效删掉
 	for c: Node in _scene.get_children():
-		if not _baseline.has(c.get_instance_id()):
+		# GPUParticles3D 是 ParticleFx 的复用池，Label3D 是 DamageNumbers 的复用池
+		if not _baseline.has(c.get_instance_id()) and not c is GPUParticles3D and not c is Label3D:
 			c.queue_free()
 	_spawn_ring()
 	var id: String = _skills[_index]

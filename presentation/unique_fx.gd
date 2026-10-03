@@ -253,26 +253,28 @@ static func _flame_cleave(p: Node, o: Vector3, f: Vector3, t: int) -> void:
 static func _thunderstorm(p: Node, o: Vector3, t: int, d: Dictionary) -> void:
 	var root: Node3D = _root(p, o)
 	var dur: float = float(d.get("duration", 1.4))
-	var cloud: MeshInstance3D = _add(root, "ThunderCloud", "solid", Color(0.25, 0.3, 0.5), Vector3.UP * 6.0, Basis.IDENTITY, Vector3(8, 1.2, 8))
+	var cloud: MeshInstance3D = _add(root, "ThunderCloud", "solid", Color(0.3, 0.35, 0.45, 0.7), Vector3.UP * 5.0, Basis.IDENTITY,
+			Vector3(6.0, 1.8, 6.0) * (1.0 if t < 8 else 1.4))
 	var bolt_count: int = 3 if t < 5 else (5 if t < 8 else 7)
-	var bolt_interval: float = dur / float(bolt_count)
+	var bolt_interval: float = 0.35  # 固定间隔 0.35 秒一道闪电
+	var next_bolt: float = 0.0  # 下一道闪电的时间点
 	SkillVfx._run(root, dur, func(el: float, dt: float) -> bool:
 		if cloud:
-			cloud.rotation.y += dt * 0.4
-			_fade(cloud, 1.0 if el < dur - 0.3 else (dur - el) / 0.3)
-		var bolt_idx: int = int(el / bolt_interval)
-		var prev_idx: int = int((el - dt) / bolt_interval)
-		if bolt_idx > prev_idx and bolt_idx < bolt_count:
+			cloud.rotation.y += dt * 0.5
+			_fade(cloud, 1.0 if el < dur - 0.4 else (dur - el) / 0.4)
+		# 持续期间不断劈闪电，施放时立即劈第一道
+		if el >= next_bolt and next_bolt < dur:
 			var offset: Vector3 = Vector3(randf_range(-7, 7), 0, randf_range(-7, 7))
-			var bolt: MeshInstance3D = _add(root, "ThunderBolt", "beam", STORM, offset)
+			var bolt: MeshInstance3D = _add(root, "ThunderBolt", "beam", STORM, offset, Basis.IDENTITY, Vector3.ONE * 1.2)
 			if bolt:
 				bolt.set_meta("spawn_t", el)
-			_quiet(func() -> void: SkillVfx.burst(p, "magic", o + offset, 1.0, STORM))
+			_quiet(func() -> void: SkillVfx.burst(p, "magic", o + offset, 1.2, STORM))
+			next_bolt += bolt_interval
 		for c: Node in root.get_children():
 			if c.has_meta("spawn_t"):
 				var age: float = el - (c as Node3D).get_meta("spawn_t")
-				_fade(c, max(0.0, 1.0 - age / 0.3))
-				if age > 0.3:
+				_fade(c, max(0.0, 1.0 - age / 0.35))
+				if age > 0.35:
 					c.queue_free()
 		return true)
 
@@ -317,33 +319,56 @@ static func _frost_barrier(p: Node, o: Vector3, t: int, d: Dictionary) -> void:
 static func _arcane_barrage(p: Node, o: Vector3, _f: Vector3, t: int, d: Dictionary) -> void:
 	var root: Node3D = _root(p, o)
 	var impacts: Array = d.get("impacts", [])
-	var dur: float = 0.1 * impacts.size() + 0.6
+	var count: int = maxi(int(d.get("projectiles", impacts.size())), impacts.size())
+	if count == 0:
+		return
+	const HALO_R: float = 1.3
+	const HALO_H: float = 2.4
+	const CHARGE: float = 0.35  # 蓄力：水晶在头顶排成一圈旋转
+	const GAP: float = 0.07     # 依次甩出的间隔
+	const FLIGHT: float = 0.38
+	var size: float = 2.2 if t < 5 else 3.0
 	var shards: Array[MeshInstance3D] = []
+	for k in count:
+		var target: Vector3 = impacts[k] if k < impacts.size() else o + _dir(k / float(count) * TAU) * 9.0
+		var sh: MeshInstance3D = _add(root, "ArcaneShard", "solid", ARCANE, Vector3.UP * HALO_H, Basis.IDENTITY, Vector3.ZERO)
+		if sh == null:
+			continue
+		sh.set_meta("k", k)
+		sh.set_meta("target", target - root.global_position + Vector3.UP * 0.6)
+		sh.set_meta("side", randf_range(-2.5, 2.5))  # 弧线向左/右弯，同一个目标的几发不重叠
+		shards.append(sh)
+	var dur: float = CHARGE + GAP * count + FLIGHT + 0.1
 	SkillVfx._run(root, dur, func(el: float, _dt: float) -> bool:
-		var idx: int = int(el / 0.1)
-		var prev_idx: int = int((el - _dt) / 0.1)
-		if idx > prev_idx and idx <= impacts.size():
-			var target: Vector3 = impacts[idx - 1]
-			var dir: Vector3 = (target - o).normalized()
-			var shard: MeshInstance3D = _add(root, "ArcaneShard", "solid", ARCANE, o + Vector3.UP * 1.5,
-					VfxKit.aim_basis(dir), Vector3.ONE * (1.5 if t < 5 else 2.0))
-			if shard:
-				shard.set_meta("target", target)
-				shard.set_meta("spawn_t", el)
-				shard.set_meta("duration", o.distance_to(target) / 18.0)
-				shards.append(shard)
 		for sh: MeshInstance3D in shards:
 			if not is_instance_valid(sh):
 				continue
-			var age: float = el - sh.get_meta("spawn_t")
-			var flight_dur: float = sh.get_meta("duration")
-			if age <= flight_dur:
-				var prog: float = age / flight_dur
-				sh.global_position = o + Vector3.UP * 1.5 + (sh.get_meta("target") - o) * prog
-			else:
-				_quiet(func() -> void: SkillVfx.burst(p, "magic", sh.get_meta("target") + Vector3.UP * 0.5, 0.8, ARCANE))
+			var k: int = sh.get_meta("k")
+			var a: float = k / float(count) * TAU + el * 5.0
+			var halo: Vector3 = _dir(a) * HALO_R + Vector3.UP * HALO_H
+			var launch: float = CHARGE + GAP * k
+			if el < launch:
+				# 蓄力：从 0 放大，绕头顶旋转，尖端朝外
+				sh.position = halo
+				sh.basis = VfxKit.aim_basis(_dir(a)) * Basis.from_scale(Vector3.ONE * size * _out(el / 0.2))
+				continue
+			var ft: float = (el - launch) / FLIGHT
+			var target: Vector3 = sh.get_meta("target")
+			if ft >= 1.0:
+				_quiet(func() -> void:
+					SkillVfx.burst(p, "magic", root.global_position + target, 1.3, ARCANE)
+					SkillVfx.pulse_ring(p, root.global_position + target, 1.2, Color(ARCANE, 0.8), 0.25))
 				sh.queue_free()
+				continue
+			# 二次贝塞尔：头顶 → 斜上方控制点 → 目标
+			var ctrl: Vector3 = (halo + target) * 0.5 + Vector3.UP * 2.5 + (target - halo).cross(Vector3.UP).normalized() * float(sh.get_meta("side"))
+			var e: float = ft * ft  # 先慢后快
+			var pos: Vector3 = halo.lerp(ctrl, e).lerp(ctrl.lerp(target, e), e)
+			var nxt: Vector3 = halo.lerp(ctrl, minf(e + 0.05, 1.0)).lerp(ctrl.lerp(target, minf(e + 0.05, 1.0)), minf(e + 0.05, 1.0))
+			sh.position = pos
+			sh.basis = VfxKit.aim_basis(nxt - pos) * Basis.from_scale(Vector3(size * 0.8, size * 0.8, size * 1.6))  # 飞行时拉长
 		return true)
+	_quiet(func() -> void: SkillVfx.rune(p, o, 2.0, Color(ARCANE, 0.85), "flash", CHARGE + 0.3))
 
 
 ## 熔岩爆发：火山口 + 熔岩喷泉从地面喷出，5 段三柱，8 段更大范围。
@@ -379,64 +404,125 @@ static func _lava_blast(p: Node, o: Vector3, t: int, _d: Dictionary) -> void:
 static func _eviscerate(p: Node, _o: Vector3, t: int, d: Dictionary) -> void:
 	if not d.has("center"):
 		return
+	# 俯视镜头：爪痕平放在离地 1 米处、朝镜头倾斜一点；竖起来的话只看得到一条边
 	var root: Node3D = _root(p, d.center)
-	var dur: float = 0.5
-	var claw: MeshInstance3D = _add(root, "ShadowClaw", "slash", Color(0.9, 0.2, 0.3), Vector3.ZERO,
-			Basis(Vector3.UP, randf() * TAU) * Basis(Vector3.RIGHT, PI * 0.5), Vector3.ONE * 1.6)
-	SkillVfx._run(root, dur, func(el: float, _dt: float) -> bool:
+	var hits: int = 2 if t < 3 else (3 if t < 8 else 4)  # 段位越高爪痕越多
+	var tint: Color = BLOOD if bool(d.get("executed", false)) else Color(1.0, 0.35, 0.5)
+	var base_yaw: float = randf() * TAU
+	var parts: Array[MeshInstance3D] = []
+	for k in hits:
+		var rot: Basis = Basis(Vector3.UP, base_yaw + k * TAU / hits * 0.37) * Basis(Vector3.RIGHT, -0.35)
+		var claw: MeshInstance3D = _add(root, "ShadowClaw", "slash", tint, Vector3.UP * 1.0, rot, Vector3.ZERO)
 		if claw:
-			_progress(claw, clampf(el / 0.35, 0.0, 1.0))
-			_fade(claw, 1.0 - el / dur)
-		return true)
+			claw.set_meta("delay", k * 0.09)
+			parts.append(claw)
+	var spray: MeshInstance3D = null
 	if t >= 5:
-		var spray: MeshInstance3D = _add(root, "BloodSpray", "solid", BLOOD, Vector3.UP * 1.0)
-		if spray:
-			SkillVfx._run(spray, 0.4, func(el: float, _dt: float) -> bool:
-				spray.position.y = 1.0 - el * 1.5
-				spray.scale = Vector3.ONE * (1.0 + el * 2.0)
-				_fade(spray, 1.0 - el / 0.4)
-				return true)
-	if t >= 8 and d.get("executed", false):
-		_quiet(func() -> void: SkillVfx.pillar(p, d.center, 1.2, 5.0, Color(BLOOD, 0.95)))
-
-## 暗影分身：暗影雾气在施法者位置爆开，3 段持续更久，5 段双重，8 段三重雾团。
-static func _shadow_clone(p: Node, o: Vector3, t: int, _d: Dictionary) -> void:
-	var root: Node3D = _root(p, o)
-	var count: int = 1 if t < 5 else (2 if t < 8 else 3)
-	var dur: float = 0.6
-	for k in count:
-		var veil: MeshInstance3D = _add(root, "ShadowVeil", "fresnel", SHADOW, Vector3(k * 0.5, 1.2, 0), Basis.IDENTITY, Vector3.ONE * 1.5)
-		if veil:
-			veil.set_meta("idx", k)
+		spray = _add(root, "BloodSpray", "solid", BLOOD, Vector3.UP * 1.0, Basis.IDENTITY, Vector3.ZERO)
+	var dur: float = 0.09 * hits + 0.45
 	SkillVfx._run(root, dur, func(el: float, _dt: float) -> bool:
-		for c: Node in root.get_children():
-			var k: int = (c as Node3D).get_meta("idx", 0)
-			var t_v: float = clampf((el - k * 0.08) / 0.5, 0.0, 1.0)
-			(c as Node3D).scale = Vector3.ONE * 1.5 * (0.8 + 1.2 * _out(t_v))
-			_fade(c, 0.85 * (1.0 - t_v))
+		for c: MeshInstance3D in parts:
+			var lt: float = (el - float(c.get_meta("delay"))) / 0.3
+			if lt < 0.0:
+				continue
+			c.scale = Vector3.ONE * 2.6 * (1.0 + 0.25 * _out(lt))
+			_progress(c, clampf(lt, 0.0, 1.0))
+			_fade(c, clampf(1.6 - lt, 0.0, 1.0))
+		if spray:
+			var st: float = clampf((el - 0.12) / 0.45, 0.0, 1.0)
+			spray.scale = Vector3.ONE * (0.01 + 3.2 * _out(st))
+			spray.position.y = 1.0 - 0.8 * st * st
+			_fade(spray, 1.0 - st)
 		return true)
-	_quiet(func() -> void: SkillVfx.burst(p, "smoke", o + Vector3.UP * 1.2, 1.5, SHADOW))
+	_quiet(func() -> void:
+		SkillVfx.burst(p, "spark", d.center + Vector3.UP * 1.0, 1.2, tint)
+		if t >= 8 and bool(d.get("executed", false)):
+			SkillVfx.pillar(p, d.center, 1.2, 5.0, Color(BLOOD, 0.95)))
 
-## 背刺：爪痕从背后刺穿目标 + 血液飞溅，3 段金光爆闪，8 段处决时红柱。
+## 暗影分身：施法者的紫色剪影分身（用角色自己的模型），绕施法者游走，每 0.6 秒挥出一道暗影斩；
+## 持续整个技能时长。5 段两个分身，8 段三个且斩击变红。
+static func _shadow_clone(p: Node, o: Vector3, t: int, d: Dictionary) -> void:
+	var root: Node3D = _root(p, o)
+	var caster: Node3D = SkillVfx._player_by_slot(p.get_tree(), int(d.get("slot", 0)))
+	var body: Mesh = caster.get("ghost_mesh") if is_instance_valid(caster) else null
+	var count: int = 1 if t < 5 else (2 if t < 8 else 3)
+	var dur: float = float(d.get("duration", 8.0))
+	var orbit: float = float(d.get("radius", 3.5)) * 0.45
+	var slash_tint: Color = BLOOD if t >= 8 else SHADOW
+	var clones: Array[MeshInstance3D] = []
+	for k in count:
+		var c: MeshInstance3D = VfxKit.spawn(root, body, "fresnel", Color(SHADOW, 1.0)) if body != null \
+				else _add(root, "ShadowVeil", "fresnel", SHADOW)
+		if c:
+			c.set_meta("phase", k / float(count) * TAU)
+			clones.append(c)
+	var slashes: Array[MeshInstance3D] = []
+	var next_slash: Array = [0.15]  # 数组包一层：lambda 里只能改容器内容
+	SkillVfx._run(root, dur, func(el: float, dt: float) -> bool:
+		if is_instance_valid(caster):
+			root.global_position = Vector3(caster.global_position.x, 0.0, caster.global_position.z)
+		var appear: float = _out(el / 0.3)
+		var vanish: float = clampf((dur - el) / 0.4, 0.0, 1.0)
+		for c: MeshInstance3D in clones:
+			var a: float = float(c.get_meta("phase")) + el * 1.6
+			c.position = _dir(a) * orbit * appear + Vector3.UP * (0.15 * sin(el * 4.0 + a))
+			c.basis = Basis(Vector3.UP, a + PI * 0.5)  # 面朝绕行方向
+			_fade(c, 0.9 * minf(appear, vanish) * (0.75 + 0.25 * sin(el * 9.0 + a)))  # 轻微闪烁
+		if el >= next_slash[0] and el < dur - 0.4:
+			next_slash[0] += 0.6
+			for c: MeshInstance3D in clones:
+				var s: MeshInstance3D = _add(root, "kit:SlashArc", "slash", slash_tint, c.position + Vector3.UP * 0.9,
+						c.basis * Basis(Vector3.FORWARD, randf_range(-0.6, 0.6)), Vector3.ONE * 1.6)
+				if s:
+					s.set_meta("born", el)
+					slashes.append(s)
+		for s: MeshInstance3D in slashes:
+			if is_instance_valid(s):
+				var age: float = (el - float(s.get_meta("born"))) / 0.25
+				_progress(s, age)
+				if age >= 1.0:
+					s.queue_free()
+		return true)
+	_quiet(func() -> void:
+		SkillVfx.burst(p, "smoke", o + Vector3.UP * 1.0, 1.8, Color(0.3, 0.2, 0.45, 0.8))
+		SkillVfx.rune(p, o, orbit + 1.0, Color(SHADOW, 0.8), "flash", 0.6))
+
+## 背刺：巨大匕首从背后刺穿目标 + 血液飞溅，3 段金光爆闪，8 段击杀时红柱。
 static func _backstab(p: Node, _o: Vector3, f: Vector3, t: int, d: Dictionary) -> void:
 	if not d.has("center"):
 		return
+	# 根节点放在目标脚下，下面全部用局部坐标。vfx_kit 的 Dagger 刀尖朝 -Z，aim_basis(facing) 让刀尖指向 facing。
 	var root: Node3D = _root(p, d.center)
-	var dur: float = 0.4
-	var rot: Basis = VfxKit.aim_basis(f) * Basis(Vector3.RIGHT, PI * 0.5)
-	var claw: MeshInstance3D = _add(root, "ShadowClaw", "slash", Color(0.9, 0.5, 0.6), Vector3.ZERO, rot, Vector3.ONE * 1.0)
-	var spray: MeshInstance3D = _add(root, "BloodSpray", "solid", BLOOD, Vector3.UP * 0.8, Basis.IDENTITY, Vector3.ONE * 0.8)
+	var facing: Vector3 = f if f.length_squared() > 0.01 else Vector3.FORWARD
+	var start: Vector3 = -facing * 3.0 + Vector3.UP * 1.3   # 目标背后
+	var stop: Vector3 = facing * 1.2 + Vector3.UP * 1.0     # 刀尖穿出目标前方
+	var size: float = 4.0 if t < 5 else 5.5
+	var dagger: MeshInstance3D = _add(root, "kit:Dagger", "solid", Color(0.75, 0.2, 0.35) if t < 8 else BLOOD,
+			start, VfxKit.aim_basis(facing), Vector3.ZERO)
+	var trail: MeshInstance3D = _add(root, "kit:SlashArc", "slash", Color(SHADOW, 1.0), Vector3.UP * 1.1,
+			VfxKit.facing_basis(facing), Vector3(0.6, 1.0, 2.2))
+	var spray: MeshInstance3D = _add(root, "BloodSpray", "solid", BLOOD, Vector3.UP * 1.0, VfxKit.facing_basis(facing), Vector3.ZERO)
+	var dur: float = 0.55
 	SkillVfx._run(root, dur, func(el: float, _dt: float) -> bool:
-		if claw:
-			_progress(claw, clampf(el / 0.3, 0.0, 1.0))
-			_fade(claw, 1.0 - el / dur)
+		var thrust: float = _out(clampf(el / 0.16, 0.0, 1.0))
+		if dagger:
+			dagger.position = start.lerp(stop, thrust)
+			dagger.basis = VfxKit.aim_basis(facing) * Basis.from_scale(Vector3.ONE * size * clampf(el / 0.06, 0.2, 1.0))
+			_fade(dagger, clampf((dur - el) / 0.2, 0.0, 1.0))
+		if trail:
+			_progress(trail, clampf(el / 0.2, 0.0, 1.0))
 		if spray:
-			_fade(spray, 1.0 - el / dur)
+			var st: float = clampf((el - 0.14) / 0.35, 0.0, 1.0)
+			spray.position = Vector3.UP * 1.0 + facing * 1.2 * st
+			spray.scale = Vector3.ONE * (0.01 + 3.0 * _out(st))
+			_fade(spray, 1.0 - st)
 		return true)
-	if t >= 3:
-		_quiet(func() -> void: SkillVfx.rune(p, d.center, 1.2, Color(1.0, 0.8, 0.3, 0.9), "flash", 0.3))
-	if t >= 8 and d.get("killed", 0) > 0:
-		_quiet(func() -> void: SkillVfx.pillar(p, d.center, 0.9, 4.0, Color(BLOOD, 0.9)))
+	_quiet(func() -> void:
+		SkillVfx.pulse_ring(p, d.center, 1.5, Color(BLOOD, 0.9), 0.3)
+		if t >= 3:
+			SkillVfx.rune(p, d.center, 1.3, Color(1.0, 0.85, 0.35, 0.95), "flash", 0.35)
+		if t >= 8 and int(d.get("killed", 0)) > 0:
+			SkillVfx.pillar(p, d.center, 1.2, 5.0, Color(BLOOD, 0.95)))
 
 ## 毒刃：毒液滴从施法者飞向目标链，命中后炸开绿色毒雾，8 段留下持续毒云。
 static func _poison_blade(p: Node, o: Vector3, t: int, d: Dictionary) -> void:
@@ -444,6 +530,7 @@ static func _poison_blade(p: Node, o: Vector3, t: int, d: Dictionary) -> void:
 	var links: Array = d.get("links", [])
 	var dur: float = 0.08 * links.size() + 0.5
 	var drops: Array[MeshInstance3D] = []
+	var size: float = 3.2 if t < 5 else 4.2
 	SkillVfx._run(root, dur, func(el: float, _dt: float) -> bool:
 		var idx: int = int(el / 0.08)
 		var prev_idx: int = int((el - _dt) / 0.08)
@@ -453,13 +540,15 @@ static func _poison_blade(p: Node, o: Vector3, t: int, d: Dictionary) -> void:
 				var target: Vector3 = link[1]
 				var dir: Vector3 = (target - o).normalized()
 				var drop: MeshInstance3D = _add(root, "PoisonDrop", "solid", VENOM, o + Vector3.UP * 1.3,
-						VfxKit.aim_basis(dir), Vector3.ONE * 1.8)
+						VfxKit.aim_basis(dir), Vector3.ONE * size)
 				if drop:
 					drop.set_meta("target", target)
 					drop.set_meta("spawn_t", el)
 					drop.set_meta("duration", o.distance_to(target) / 16.0)
 					drop.rotation.y = randf() * TAU
 					drops.append(drop)
+				# 绿色拖尾让飞行轨迹更明显
+				_quiet(func() -> void: SkillVfx.dash_trail(p, o + Vector3.UP * 1.3, target + Vector3.UP * 0.5, 0.25, Color(VENOM, 0.5)))
 		for dr: MeshInstance3D in drops:
 			if not is_instance_valid(dr):
 				continue
@@ -469,7 +558,9 @@ static func _poison_blade(p: Node, o: Vector3, t: int, d: Dictionary) -> void:
 				dr.global_position = o + Vector3.UP * 1.3 + (dr.get_meta("target") - o) * (age / flight_dur)
 				dr.rotation.y += _dt * 8.0
 			else:
-				_quiet(func() -> void: SkillVfx.burst(p, "smoke", dr.get_meta("target") + Vector3.UP * 0.5, 0.7, VENOM))
+				_quiet(func() -> void:
+					SkillVfx.burst(p, "smoke", dr.get_meta("target") + Vector3.UP * 0.5, 1.2, Color(VENOM, 0.85))
+					SkillVfx.pulse_ring(p, dr.get_meta("target"), 1.0, Color(VENOM, 0.7), 0.25))
 				dr.queue_free()
 		return true)
 
@@ -480,17 +571,27 @@ static func _poison_blade(p: Node, o: Vector3, t: int, d: Dictionary) -> void:
 static func _guardian_angel(p: Node, o: Vector3, t: int, d: Dictionary) -> void:
 	var root: Node3D = _root(p, o)
 	var dur: float = float(d.get("aura_duration", 10.0))
-	var scale_base: float = 1.0 if t < 5 else 1.3
+	var scale_base: float = 1.8 if t < 5 else 2.3  # 俯视镜头约 28 米远，翼展要 6-8 米才看得出形状
 	for side in [-1, 1]:
-		var wing: MeshInstance3D = _add(root, "HolyWing", "solid", HOLY, Vector3(side * 0.9, 1.8, -0.4),
-				Basis(Vector3.UP, PI if side < 0 else 0.0), Vector3(side, 1, 1) * scale_base * 1.5)
+		# HolyWing 模型是右翼（+X 方向展开），左翼通过 scale.x = -1 镜像
+		# 翅膀竖在 XZ 平面，Godot 的 Y 轴朝上，所以不旋转，直接放在背后肩高位置
+		var pivot: Node3D = Node3D.new()
+		pivot.name = "WingPivot_%d" % side
+		pivot.position = Vector3(side * 0.25, 1.4, 0.3)  # 肩后（+Z 是角色背后：截图时角色朝 -Z）
+		root.add_child(pivot)
+		var wing: MeshInstance3D = _add(pivot, "HolyWing", "solid", HOLY, Vector3.ZERO, Basis.IDENTITY,
+				Vector3(side * scale_base, scale_base, scale_base))
 		if wing:
-			wing.set_meta("side", side)
-	SkillVfx._run(root, dur, func(el: float, dt: float) -> bool:
+			pivot.set_meta("side", side)
+			pivot.set_meta("wing", wing)
+	SkillVfx._run(root, dur, func(el: float, _dt: float) -> bool:
 		for c: Node in root.get_children():
-			var side: int = (c as Node3D).get_meta("side", 1)
-			var flap: float = sin(el * 3.0) * 0.15
-			(c as Node3D).rotation.z = side * (0.2 + flap)
+			if not c.has_meta("side"):
+				continue
+			var side: int = c.get_meta("side", 1)
+			var flap: float = sin(el * 2.5) * 0.18
+			# 扇动：绕 Y 轴旋转（翅膀根部向前/向后摆动）
+			(c as Node3D).rotation.y = side * (0.3 + flap)
 		if el > dur - 0.5:
 			_fade_all(root, (dur - el) / 0.5)
 		return true)
@@ -530,50 +631,63 @@ static func _resurrection(p: Node, o: Vector3, t: int, d: Dictionary) -> void:
 		healed = [o]
 	for pos: Vector3 in healed:
 		var root: Node3D = _root(p, pos)
-		var dur: float = 1.6
-		var spire: MeshInstance3D = _add(root, "ResurrectionSpire", "beam", HOLY, Vector3.ZERO, Basis.IDENTITY,
-				Vector3.ONE * (0.8 if t < 5 else 1.0))
+		var dur: float = 1.8
+		var h: float = 1.2 if t < 5 else 1.6
+		var spire: MeshInstance3D = _add(root, "ResurrectionSpire", "beam", HOLY, Vector3.ZERO, Basis.IDENTITY, Vector3.ONE)
+		var wings: MeshInstance3D = _add(root, "HolyWing", "solid", Color(HOLY, 0.9), Vector3.UP * 0.8, Basis.IDENTITY, Vector3.ZERO)
 		if spire:
-			spire.scale.y = 0.01
+			spire.scale = Vector3(1.5, 0.01, 1.5)
 		SkillVfx._run(root, dur, func(el: float, _dt: float) -> bool:
+			var rise_t: float = clampf(el / 0.7, 0.0, 1.0)
+			var fade_t: float = clampf((dur - el) / 0.6, 0.0, 1.0)
 			if spire:
-				var rise_t: float = clampf(el / 0.6, 0.0, 1.0)
-				spire.scale.y = (0.8 if t < 5 else 1.2) * _out(rise_t)
-				if el > dur - 0.5:
-					_fade(spire, (dur - el) / 0.5)
+				spire.scale.y = h * _out(rise_t)
+				_fade(spire, fade_t)
+			if wings:
+				wings.scale = Vector3.ONE * 2.2 * _out(rise_t * 0.8)
+				wings.rotation.y = el * 1.2
+				_fade(wings, fade_t * 0.85)
 			return true)
-		_quiet(func() -> void: SkillVfx.burst(p, "star", pos + Vector3.UP * 1.8, 1.5, HOLY))
+		_quiet(func() -> void:
+			SkillVfx.burst(p, "star", pos + Vector3.UP * 1.5, 1.8, HOLY)
+			SkillVfx.pulse_ring(p, pos, 2.0, Color(HOLY, 0.85), 0.5))
 		if t >= 8:
-			_quiet(func() -> void: SkillVfx.pillar(p, pos, 1.2, 8.0, Color(HOLY, 0.9)))
+			_quiet(func() -> void: SkillVfx.pillar(p, pos, 1.4, 9.0, Color(HOLY, 0.95)))
 
 ## 圣怒：圣剑从天而降插入目标位置，5 段三剑，8 段加金色符文爆炸。
 static func _holy_wrath(p: Node, _o: Vector3, t: int, d: Dictionary) -> void:
 	if not d.has("center"):
 		return
 	var root: Node3D = _root(p, d.center)
-	var dur: float = 0.8
+	var dur: float = 1.0
 	var count: int = 1 if t < 5 else 3
+	var blade_size: float = 3.0 if t < 5 else 3.8
 	for k in count:
-		var offset: Vector3 = Vector3.ZERO if k == 0 else Vector3(randf_range(-1.2, 1.2), 0, randf_range(-1.2, 1.2))
-		var blade: MeshInstance3D = _add(root, "HolyBlade", "solid", HOLY, offset + Vector3.UP * 7.0,
-				Basis.IDENTITY, Vector3.ONE * (1.0 if k == 0 else 0.8))
+		var offset: Vector3 = Vector3.ZERO if k == 0 else Vector3(randf_range(-1.5, 1.5), 0, randf_range(-1.5, 1.5))
+		var blade: MeshInstance3D = _add(root, "HolyBlade", "solid", HOLY, offset + Vector3.UP * 9.0,
+				Basis.IDENTITY, Vector3.ONE * blade_size * (1.0 if k == 0 else 0.75))
 		if blade:
 			blade.set_meta("idx", k)
 			blade.set_meta("offset", offset)
+			blade.set_meta("size", blade_size * (1.0 if k == 0 else 0.75))
 	SkillVfx._run(root, dur, func(el: float, _dt: float) -> bool:
 		for c: Node in root.get_children():
 			var k: int = (c as Node3D).get_meta("idx", 0)
-			var drop_t: float = clampf((el - k * 0.12) / 0.25, 0.0, 1.0)
+			var drop_t: float = clampf((el - k * 0.15) / 0.35, 0.0, 1.0)
 			var offset: Vector3 = (c as Node3D).get_meta("offset", Vector3.ZERO)
-			(c as Node3D).position = offset + Vector3.UP * (7.0 * (1.0 - drop_t * drop_t))
+			var sz: float = (c as Node3D).get_meta("size", 1.0)
+			var h: float = 9.0 * (1.0 - drop_t * drop_t * drop_t)
+			(c as Node3D).position = offset + Vector3.UP * maxf(h, 0.15)
+			# 剑插入地面后留一小段，然后淡出
 			if drop_t >= 1.0:
-				_fade(c, max(0.0, 1.0 - (el - k * 0.12 - 0.25) / 0.4))
+				(c as Node3D).scale = Vector3.ONE * sz * (1.0 if h > 0.2 else clampf((h - 0.1) / 0.1, 0.3, 1.0))
+				_fade(c, clampf(1.2 - (el - k * 0.15 - 0.35) / 0.45, 0.0, 1.0))
 		return true)
 	_quiet(func() -> void:
-		SkillVfx.burst(p, "magic", d.center + Vector3.UP * 0.5, 2.5, HOLY)
-		SkillVfx.shockwave(p, d.center, 3.0, HOLY, 0.6))
+		SkillVfx.burst(p, "magic", d.center + Vector3.UP * 0.5, 2.8, HOLY)
+		SkillVfx.shockwave(p, d.center, 3.5, HOLY, 0.7))
 	if t >= 8:
-		_quiet(func() -> void: SkillVfx.rune(p, d.center, 3.5, Color(HOLY, 0.95), "flash", 0.8, "holy_sigil"))
+		_quiet(func() -> void: SkillVfx.rune(p, d.center, 4.0, Color(HOLY, 0.95), "flash", 0.9, "holy_sigil"))
 
 
 

@@ -206,6 +206,7 @@ func _broadcast_toast(text: String) -> void:
 func _on_level_up(_new_level: int) -> void:
 	if NetConfig.is_client():
 		return
+	SfxManager.play(self, "level_up")
 	for p: Node3D in PlayerQuery.all(get_tree()):
 		SkillVfx.burst(self, "star", p.global_position + Vector3(0, 1, 0), 1.0)
 	_hud.flash_level_up()
@@ -249,11 +250,13 @@ func _apply_upgrade(choice: Dictionary) -> void:
 func _on_boss_spawned(boss: Boss) -> void:
 	_boss_spawn_time = _session.get_game_time()
 	_boss_affix = boss.affix
+	SfxManager.play_at(self, "boss_roar", boss.global_position)
 	_broadcast_toast("%s 降临！" % boss.get_display_name())
 	_hud.on_boss_spawned()  # 通知 HUD 启动箭头指示
 	boss.phase_changed.connect(func(phase: int) -> void:
 		SkillVfx.shockwave(self, boss.global_position, 12.0, Color(0.9, 0.1, 0.25, 1.0), 0.7)
 		SfxManager.play(self, "slam")
+		SfxManager.play_at(self, "boss_roar", boss.global_position)
 		HitStop.trigger(get_tree(), 0.08)
 		_broadcast_toast("%s 进入第 %d 阶段：%s" % [boss.get_display_name(), phase, Boss.phase_hint(boss.variant, phase)]))
 

@@ -147,6 +147,126 @@ def enemy_hit(seed, variant):
     result[:len(thud)] += thud
     return normalize_rms(fade_in_out(result), 0.13)
 
+def level_up(seed, variant):
+    """升级：上升音阶（五声音阶）+ 金色光辉音色（celesta + 泛音）。"""
+    dur = 1.2
+    # 五声音阶上升：C5-D5-E5-G5-A5-C6
+    pitches = [72, 74, 76, 79, 81, 84]
+    notes = [(i * 0.15, 0.25, GM["celesta"], pitches[i], 90 + variant * 5) for i in range(len(pitches))]
+    celesta = render_midi_layer(notes, dur)
+    # 泛音层：明亮的共鸣
+    harmonics = sum(sine_wave(523.25 * (2 ** (i / 12)) * (k + 1), dur) * (0.3 / (k + 1))
+                    for i, k in zip([0, 2, 4, 7, 9, 12], range(6)))
+    harmonics = envelope(harmonics, 0.1, 0.2, 0.6, 0.5)
+    return normalize_rms(fade_in_out(celesta * 0.8 + harmonics * 0.4), 0.18)
+
+
+def item_pickup(seed, variant):
+    """拾取物品：短促的上升音 + 轻快的钟声。"""
+    dur = 0.35
+    # 上升音：300-800Hz
+    sweep = frequency_sweep(300 + variant * 30, 800, 0.15)
+    sweep = envelope(sweep, 0.005, 0.03, 0, 0.1)
+    # 钟声：glock
+    notes = [(0.08, 0.3, GM["glock"], 84 + variant * 2, 85)]
+    bell = render_midi_layer(notes, dur)
+    return normalize_rms(fade_in_out(np.pad(sweep, (0, int(dur * RATE) - len(sweep))) + bell * 0.7), 0.14)
+
+
+def coin_pickup(seed, variant):
+    """拾取金币：清脆的金属碰撞 + 短促回声。"""
+    dur = 0.25
+    # 金属碰撞：高频噪声 + 正弦波
+    clink = white_noise(0.04, seed + variant)
+    clink = bandpass_filter(clink, 2500, 6000)
+    tone = sine_wave(3200 + variant * 100, 0.04) * 0.5
+    impact = (clink + tone) * 0.6
+    impact = envelope(impact, 0.001, 0.01, 0, 0.025)
+    # 回声
+    echo = impact * 0.3
+    result = np.zeros(int(dur * RATE), dtype=np.float32)
+    result[:len(impact)] += impact
+    result[int(0.08 * RATE):int(0.08 * RATE) + len(echo)] += echo
+    return normalize_rms(fade_in_out(result), 0.12)
+
+
+def ui_hover(seed, variant):
+    """UI悬停：短促的轻柔音调。"""
+    dur = 0.08
+    tone = sine_wave(600 + variant * 50, dur) * 0.4
+    tone = envelope(tone, 0.01, 0.02, 0, 0.05)
+    return normalize_rms(fade_in_out(tone), 0.08)
+
+
+def ui_click(seed, variant):
+    """UI点击：清脆的咔嗒声。"""
+    dur = 0.06
+    click = white_noise(0.02, seed + variant)
+    click = bandpass_filter(click, 1500, 4000)
+    click = envelope(click, 0.001, 0.008, 0, 0.015)
+    return normalize_rms(fade_in_out(np.pad(click, (0, int(dur * RATE) - len(click)))), 0.09)
+
+
+def ui_open(seed, variant):
+    """UI打开：上升音 + 展开感。"""
+    dur = 0.3
+    sweep = frequency_sweep(400 + variant * 20, 900, dur * 0.6)
+    sweep = envelope(sweep, 0.02, 0.08, 0, 0.15)
+    return normalize_rms(fade_in_out(np.pad(sweep, (0, int(dur * RATE) - len(sweep)))), 0.11)
+
+
+def ui_close(seed, variant):
+    """UI关闭：下降音 + 收缩感。"""
+    dur = 0.25
+    sweep = frequency_sweep(800 - variant * 20, 350, dur * 0.7)
+    sweep = envelope(sweep, 0.01, 0.06, 0, 0.12)
+    return normalize_rms(fade_in_out(np.pad(sweep, (0, int(dur * RATE) - len(sweep)))), 0.10)
+
+
+def wave_start(seed, variant):
+    """波次开始：警告音 + 紧张感。"""
+    dur = 1.0
+    # 警告音：两次短促音调
+    alert1 = sine_wave(800, 0.15) * 0.5
+    alert1 = envelope(alert1, 0.01, 0.05, 0, 0.09)
+    alert2 = sine_wave(900, 0.15) * 0.5
+    alert2 = envelope(alert2, 0.01, 0.05, 0, 0.09)
+    # 低频隆隆
+    rumble = sine_wave(120 + variant * 10, dur) * 0.3
+    rumble = envelope(rumble, 0.1, 0.2, 0.5, 0.4)
+    result = np.zeros(int(dur * RATE), dtype=np.float32)
+    result[:len(alert1)] += alert1
+    result[int(0.2 * RATE):int(0.2 * RATE) + len(alert2)] += alert2
+    result += rumble
+    return normalize_rms(fade_in_out(result), 0.15)
+
+
+def wave_complete(seed, variant):
+    """波次完成：胜利音 + 释放感。"""
+    dur = 1.5
+    # 上升音阶：C-E-G-C
+    pitches = [60, 64, 67, 72]
+    notes = [(i * 0.25, 0.4, GM["harp"], pitches[i], 95) for i in range(len(pitches))]
+    harp = render_midi_layer(notes, dur)
+    return normalize_rms(fade_in_out(harp), 0.16)
+
+
+def boss_roar(seed, variant):
+    """Boss咆哮：深沉的轰鸣 + 震颤效果。"""
+    dur = 2.0
+    # 低频咆哮：150-250Hz
+    roar = sine_wave(180 + variant * 15, dur) * 0.6
+    # 调制震颤
+    tremolo = 1.0 + 0.3 * sine_wave(6 + variant * 0.5, dur)
+    roar = roar * tremolo
+    # 噪声层
+    noise = white_noise(dur, seed + variant)
+    noise = bandpass_filter(noise, 200, 1200) * 0.3
+    combined = roar + noise
+    combined = envelope(combined, 0.15, 0.3, 0.7, 0.6)
+    return normalize_rms(fade_in_out(combined), 0.17)
+
+
 def enemy_death(seed, variant):
     """敌人死亡：闷响（200-400Hz）+ 气声。"""
     dur = 0.35
@@ -414,6 +534,22 @@ SFX_SPECS = {
     "holy_buff": {"func": holy_buff, "variants": 5},
     "evolve_magic": {"func": evolve_magic, "variants": 5},
     "pickup_magic": {"func": pickup_magic, "variants": 5},
+
+    # 新增：游戏进度音效
+    "level_up": {"func": level_up, "variants": 3},
+    "wave_start": {"func": wave_start, "variants": 3},
+    "wave_complete": {"func": wave_complete, "variants": 3},
+    "boss_roar": {"func": boss_roar, "variants": 3},
+
+    # 新增：拾取物品音效
+    "item_pickup": {"func": item_pickup, "variants": 5},
+    "coin_pickup": {"func": coin_pickup, "variants": 5},
+
+    # 新增：UI音效
+    "ui_hover": {"func": ui_hover, "variants": 3},
+    "ui_click": {"func": ui_click, "variants": 3},
+    "ui_open": {"func": ui_open, "variants": 3},
+    "ui_close": {"func": ui_close, "variants": 3},
 }
 
 def render_sfx(category, variant, seed):

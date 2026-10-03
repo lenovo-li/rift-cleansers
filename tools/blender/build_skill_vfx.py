@@ -158,35 +158,35 @@ def flame_crescent(name="FlameCrescent", arc_deg=135.0, segments=26):
 # ============================================================ 元素术士
 
 def thunder_cloud(name="ThunderCloud", seed=33):
-    """雷暴：扁平雷云团（压扁的多球聚合体，深蓝灰色，半径 1，高 0.4，悬在 z=2.5），fresnel 着色器边缘发光。"""
+    """雷暴：半透明雷云团（压扁的多球聚合体，灰蓝色半透明，半径 1.2，高 0.5）。"""
     rng = random.Random(seed)
     bm = bmesh.new()
-    for k in range(8):
-        cx = rng.uniform(-0.5, 0.5)
-        cy = rng.uniform(-0.5, 0.5)
-        r = rng.uniform(0.35, 0.6)
+    for k in range(12):
+        cx = rng.uniform(-0.7, 0.7)
+        cy = rng.uniform(-0.7, 0.7)
+        r = rng.uniform(0.4, 0.7)
         geom = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=r)
         for v in geom["verts"]:
             v.co.x += cx
             v.co.y += cy
-            v.co.z = v.co.z * 0.35 + 2.6
+            v.co.z = v.co.z * 0.4 + 0.0
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    return bv.from_bmesh(name, bm, lambda p, v: (0.25, 0.3, 0.45), smooth=True)
+    return bv.from_bmesh(name, bm, lambda p, v: (0.4, 0.45, 0.55), smooth=True)
 
 
 def thunder_bolt(name="ThunderBolt", seed=34):
-    """雷暴：一道闪电（折线，beam 着色器，从云底 z=2.2 到地面）。Godot 里每波打 3 条随机位置。"""
+    """雷暴：一道闪电（粗折线，从云底到地面，亮蓝白色）。"""
     rng = random.Random(seed)
-    pts = [(0, 0)] + [(rng.uniform(-0.4, 0.4), rng.uniform(-0.4, 0.4)) for _ in range(4)] + [(0, 0)]
+    pts = [(0, 0)] + [(rng.uniform(-0.3, 0.3), rng.uniform(-0.3, 0.3)) for _ in range(5)] + [(0, 0)]
     verts, faces = [], []
-    zs = [2.2 - k / 5 * 2.2 for k in range(6)]
+    zs = [6.0 - k / 6 * 6.0 for k in range(7)]
     for k, (x, y) in enumerate(pts):
-        for side in (-0.04, 0.04):
+        for side in (-0.12, 0.12):
             verts.append((x + side, y, zs[k]))
-    for k in range(5):
+    for k in range(6):
         a = k * 2
         faces.append((a, a + 2, a + 3, a + 1))
-    return bv.mesh_object(name, verts, faces, uvs=[(k / 5, i) for k in range(6) for i in (0, 1)], colors=[(0.7, 0.85, 1.0)] * 12)
+    return bv.mesh_object(name, verts, faces, uvs=[(k / 6, i) for k in range(7) for i in (0, 1)], colors=[(0.8, 0.9, 1.0)] * 14)
 
 
 def frost_hex(name="FrostHex"):
@@ -280,15 +280,23 @@ def blood_spray(name="BloodSpray", seed=44):
 
 
 def shadow_veil(name="ShadowVeil"):
-    """暗影分身：暗影雾气（扁平扭曲球，r=0.8，高 0.6，悬在 z=1.0），fresnel 着色器紫黑半透明。"""
-    rng = random.Random(45)
+    """暗影分身：人形暗影残影（扁平椭球体拉长成人形，高 1.8，宽 0.6，厚 0.2），fresnel 着色器紫黑半透明。"""
     bm = bmesh.new()
-    bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=8, radius=0.8)
+    bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=12, radius=0.5)
     for v in bm.verts:
-        v.co.z = v.co.z * 0.75 + 1.0
-        v.co.x += rng.uniform(-0.1, 0.1)  # 轻微扰动，像翻滚的雾
+        # 拉伸成人形：头部窄、躯干宽、腿部收窄
+        height = v.co.z  # -0.5 到 0.5
+        if height > 0.3:  # 头部
+            scale_xz = 0.6 - (height - 0.3) * 0.8
+        elif height > -0.1:  # 躯干
+            scale_xz = 1.1
+        else:  # 腿部
+            scale_xz = 0.7 - (height + 0.5) * 0.4
+        v.co.x *= scale_xz * 1.2
+        v.co.y *= scale_xz * 0.4  # 扁平化（厚度方向）
+        v.co.z = (v.co.z + 0.5) * 1.8  # 拉高到 1.8 米
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    return bv.from_bmesh(name, bm, lambda p, v: (0.35, 0.25, 0.55), smooth=True)
+    return bv.from_bmesh(name, bm, lambda p, v: (0.3, 0.2, 0.5), smooth=True)
 
 
 def shadow_claw(name="ShadowClaw", segments=14):
@@ -326,19 +334,48 @@ def poison_drop(name="PoisonDrop"):
 
 # ============================================================ 牧师
 
+def _feather(bm, base, direction, length, width, thick=0.025):
+    """一根尖叶形羽毛：竖直的 XZ 平面内，从 base 沿 direction（单位向量 (dx, dz)）伸出，挤出厚度 thick。
+    返回羽尖的 z 值无关紧要，颜色按到 base 的距离分（羽根白、羽尖金）。"""
+    dx, dz = direction
+    nx, nz = -dz, dx  # 羽毛宽度方向
+    prof = [(0.0, 0.0), (0.25, 0.8), (0.6, 1.0), (0.88, 0.55), (1.0, 0.0)]  # (沿长度比例, 半宽比例)
+    left = [(base[0] + dx * length * t + nx * width * w, base[1] + dz * length * t + nz * width * w) for t, w in prof]
+    right = [(base[0] + dx * length * t - nx * width * w * 0.6, base[1] + dz * length * t - nz * width * w * 0.6)
+             for t, w in prof[1:-1]]
+    outline = left + list(reversed(right))
+    bv._prism(bm, outline, -thick, thick)
+
+
 def holy_wing(name="HolyWing"):
-    """守护天使：一侧翅膀（5 根羽毛，弧形排列），solid 着色器金白色。Godot 里左右对称摆放。"""
+    """守护天使：一侧光翼（右翼，向 +X 展开）。肩部在原点，翼骨是一条向上外弯的弧（到 (1.7, 1.0)），
+    三排羽毛挂在翼骨上：外排飞羽最长、向外下方斜指，中排次之，内排覆羽最短。竖在 XZ 平面，Godot 里镜像得到左翼。"""
     bm = bmesh.new()
-    for k in range(5):
-        a = k / 5 * math.pi * 0.5  # 从竖直到平展
-        cx = math.sin(a) * 0.8
-        cz = 1.2 + math.cos(a) * 0.6
-        feather = [(cx + x * math.cos(a) - y * math.sin(a) * 0.3, y, cz + x * math.sin(a) + y * math.cos(a) * 0.3)
-                   for x, y in [(-0.08, 0), (0.08, 0), (0.05, 0.35), (-0.05, 0.35)]]
-        verts_idx = [bm.verts.new(p) for p in feather]
-        bm.faces.new(verts_idx)
+    bone = [(1.7 * t, 1.0 * math.sin(t * math.pi * 0.55)) for t in (i / 10 for i in range(11))]
+    rows = [  # (羽毛数, 长度基数, 宽度, 指向角度偏移)
+        (10, 1.5, 0.13, 0.0),
+        (9, 0.95, 0.12, 0.12),
+        (8, 0.5, 0.1, 0.25),
+    ]
+    for count, base_len, width, bias in rows:
+        for k in range(count):
+            t = k / (count - 1)
+            bx, bz = bone[min(10, int(round(t * 10)))]
+            # 靠肩部的羽毛垂直向下，越靠翼尖越向外斜
+            ang = -math.pi * 0.5 + t * math.pi * (0.42 - bias)
+            length = base_len * (0.55 + 0.6 * t)  # 翼尖的飞羽最长
+            _feather(bm, (bx, bz), (math.cos(ang), math.sin(ang)), length, width)
+    # 翼骨本身：一条细长条
+    for i in range(10):
+        a, b = bone[i], bone[i + 1]
+        bv._box_bm(bm, ((a[0] + b[0]) * 0.5, 0.0, (a[1] + b[1]) * 0.5), (0.2, 0.08, 0.08))
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    return bv.from_bmesh(name, bm, lambda p, v: GOLD if v.co.z > 1.3 else WHITE)
+
+    def color(p, v):
+        d = math.hypot(v.co.x, v.co.z)
+        tip = v.co.z < -0.4 or d > 2.1  # 羽尖（下缘、最外缘）镀金
+        return GOLD if tip else WHITE
+    return bv.from_bmesh(name, bm, color)
 
 
 def purify_lotus(name="PurifyLotus"):

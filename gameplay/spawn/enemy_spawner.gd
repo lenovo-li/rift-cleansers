@@ -14,6 +14,8 @@ const BOSS_DEFS: Dictionary = {
 	"frost_lich": preload("res://content/bosses/frost_lich.tres"),
 	"sand_colossus": preload("res://content/bosses/sand_colossus.tres"),
 	"rotwood_treant": preload("res://content/bosses/rotwood_treant.tres"),
+	"ember_tyrant": preload("res://content/bosses/ember_tyrant.tres"),
+	"void_reaper": preload("res://content/bosses/void_reaper.tres"),
 }
 const DEFS: Dictionary = {
 	"zombie": preload("res://content/enemies/zombie.tres"),
@@ -87,12 +89,17 @@ func spawn_enemy(enemy_id: String, elite_mods: Array, center: Variant = null, ra
 	return enemy
 
 
-## 根据 Boss 序号选择变体：前5个循环使用4种变体，第6个用地图专属 Boss
+## 根据 Boss 序号选择变体：6 个不同的 Boss，难度递增
 func _pick_boss_variant(boss_index: int) -> String:
-	if boss_index >= 5:
-		return MapCatalog.get_def(NetConfig.map_id).boss
-	var variants: Array[String] = ["corrupted_knight", "frost_lich", "sand_colossus", "rotwood_treant"]
-	return variants[boss_index % variants.size()]
+	var variants: Array[String] = [
+		"corrupted_knight",  # Boss 1: 3分钟
+		"frost_lich",        # Boss 2: 6分钟
+		"sand_colossus",     # Boss 3: 9分钟
+		"rotwood_treant",    # Boss 4: 12分钟
+		"ember_tyrant",      # Boss 5: 15分钟
+		"void_reaper"        # Boss 6: 18分钟（终极Boss）
+	]
+	return variants[clampi(boss_index, 0, variants.size() - 1)]
 
 
 func spawn_boss(boss_index: int) -> Boss:

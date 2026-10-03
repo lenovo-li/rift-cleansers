@@ -23,14 +23,20 @@ const AFFIXES: Array[String] = ["", "berserk", "fortified", "summoner", "volatil
 const AFFIX_NAMES: Dictionary = {"berserk": "狂暴", "fortified": "坚韧", "summoner": "召唤", "volatile": "爆裂"}
 ## 各 Boss 召唤的小怪（奇数波、偶数波）
 const SUMMONS: Dictionary = {
-	"corrupted_knight": ["zombie", "skeleton"], "frost_lich": ["skeleton", "skeleton"],
-	"sand_colossus": ["zombie", "bloater"], "rotwood_treant": ["ghoul", "necromancer"],
+	"corrupted_knight": ["zombie", "skeleton"],
+	"frost_lich": ["skeleton", "skeleton"],
+	"sand_colossus": ["zombie", "bloater"],
+	"rotwood_treant": ["ghoul", "necromancer"],
+	"ember_tyrant": ["ember_guard", "imp"],
+	"void_reaper": ["necromancer", "frost_wraith"],
 }
 const PHASE_HINTS: Dictionary = {
 	"corrupted_knight": ["", "冲锋！注意红色预警", "狂暴！"],
 	"frost_lich": ["", "冰霜新星！远离它的脚下", "冰雨降临！不要停下"],
 	"sand_colossus": ["", "钻地突袭！看脚下的预警圈", "沙暴！避开减速区"],
 	"rotwood_treant": ["", "毒孢子蔓延！", "开始再生！尽快击杀"],
+	"ember_tyrant": ["", "火焰风暴！远离中心", "熔岩之怒！全屏伤害"],
+	"void_reaper": ["", "虚空裂隙！躲开紫色区域", "死亡脉冲！极度危险"],
 }
 
 ## 每 3 分钟一个 Boss 的称号（按 boss_index），最后一个是地图领主
@@ -119,6 +125,8 @@ func _behavior_velocity(delta: float, dir: Vector3, dist: float) -> Vector3:
 		"frost_lich": return _lich(delta, dir, dist)
 		"sand_colossus": return _colossus(delta, dir, dist)
 		"rotwood_treant": return _treant(delta, dir, dist)
+		"ember_tyrant": return _ember_tyrant(delta, dir, dist)
+		"void_reaper": return _void_reaper(delta, dir, dist)
 	return _knight(delta, dir, dist)
 
 
@@ -351,3 +359,78 @@ func die() -> void:
 	if _telegraph != null:
 		_telegraph.visible = false
 	super.die()
+
+
+# ---------- 烬焰暴君 ----------
+func _ember_tyrant(delta: float, dir: Vector3, dist: float) -> Vector3:
+	_timer_a -= delta
+	if _timer_a <= 0.0:
+		_timer_a = 5.0
+		play_attack(EnemyAnimator.Kind.CAST, 1.0)
+		# 火焰弹：朝目标方向发射 3 发火球
+		for i in 3:
+			var angle: float = -0.3 + i * 0.3
+			var fire_dir: Vector3 = dir.rotated(Vector3.UP, angle)
+			_fire_projectile(fire_dir, 8.0, 55.0, Color(1.0, 0.4, 0.1))
+
+	if phase >= 2:
+		_timer_b -= delta
+		if _timer_b <= 0.0:
+			_timer_b = 10.0
+			play_attack(EnemyAnimator.Kind.WINDUP, 1.2)
+			# 火焰风暴：环绕自身的多个预警圈
+			for i in 8:
+				var a: float = i * TAU / 8.0
+				var pos: Vector3 = global_position + Vector3(cos(a), 0, sin(a)) * 5.0
+				_blast(pos, 2.5, 1.0 + i * 0.1, 50.0, Color(1.0, 0.3, 0.1, 0.5), "火焰风暴")
+
+	if phase >= 3:
+		_timer_c -= delta
+		if _timer_c <= 0.0:
+			_timer_c = 12.0
+			play_attack(EnemyAnimator.Kind.SLAM, 1.5)
+			# 熔岩之怒：全屏持续伤害区域
+			for p: Node3D in PlayerQuery.alive(get_tree()):
+				_zones_on_players(1, 4.0, 0.2, 20.0, 5.0, Color(1.0, 0.2, 0.05, 0.4), "熔岩之怒")
+
+	return _chase(dir, dist)
+
+
+func _fire_projectile(direction: Vector3, speed: float, damage: float, color: Color) -> void:
+	var p: Node3D = ProjectileScript.new()
+	p.setup(self, direction, damage, color)
+	effects_parent.add_child(p)
+	p.global_position = global_position + Vector3(0, 1.2, 0)
+
+
+# ---------- 虚空收割者 ----------
+func _void_reaper(delta: float, dir: Vector3, dist: float) -> Vector3:
+	_timer_a -= delta
+	if _timer_a <= 0.0:
+		_timer_a = 4.0
+		play_attack(EnemyAnimator.Kind.SWING, 0.8)
+		# 虚空斩击：快速冲刺攻击
+		if dist > 3.0:
+			velocity = dir * 12.0
+
+	if phase >= 2:
+		_timer_b -= delta
+		if _timer_b <= 0.0:
+			_timer_b = 8.0
+			play_attack(EnemyAnimator.Kind.CAST, 1.0)
+			# 虚空裂隙：在所有玩家周围生成紫色危险区
+			_zones_on_players(4, 3.5, 0.4, 25.0, 6.0, Color(0.4, 0.1, 0.6, 0.5), "虚空裂隙")
+
+	if phase >= 3:
+		_timer_c -= delta
+		if _timer_c <= 0.0:
+			_timer_c = 15.0
+			play_attack(EnemyAnimator.Kind.SLAM, 2.0)
+			# 死亡脉冲：多波全玩家预警圈
+			_rain_on_players(5, 3.0, 0.8, 70.0, Color(0.5, 0.1, 0.7, 0.6), "死亡脉冲")
+
+	# 3 阶段移速大幅提升
+	if phase >= 3:
+		return dir * move_speed() * 1.5
+	return _chase(dir, dist)
+

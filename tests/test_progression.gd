@@ -1,5 +1,5 @@
 extends RefCounted
-## 属性（被动/装备）、升级三选一、状态效果、刷怪时间线、掉落、Boss 阶段。
+## 属性（被动/装备）、升级五选一、状态效果、刷怪时间线、掉落、Boss 阶段。
 
 
 func test_block_recovery_and_spiked_shield() -> String:
@@ -81,12 +81,12 @@ func test_upgrade_choices_are_unique_and_apply() -> String:
 	rng.seed = 1
 	for round in 40:
 		var choices: Array[Dictionary] = UpgradeSystem.roll_choices(abilities, stats, rng)
-		if choices.size() != 3:
-			return "应有 3 个选项"
+		if choices.size() != 5:
+			return "应有 5 个选项，实际 %d" % choices.size()
 		var keys: Dictionary = {}
 		for c: Dictionary in choices:
 			keys["%s:%s" % [c.type, c.id]] = true
-		if keys.size() != 3 and choices[0].type != "heal":
+		if keys.size() != 5 and choices[0].type != "heal":
 			return "选项不应重复: %s" % str(keys.keys())
 		if not UpgradeSystem.apply(choices[0], abilities, stats):
 			return "选项应能应用: %s" % choices[0].title

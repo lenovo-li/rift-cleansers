@@ -240,12 +240,12 @@ func _apply_upgrade(choice: Dictionary) -> void:
 func _on_boss_spawned(boss: Boss) -> void:
 	_boss_spawn_time = _session.get_game_time()
 	_boss_affix = boss.affix
-	SfxManager.play(self, "boss_roar")
+	SfxManager.play_at(self, "boss_roar", boss.global_position)
 	_broadcast_toast("%s 降临！" % boss.get_display_name())
 	boss.phase_changed.connect(func(phase: int) -> void:
 		SkillVfx.shockwave(self, boss.global_position, 12.0, Color(0.9, 0.1, 0.25, 1.0), 0.7)
 		SfxManager.play(self, "slam")
-		SfxManager.play(self, "boss_roar")
+		SfxManager.play_at(self, "boss_roar", boss.global_position)
 		HitStop.trigger(get_tree(), 0.08)
 		_broadcast_toast("%s 进入第 %d 阶段：%s" % [boss.get_display_name(), phase, Boss.phase_hint(boss.variant, phase)]))
 

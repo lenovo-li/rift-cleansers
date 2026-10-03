@@ -1,7 +1,13 @@
 class_name SfxManager extends RefCounted
-## 一次性音效播放 v2：程序化合成 + FluidSynth 管弦乐层，分层设计，响度归一化。
-## 俯视角相机离战场约 28 米，3D 定位音效会被距离衰减到听不见，所以这里用不定位的 AudioStreamPlayer。
-## 按类别选音（每类 5 个变体随机），同类音效有最小间隔，避免命中多个敌人时叠成噪音。
+## 一次性音效播放 v3：程序化合成 + 分类管理 + 对象池 + 可选 3D 空间化。
+## 性能优化：
+##   - 对象池复用播放器节点，避免每次 play() 都 new + add_child + queue_free
+##   - 最大同时播放数限制（MAX_VOICES），超过时静默丢弃
+##   - 同类音效最小间隔控制，避免命中多敌时叠噪
+## 空间化：
+##   - 默认用 AudioStreamPlayer（2D，不衰减）
+##   - 传入 use_3d=true 时用 AudioStreamPlayer3D，自定义衰减曲线（max_distance=40m）
+##   - 适合 Boss 技能、爆炸等需要方位感的大音效
 
 const AUDIO_DIR: String = "res://assets/sfx/generated/"
 
@@ -80,10 +86,14 @@ const CATEGORIES: Dictionary = {
 const VARIANTS: int = 5
 ## 同时存在的播放器上限（500 敌人同时挨打时不让音频线程爆掉）
 const MAX_VOICES: int = 24
+const POOL_SIZE: int = 16  # 2D 播放器池大小
 
 static var _last_played_ms: Dictionary = {}  # 类别 -> 上次播放时间
 static var _streams: Dictionary = {}  # 类别 -> Array[AudioStream]（首次使用时加载）
 static var _voices: int = 0
+static var _pool_2d: Array[AudioStreamPlayer] = []
+static var _pool_3d: Array[AudioStreamPlayer3D] = []
+static var _pool_host: Node = null  # 对象池挂在哪个场景节点下
 ## 联机：主机设置后，实际播放的音效类别会交给 recorder(category) 转发给客户端。
 static var recorder: Callable = Callable()
 
@@ -121,19 +131,116 @@ static func play(parent: Node, category: String) -> AudioStreamPlayer:
 	_last_played_ms[category] = now
 	if recorder.is_valid():
 		recorder.call(category)
-	var player: AudioStreamPlayer = AudioStreamPlayer.new()
+
+	# 确保对象池已初始化
+	_ensure_pool(parent)
+
+	# 从池中获取空闲播放器
+	var player: AudioStreamPlayer = _acquire_2d()
+	if player == null:
+		# 池满，创建临时播放器
+		player = AudioStreamPlayer.new()
+		player.bus = Settings.SFX_BUS
+		player.finished.connect(func() -> void:
+			_voices -= 1
+			player.queue_free())
+		parent.add_child(player)
+
 	player.stream = streams.pick_random()
 	player.volume_db = float(cfg[2])
-	player.bus = Settings.SFX_BUS
 	var pitch: Vector2 = cfg[3]
 	player.pitch_scale = randf_range(pitch.x, pitch.y)
 	_voices += 1
-	player.finished.connect(func() -> void:
-		_voices -= 1
-		player.queue_free())
-	parent.add_child(player)
 	player.play()
 	return player
+
+
+## 播放定位音效（3D空间化）。适用于需要方位感的大音效：Boss 咆哮、爆炸、陨石。
+## position 为世界坐标。联机时只在主机转发类别，客户端播放为 2D（不定位）。
+static func play_at(parent: Node, category: String, position: Vector3) -> AudioStreamPlayer3D:
+	if parent == null or not parent.is_inside_tree() or not CATEGORIES.has(category):
+		return null
+	var cfg: Array = CATEGORIES[category]
+	var now: int = Time.get_ticks_msec()
+	if int(cfg[1]) > 0 and now - int(_last_played_ms.get(category, -100000)) < int(cfg[1]):
+		return null
+	if _voices >= MAX_VOICES:
+		return null
+	var streams: Array = _load(category)
+	if streams.is_empty():
+		return null
+	_last_played_ms[category] = now
+	if recorder.is_valid():
+		recorder.call(category)  # 联机：客户端收到后用 play() 播放为 2D
+
+	_ensure_pool(parent)
+	var player: AudioStreamPlayer3D = _acquire_3d()
+	if player == null:
+		# 池满，创建临时播放器
+		player = AudioStreamPlayer3D.new()
+		player.bus = Settings.SFX_BUS
+		player.max_distance = 50.0
+		player.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_SQUARE_DISTANCE
+		player.unit_size = 12.0  # 12 米内无衰减，俯视角相机距离 ~28 米时 -1.5dB
+		player.panning_strength = 1.5  # 加强左右声道差异
+		player.finished.connect(func() -> void:
+			_voices -= 1
+			player.queue_free())
+		parent.add_child(player)
+
+	player.global_position = position
+	player.stream = streams.pick_random()
+	player.volume_db = float(cfg[2])
+	var pitch: Vector2 = cfg[3]
+	player.pitch_scale = randf_range(pitch.x, pitch.y)
+	_voices += 1
+	player.play()
+	return player
+
+
+static func _ensure_pool(parent: Node) -> void:
+	var host: Node = parent.get_tree().current_scene if parent.get_tree().current_scene else parent
+	if _pool_host == null or not is_instance_valid(_pool_host) or _pool_host != host:
+		_pool_host = host
+		_pool_2d.clear()
+		_pool_3d.clear()
+
+
+static func _acquire_2d() -> AudioStreamPlayer:
+	# 查找空闲播放器
+	for p in _pool_2d:
+		if not p.playing:
+			return p
+	# 池未满，创建新播放器
+	if _pool_2d.size() < POOL_SIZE:
+		var p: AudioStreamPlayer = AudioStreamPlayer.new()
+		p.bus = Settings.SFX_BUS
+		p.process_mode = Node.PROCESS_MODE_ALWAYS  # UI 音效在暂停时也能播
+		p.finished.connect(func() -> void: _voices -= 1)
+		_pool_host.add_child(p)
+		_pool_2d.append(p)
+		return p
+	return null
+
+
+static func _acquire_3d() -> AudioStreamPlayer3D:
+	for p in _pool_3d:
+		if not p.playing:
+			return p
+	# 3D 池按需创建，上限 8 个
+	if _pool_3d.size() < 8:
+		var p: AudioStreamPlayer3D = AudioStreamPlayer3D.new()
+		p.bus = Settings.SFX_BUS
+		p.process_mode = Node.PROCESS_MODE_ALWAYS
+		p.max_distance = 50.0
+		p.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_SQUARE_DISTANCE
+		p.unit_size = 12.0
+		p.panning_strength = 1.5
+		p.finished.connect(func() -> void: _voices -= 1)
+		_pool_host.add_child(p)
+		_pool_3d.append(p)
+		return p
+	return null
 
 
 static func _load(category: String) -> Array:

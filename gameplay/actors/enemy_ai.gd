@@ -390,7 +390,10 @@ func die() -> void:
 	remove_from_group("enemies")
 	SkillVfx.death(effects_parent, global_position, _mesh.mesh, _mesh.position.y, look_color(def, elite_mod),
 			is_elite() or self is Boss, _mesh.scale.x)
-	SfxManager.play(effects_parent, "explode" if is_elite() or self is Boss else "death")
+	if is_elite() or self is Boss:
+		SfxManager.play_at(effects_parent, "explode", global_position)
+	else:
+		SfxManager.play(effects_parent, "death")
 	match def.behavior:
 		EnemyDef.Behavior.DASHER:
 			_explode()

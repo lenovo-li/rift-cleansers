@@ -56,10 +56,10 @@ func _process(_delta: float) -> bool:
 			_player.ability_system.set_level(id, 6)
 		for id: String in ["berserker_helm", "leech_gauntlet", "adrenaline_injector"]:
 			_player.stats.add_equipment(id)
-		var b: Boss = _spawner.spawn_boss()
+		var b: Boss = _spawner.spawn_boss(0)
 		b.phase_changed.connect(func(p: int) -> void: _phases.append(p))
 		print("[boss] spawned %s hp=%.0f" % [b.get_display_name(), b.max_health])
-	var boss: Boss = _spawner.boss
+	var boss: Boss = _spawner.bosses[0] if not _spawner.bosses.is_empty() else null
 	if boss != null and t >= _next_report:
 		_next_report += 30.0
 		print("[boss] t=%3.0fs boss hp=%.0f/%.0f phase=%d  player hp=%.0f" % [t, boss.current_health, boss.max_health,

@@ -33,10 +33,15 @@ const PHASE_HINTS: Dictionary = {
 	"rotwood_treant": ["", "毒孢子蔓延！", "开始再生！尽快击杀"],
 }
 
+## 每 3 分钟一个 Boss 的称号（按 boss_index），最后一个是地图领主
+const TITLES: Array[String] = ["先锋", "督军", "统领", "暴君", "灾厄", "领主"]
+
 var phase: int = 1
 ## 生成前由 EnemySpawner 设置
 var affix: String = ""
 var variant: String = "corrupted_knight"
+## 第几个 Boss（0-5），决定称号与血量倍率
+var boss_index: int = 0
 var _summon_timer: float = 4.0
 var _waves_done: int = 0
 var _charge_timer: float = CHARGE_INTERVAL
@@ -81,6 +86,7 @@ func _ready() -> void:
 
 func get_display_name() -> String:
 	var n: String = def.display_name if def != null else "Boss"
+	n = "%s %s" % [TITLES[clampi(boss_index, 0, TITLES.size() - 1)], n]
 	return "%s·%s" % [AFFIX_NAMES[affix], n] if AFFIX_NAMES.has(affix) else n
 
 

@@ -3,7 +3,7 @@ extends Node3D
 
 signal enemy_killed(enemy: Enemy)
 signal boss_spawned(boss: Boss)
-signal boss_defeated(boss_name: String)
+signal boss_defeated(boss_name: String, is_final: bool)
 
 const EnemyScene: PackedScene = preload("res://gameplay/actors/enemy.tscn")
 const BossScript: GDScript = preload("res://gameplay/actors/boss.gd")
@@ -36,7 +36,8 @@ const SEPARATION_CELL: float = 1.5
 var kills: int = 0
 ## 测试用：固定 Boss 词缀（"none" = 无词缀），空 = 随机
 var forced_boss_affix: String = ""
-var boss: Boss = null
+var bosses: Array[Boss] = []  # 当前存活的所有 Boss
+var boss_defeats: int = 0  # 已击败的 Boss 数量
 ## 客户端：由 NetSession 写入的敌人数量和 Boss 信息
 var net_enemy_count: int = 0
 var net_boss_info: Dictionary = {}
@@ -82,19 +83,31 @@ func spawn_enemy(enemy_id: String, elite_mods: Array, center: Variant = null, ra
 	return enemy
 
 
-func spawn_boss() -> Boss:
+## 根据 Boss 序号选择变体：前5个循环使用4种变体，第6个用地图专属 Boss
+func _pick_boss_variant(boss_index: int) -> String:
+	if boss_index >= 5:
+		return MapCatalog.get_def(NetConfig.map_id).boss
+	var variants: Array[String] = ["corrupted_knight", "frost_lich", "sand_colossus", "rotwood_treant"]
+	return variants[boss_index % variants.size()]
+
+
+func spawn_boss(boss_index: int) -> Boss:
 	var enemy: Node = EnemyScene.instantiate()
 	enemy.set_script(BossScript)
-	boss = enemy as Boss
-	var boss_id: String = MapCatalog.get_def(NetConfig.map_id).boss
+	var boss: Boss = enemy as Boss
+	var boss_id: String = _pick_boss_variant(boss_index)
 	boss.setup(BOSS_DEFS.get(boss_id, BOSS_DEF), "", null, get_parent())
 	if forced_boss_affix.is_empty():
 		boss.affix = Boss.AFFIXES.pick_random()
 	else:
 		boss.affix = "" if forced_boss_affix == "none" else forced_boss_affix
-	boss.health_scale = 1.0 + 0.6 * float(PlayerQuery.all(get_tree()).size() - 1)
+	# Boss 血量随序号递增：第1个 ×1.0，第6个 ×3.0
+	var order_scale: float = 1.0 + float(boss_index) * 0.4
+	boss.health_scale = order_scale * (1.0 + 0.6 * float(PlayerQuery.all(get_tree()).size() - 1))
+	boss.boss_index = boss_index
 	boss.summon_requested.connect(_on_boss_summon)
 	_add(boss, null, 18.0)
+	bosses.append(boss)
 	boss_spawned.emit(boss)
 	return boss
 
@@ -143,8 +156,10 @@ func _on_enemy_died(enemy: Enemy) -> void:
 			if p.has_method("get") and p.get("stats") != null:
 				p.stats.on_kill()
 	if enemy is Boss:
-		boss = null
-		boss_defeated.emit(enemy.get_display_name())
+		bosses.erase(enemy)
+		boss_defeats += 1
+		# 6 个 Boss 全部击败才算胜利
+		boss_defeated.emit(enemy.get_display_name(), boss_defeats >= SpawnDirector.BOSS_TIMES.size())
 	elif _director:
 		_director.on_enemy_died()
 	enemy_killed.emit(enemy)
@@ -212,10 +227,21 @@ func get_enemy_count() -> int:
 	return get_tree().get_nodes_in_group("enemies").size()
 
 
-## Boss 信息 {name, phase, hp, max_hp}；没有 Boss 时为空字典。
+## Boss 信息 {name, phase, hp, max_hp, index}；没有 Boss 时为空字典。返回最新的 Boss。
 func get_boss_info() -> Dictionary:
 	if NetConfig.is_client():
 		return net_boss_info
-	if boss == null or not is_instance_valid(boss) or not boss.is_alive:
+	if bosses.is_empty():
 		return {}
-	return {"name": boss.get_display_name(), "phase": boss.phase, "hp": boss.current_health, "max_hp": boss.max_health}
+	# 返回最后刷出的 Boss（序号最大）
+	var latest: Boss = bosses[-1]
+	if not is_instance_valid(latest) or not latest.is_alive:
+		return {}
+	return {
+		"name": latest.get_display_name(),
+		"phase": latest.phase,
+		"hp": latest.current_health,
+		"max_hp": latest.max_health,
+		"index": latest.boss_index,
+		"alive": bosses.size(),
+	}

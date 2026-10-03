@@ -46,7 +46,7 @@ func test_map_events_valid() -> String:
 		for ev: Dictionary in evs:
 			if int(ev.kind) < 0 or int(ev.kind) >= EventDirector.Kind.size():
 				return "%s 事件类型非法: %s" % [map_id, ev.kind]
-			if float(ev.time) <= 0.0 or float(ev.time) >= SpawnDirector.BOSS_TIME:
+			if float(ev.time) <= 0.0 or float(ev.time) >= SpawnDirector.BOSS_TIMES[0]:
 				return "%s 事件时间应在开局后、Boss 之前: %s" % [map_id, ev.time]
 	return ""
 

@@ -50,7 +50,11 @@ func _ready() -> void:
 	_session.game_over.connect(_on_game_over)
 	_session.level_up.connect(_on_level_up)
 	_spawner.boss_spawned.connect(_on_boss_spawned)
-	_spawner.boss_defeated.connect(func(boss_name: String) -> void: _session.end_game("击败了%s" % boss_name, true))
+	_spawner.boss_defeated.connect(func(boss_name: String, is_final: bool) -> void:
+		if is_final:
+			_session.end_game("击败了全部 Boss！", true)
+		else:
+			_broadcast_toast("击败了%s！（%d/%d）" % [boss_name, _spawner.boss_defeats, SpawnDirector.BOSS_TIMES.size()]))
 	_upgrade_panel.roll_choices = func() -> Array[Dictionary]:
 		return UpgradeSystem.roll_choices(_player.ability_system, _player.stats, _rng)
 	_upgrade_panel.chosen.connect(_on_upgrade_chosen)

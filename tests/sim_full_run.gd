@@ -77,7 +77,7 @@ func _report(t: float, enemy_count: int) -> void:
 	for k: String in _player.damage_taken_by_source:
 		dmg.append("%s=%d" % [k, _player.damage_taken_by_source[k]])
 	print("[full]        taken: %s" % ", ".join(dmg))
-	var boss: Boss = _spawner.boss
+	var boss: Boss = _spawner.bosses[0] if not _spawner.bosses.is_empty() else null
 	if boss != null:
 		print("[full]        boss hp=%.0f/%.0f phase=%d dist=%.1f" % [boss.current_health, boss.max_health, boss.phase,
 			boss.global_position.distance_to(_player.global_position)])

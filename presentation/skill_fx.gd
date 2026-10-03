@@ -19,29 +19,38 @@ const BLOOD: Color = Color(1.0, 0.15, 0.28)
 ## 技能 -> 身体动作（PlayerRig.ACTIONS）。持续型技能（旋风斩）按技能时长播放。
 const POSES: Dictionary = {
 	"shield_bash": "bash", "whirlwind": "spin", "taunt": "roar", "charge": "bash", "ground_slam": "slam",
-	"reflect_aura": "raise", "earthquake": "slam", "iron_wall": "raise", "war_cry": "roar", "flame_cleave": "swing",
+	"reflect_aura": "raise",
 	"fireball": "cast", "ice_lance": "cast", "frost_nova": "raise", "chain_lightning": "cast", "meteor": "raise",
-	"storm_field": "raise", "thunderstorm": "raise", "frost_barrier": "raise", "arcane_barrage": "cast", "lava_blast": "cast",
+	"storm_field": "raise",
 	"shadow_step": "swing", "fan_of_knives": "swing_l", "death_mark": "cast", "blade_flurry": "spin",
-	"smoke_bomb": "slam", "execute": "swing", "eviscerate": "swing", "shadow_clone": "raise", "backstab": "swing", "poison_blade": "cast",
+	"smoke_bomb": "slam", "execute": "swing",
 	"holy_nova": "raise", "smite": "cast", "sanctuary": "slam", "divine_shield": "raise", "blessing": "raise",
-	"divine_intervention": "raise", "guardian_angel": "raise", "purify": "raise", "resurrection": "raise", "holy_wrath": "cast",
+	"divine_intervention": "raise",
+	"earthquake": "slam", "iron_wall": "raise", "war_cry": "roar", "flame_cleave": "swing",
+	"thunderstorm": "raise", "frost_barrier": "raise", "arcane_barrage": "cast", "lava_blast": "cast",
+	"eviscerate": "swing", "shadow_clone": "raise", "backstab": "swing", "poison_blade": "cast",
+	"guardian_angel": "raise", "purify": "raise", "resurrection": "raise", "holy_wrath": "cast",
 }
 
 
 static func play(p: Node, caster: Node3D, id: String, r: Dictionary, origin: Vector3, facing: Vector3, tier: int) -> void:
+	# 16 个新技能走专属特效系统
+	if id in UniqueFx.IDS:
+		var action: String = POSES.get(id, "cast")
+		var dur: float = float(r.get("duration", -1.0)) if action == "spin" else -1.0
+		SkillVfx.pose(p, int(caster.get("net_slot")), action, dur)
+		UniqueFx.play(p, caster, id, origin, facing, tier, r)
+		return
+
 	var action: String = POSES.get(id, "cast")
 	var dur: float = float(r.get("duration", -1.0)) if action == "spin" else -1.0
 	SkillVfx.pose(p, int(caster.get("net_slot")), action, dur)
 	match id:
-		"shield_bash", "whirlwind", "taunt", "charge", "ground_slam", "reflect_aura", \
-		"earthquake", "iron_wall", "war_cry", "flame_cleave":
+		"shield_bash", "whirlwind", "taunt", "charge", "ground_slam", "reflect_aura":
 			_iron_guard(p, caster, id, r, origin, facing, tier)
-		"fireball", "ice_lance", "frost_nova", "chain_lightning", "meteor", "storm_field", \
-		"thunderstorm", "frost_barrier", "arcane_barrage", "lava_blast":
+		"fireball", "ice_lance", "frost_nova", "chain_lightning", "meteor", "storm_field":
 			_elementalist(p, caster, id, r, origin, tier)
-		"shadow_step", "fan_of_knives", "death_mark", "blade_flurry", "smoke_bomb", "execute", \
-		"eviscerate", "shadow_clone", "backstab", "poison_blade":
+		"shadow_step", "fan_of_knives", "death_mark", "blade_flurry", "smoke_bomb", "execute":
 			_shadow_walker(p, caster, id, r, origin, tier)
 		_:
 			_cleric(p, caster, id, r, origin, tier)
@@ -111,53 +120,6 @@ static func _iron_guard(p: Node, caster: Node3D, id: String, r: Dictionary, orig
 			SkillVfx.whirlwind(p, caster, ReflectAura.AURA_RADIUS, float(r.aura_duration),
 					Color(1.0, 0.6, 0.3, 0.5) if tier >= 8 else Color(1.0, 0.8, 0.3, 0.5), "reflect", tier)
 			SkillVfx.shield_pulse(p, origin, ReflectAura.AURA_RADIUS, GOLD, 6)
-		"earthquake":
-			var radius: float = float(r.radius)
-			SkillVfx.shockwave(p, origin, radius, Color(0.8, 0.6, 0.3, 1.0), 0.5)
-			SkillVfx.burst(p, "dust", origin, 1.5)
-			SkillVfx.crack_decal(p, origin, radius * 0.9, Color(0.7, 0.5, 0.3), float(r.duration))
-			if tier >= 3:
-				SkillVfx.spike_ring(p, origin, radius * 0.95, "rock", 12)
-			if tier >= 5:
-				SkillVfx.shockwave(p, origin, radius * 1.2, Color(0.9, 0.7, 0.4, 0.8), 0.6)
-			if tier >= 8:
-				SkillVfx.rune(p, origin, radius, Color(1.0, 0.5, 0.2, 0.7), "expand", 0.7, "rune_circle")
-				SkillVfx.spike_ring(p, origin, radius * 1.1, "rock", 18)
-		"iron_wall":
-			SkillVfx.shield_pulse(p, origin, 3.5, Color(0.7, 0.7, 0.8, 1.0), 8)
-			SkillVfx.rune(p, origin, 2.5, Color(0.6, 0.7, 0.9, 0.8), "expand", 0.4, "rune_circle")
-			if tier >= 3:
-				SkillVfx.burst(p, "magic", _up(origin, 1.5), 1.2, Color(0.7, 0.8, 1.0))
-			if tier >= 5:
-				SkillVfx.shockwave(p, origin, 3.0, Color(0.8, 0.85, 1.0, 0.6), 0.4)
-			if tier >= 8:
-				SkillVfx.pulse_ring(p, origin, 3.8, Color(1.0, 0.8, 0.4, 0.7), 0.5)
-		"war_cry":
-			var radius: float = float(r.radius)
-			SkillVfx.burst(p, "magic", _up(origin, 1.8), 1.5, Color(1.0, 0.7, 0.3))
-			SkillVfx.shockwave(p, origin, radius, Color(1.0, 0.6, 0.2, 0.9), 0.45)
-			SkillVfx.rune(p, origin, radius * 0.9, Color(1.0, 0.7, 0.3, 0.7), "expand", 0.5, "pulse_sigil")
-			if tier >= 3:
-				SkillVfx.pulse_ring(p, origin, radius * 1.1, Color(1.0, 0.5, 0.2, 0.6), 0.5)
-			if tier >= 5:
-				# buffed 是受增益人数；位置取场上存活玩家（与技能半径一致）
-				for a: Node in caster.get_tree().get_nodes_in_group("players"):
-					if a is Node3D and (a as Node3D).global_position.distance_to(origin) <= radius:
-						SkillVfx.burst(p, "star", _up((a as Node3D).global_position, 1.5), 0.8, GOLD)
-			if tier >= 8:
-				SkillVfx.shockwave(p, origin, radius * 1.3, Color(1.0, 0.8, 0.4, 1.0), 0.6)
-		"flame_cleave":
-			var cone_range: float = 6.0 * (1.3 if tier >= 3 else 1.0)
-			var front: Vector3 = origin + facing * cone_range * 0.6
-			SkillVfx.burst(p, "fire", _up(front, 0.5), 1.0 + 0.15 * tier, FIRE)
-			SkillVfx.crack_decal(p, front, cone_range * 0.7, FIRE, 3.0 + tier)
-			if tier >= 3:
-				SkillVfx.shockwave(p, front, cone_range * 0.8, Color(1.0, 0.5, 0.2, 0.8), 0.4)
-			if tier >= 5:
-				SkillVfx.rune(p, front, cone_range * 0.75, Color(EMBER, 0.7), "expand", 0.5, "rune_circle")
-			if tier >= 8:
-				SkillVfx.spike_ring(p, front, cone_range * 0.85, "rock", 8)
-				SkillVfx.burst(p, "fire", _up(front, 0.8), 1.8, EMBER)
 
 
 # ---------------- 元素术士 ----------------
@@ -210,58 +172,6 @@ static func _elementalist(p: Node, caster: Node3D, id: String, r: Dictionary, or
 		"storm_field":
 			SkillVfx.whirlwind(p, caster, float(r.radius), float(r.duration), Color(0.55, 0.65, 1.0, 0.6), "storm", tier)
 			SkillVfx.burst(p, "magic", _up(caster.global_position, 1.5), 1.2, Color(0.65, 0.7, 1.0))
-		"thunderstorm":
-			var radius: float = 10.0
-			SkillVfx.burst(p, "magic", _up(origin, 2.0), 1.5, STORM)
-			SkillVfx.rune(p, origin, radius, Color(STORM, 0.7), "expand", 0.6, "rune_circle")
-			SkillVfx.shockwave(p, origin, radius, Color(0.6, 0.7, 1.0, 0.8), 0.5)
-			if tier >= 3:
-				SkillVfx.pulse_ring(p, origin, radius * 0.9, Color(0.7, 0.75, 1.0, 0.6), 0.5)
-			if tier >= 5:
-				SkillVfx.spike_ring(p, origin, radius * 0.95, "ice", 10)
-			if tier >= 8:
-				SkillVfx.rune(p, origin, radius * 1.2, Color(0.85, 0.9, 1.0, 0.8), "flash", 1.0, "glow_ring")
-		"frost_barrier":
-			var radius: float = float(r.radius)
-			SkillVfx.shield_pulse(p, origin, 3.0, FROST, 8)
-			SkillVfx.burst(p, "shard", _up(origin, 1.2), 1.3, FROST)
-			SkillVfx.shockwave(p, origin, radius, Color(0.5, 0.85, 1.0, 0.9), 0.4)
-			if tier >= 3:
-				SkillVfx.spike_ring(p, origin, radius * 0.9, "ice", 8)
-			if tier >= 5:
-				SkillVfx.rune(p, origin, radius, Color(FROST, 0.7), "expand", 0.5, "rune_circle")
-			if tier >= 8:
-				SkillVfx.shockwave(p, origin, radius * 1.3, Color(0.7, 0.9, 1.0, 1.0), 0.6)
-				SkillVfx.spike_ring(p, origin, radius * 1.25, "ice", 14)
-		"arcane_barrage":
-			var count: int = int(r.projectiles)
-			var impacts: Array = r.get("impacts", [])
-			var fwd: Vector3 = caster.get("facing") * Vector3(1, 0, 1)
-			for i in count:
-				var to: Vector3
-				if i < impacts.size():
-					to = _up(impacts[i], 1.0)
-				else:
-					# 没打到目标的飞弹沿前方扇形散开
-					var ang: float = deg_to_rad(-30.0 + 60.0 * (i + 0.5) / count)
-					to = _up(caster.global_position + fwd.normalized().rotated(Vector3.UP, ang) * 10.0, 1.0)
-				SkillVfx.missile(p, "magic", hand, to, Color(0.7, 0.5, 1.0), 0.6, tier)
-			if tier >= 3:
-				SkillVfx.rune(p, origin, 1.8, Color(0.7, 0.5, 1.0, 0.7), "expand", 0.4, "pulse_sigil")
-			if tier >= 8:
-				SkillVfx.burst(p, "magic", hand, 1.5, Color(0.8, 0.6, 1.0))
-		"lava_blast":
-			var radius: float = 8.0 * (1.3 if tier >= 3 else 1.0)
-			SkillVfx.burst(p, "fire", _up(origin, 1.0), 1.5 + 0.2 * tier, EMBER)
-			SkillVfx.shockwave(p, origin, radius, Color(1.0, 0.4, 0.1, 1.0), 0.5)
-			SkillVfx.crack_decal(p, origin, radius * 0.85, FIRE, 3.0 + tier)
-			if tier >= 3:
-				SkillVfx.spike_ring(p, origin, radius * 0.9, "rock", 10)
-			if tier >= 5:
-				SkillVfx.rune(p, origin, radius, Color(EMBER, 0.8), "expand", 0.6, "rune_circle")
-			if tier >= 8:
-				SkillVfx.shockwave(p, origin, radius * 1.3, Color(1.0, 0.6, 0.2, 1.0), 0.7)
-				SkillVfx.burst(p, "smoke", _up(origin, 1.5), radius * 0.25, Color(0.3, 0.2, 0.15))
 
 
 ## 陨石落地（strike_landed）：按段位加码爆炸。
@@ -355,58 +265,6 @@ static func _shadow_walker(p: Node, caster: Node3D, id: String, r: Dictionary, o
 			if tier >= 8 and executed:
 				SkillVfx.pillar(p, c, 0.5, 8.0, Color(BLOOD, 0.9))
 				SkillVfx.spike_ring(p, c, 2.2, "rock", 7)
-		"eviscerate":
-			if not r.has("center"):
-				return
-			var c: Vector3 = r.center
-			var executed: bool = bool(r.get("executed", false))
-			var color: Color = BLOOD if executed else Color(1.0, 0.4, 0.5)
-			SkillVfx.execute_slash(p, c, c - caster.global_position, 2.0 * (1.3 if tier >= 5 else 1.0), color)
-			SkillVfx.burst(p, "spark", _up(c, 1.2), 1.0 + 0.15 * tier)
-			SkillVfx.shockwave(p, c, 2.5 if executed else 1.8, Color(1.0, 0.2, 0.3, 1.0), 0.35)
-			if tier >= 3:
-				SkillVfx.rune(p, c, 2.0, Color(color, 0.8), "flash", 0.5, "rune_circle")
-			if tier >= 5:
-				SkillVfx.burst(p, "fire", _up(c, 0.8), 1.2, BLOOD)
-			if tier >= 8:
-				SkillVfx.shockwave(p, c, 3.0, Color(1.0, 0.3, 0.4, 0.9), 0.45)  # 溅射范围
-				SkillVfx.pillar(p, c, 0.4, 7.0, Color(BLOOD, 0.85))
-		"shadow_clone":
-			var radius: float = float(r.radius)
-			SkillVfx.burst(p, "smoke", _up(origin, 1.0), 1.5, Color(0.4, 0.3, 0.6, 0.8))
-			SkillVfx.rune(p, origin, radius, Color(SHADOW, 0.7), "expand", 0.5, "rune_circle")
-			SkillVfx.pulse_ring(p, origin, radius * 0.9, Color(SHADOW, 0.5), 0.4)
-			if tier >= 3:
-				SkillVfx.shockwave(p, origin, radius, Color(0.6, 0.4, 0.9, 0.6), 0.4)
-			if tier >= 5:
-				SkillVfx.burst(p, "magic", _up(origin, 1.8), 1.3, SHADOW)
-			if tier >= 8:
-				SkillVfx.rune(p, origin, radius * 1.2, Color(0.7, 0.4, 1.0, 0.8), "flash", float(r.duration), "glow_ring")
-		"backstab":
-			if not r.has("center"):
-				return
-			var c: Vector3 = r.center
-			var color: Color = BLOOD if tier >= 3 else Color(0.9, 0.5, 0.6)
-			SkillVfx.execute_slash(p, c, c - caster.global_position, 1.8 * (1.2 if tier >= 5 else 1.0), color)
-			SkillVfx.burst(p, "spark", _up(c, 1.0), 0.9 + 0.1 * tier)
-			if tier >= 3:
-				SkillVfx.shockwave(p, c, 2.0, Color(1.0, 0.3, 0.4, 1.0), 0.3)
-				SkillVfx.rune(p, c, 1.5, Color(color, 0.8), "flash", 0.4, "pulse_sigil")
-			if tier >= 5:
-				SkillVfx.burst(p, "fire", _up(c, 0.7), 1.0, Color(1.0, 0.2, 0.3))
-			if tier >= 8 and bool(r.get("killed", false)):
-				SkillVfx.pillar(p, c, 0.45, 6.5, Color(BLOOD, 0.9))
-		"poison_blade":
-			var links: Array = r.get("links", [])
-			var color: Color = Color(0.4, 1.0, 0.3) if tier < 8 else Color(0.6, 1.0, 0.2)
-			for link: Array in links:
-				SkillVfx.missile(p, "crystal", _up(link[0], 1.0), _up(link[1], 1.0), color, 0.7, tier)
-				SkillVfx.burst(p, "magic", _up(link[1], 1.0), 0.6, color)
-			if tier >= 3:
-				SkillVfx.rune(p, origin, 1.5, Color(color, 0.7), "expand", 0.35, "rune_circle")
-			if tier >= 8:
-				for link: Array in links:
-					SkillVfx.pulse_ring(p, link[1], 1.5, Color(color, 0.6), 0.4)
 
 
 # ---------------- 牧师 ----------------
@@ -475,61 +333,6 @@ static func _cleric(p: Node, caster: Node3D, id: String, r: Dictionary, origin: 
 			if tier >= 8:
 				SkillVfx.shockwave(p, origin, DivineIntervention.RANGE * 1.3, Color(1.0, 0.95, 0.7, 0.8), 0.8)
 				SkillVfx.rune(p, origin, DivineIntervention.RANGE, Color(1.0, 0.95, 0.75, 0.7), "flash", 1.2, "glow_ring")
-		"guardian_angel":
-			var duration: float = float(r.duration)
-			for a: Node in caster.get_tree().get_nodes_in_group("players"):
-				if a is Node3D and not a.is_dead and (a as Node3D).global_position.distance_to(origin) <= 12.0:
-					var pos: Vector3 = (a as Node3D).global_position
-					SkillVfx.burst(p, "star", _up(pos, 2.0), 1.0, Color(1.0, 1.0, 0.9))
-					SkillVfx.pulse_ring(p, pos, 2.0, Color(1.0, 0.95, 0.7, 0.6), 0.5)
-					SkillVfx.buff(p, "shield", pos, duration, Color(1.0, 1.0, 0.85), tier)
-			SkillVfx.rune(p, origin, 3.0, Color(HOLY, 0.8), "expand", 0.6, "holy_sigil")
-			if tier >= 3:
-				SkillVfx.pillar(p, origin, 1.0, 10.0, Color(1.0, 1.0, 0.9, 0.6))
-			if tier >= 8:
-				SkillVfx.shockwave(p, origin, 12.0, Color(1.0, 0.95, 0.7, 0.8), 0.6)
-		"purify":
-			var radius: float = float(r.radius)
-			SkillVfx.burst(p, "star", _up(origin, 1.5), 1.3 + 0.1 * tier, HOLY)
-			SkillVfx.shockwave(p, origin, radius, Color(1.0, 0.95, 0.7, 1.0), 0.5)
-			SkillVfx.rune(p, origin, radius * 0.9, Color(GOLD, 0.8), "expand", 0.6, "holy_sigil")
-			for h: Vector3 in r.get("healed", []):
-				SkillVfx.burst(p, "star", _up(h, 1.2), 0.8, Color(0.5, 1.0, 0.6))
-			if tier >= 5:
-				SkillVfx.pulse_ring(p, origin, radius, Color(0.7, 0.9, 1.0, 0.6), 0.6)  # 减伤
-			if tier >= 8:
-				SkillVfx.pillar(p, origin, 1.0, 9.0, Color(HOLY, 0.8))
-				SkillVfx.crack_decal(p, origin, radius * 0.6, HOLY, 2.0)
-		"resurrection":
-			var healed: Array = r.get("healed", [])
-			for h: Vector3 in healed:
-				SkillVfx.pillar(p, h, 0.8, 12.0, Color(1.0, 1.0, 0.95, 0.9))
-				SkillVfx.burst(p, "star", _up(h, 2.5), 1.5, Color(1.0, 1.0, 0.9))
-				SkillVfx.shockwave(p, h, 3.0, Color(1.0, 0.95, 0.8, 1.0), 0.5)
-				SkillVfx.rune(p, h, 2.5, Color(HOLY, 0.9), "flash", 0.8, "holy_sigil")
-			if healed.is_empty():
-				# 无人倒地：全队加护盾
-				for a: Node in caster.get_tree().get_nodes_in_group("players"):
-					if a is Node3D and not a.is_dead:
-						SkillVfx.pulse_ring(p, (a as Node3D).global_position, 1.6, Color(0.6, 0.85, 1.0, 0.55), 0.45)
-						SkillVfx.burst(p, "star", _up((a as Node3D).global_position, 1.4), 0.9, Color(0.6, 0.85, 1.0))
-			SkillVfx.rune(p, origin, 3.0, Color(HOLY, 0.8), "expand", 0.7, "holy_sigil")
-			if tier >= 8:
-				SkillVfx.pillar(p, origin, 1.4, 12.0, Color(1.0, 1.0, 0.9, 0.7))
-		"holy_wrath":
-			if not r.has("center"):
-				return
-			var c: Vector3 = r.center
-			SkillVfx.pillar(p, c, 0.7 * (1.3 if tier >= 5 else 1.0), 10.0, Color(HOLY, 0.9))
-			SkillVfx.burst(p, "star", _up(c, 1.5), 1.2 + 0.1 * tier, HOLY)
-			SkillVfx.shockwave(p, c, 2.5, Color(1.0, 0.9, 0.5, 1.0), 0.4)
-			if tier >= 3:
-				SkillVfx.rune(p, c, 2.2, Color(GOLD, 0.8), "flash", 0.5, "holy_sigil")
-			if tier >= 5:
-				SkillVfx.shockwave(p, c, 3.5, Color(1.0, 0.95, 0.7, 0.9), 0.5)
-			if tier >= 8:
-				SkillVfx.crack_decal(p, c, 3.0, HOLY, 2.5)
-				SkillVfx.burst(p, "fire", _up(c, 1.0), 1.5, Color(1.0, 0.95, 0.7))
 
 
 # ---------------- 普攻 ----------------

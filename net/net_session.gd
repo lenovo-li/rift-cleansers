@@ -816,6 +816,8 @@ func _replay_fx(ev: Array) -> void:
 			SkillVfx.pillar(scene, ev[1], ev[2], ev[3], ev[4])
 		"sfx":
 			SfxManager.play(scene, ev[1])
+		"ufx":
+			UniqueFx.replay(scene, ev[1], ev[2], ev[3], ev[4], ev[5])
 		"dead":
 			if enemy_views != null:
 				enemy_views.remove(int(ev[1]), true)

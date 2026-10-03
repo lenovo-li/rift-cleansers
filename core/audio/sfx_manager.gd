@@ -42,6 +42,24 @@ const CATEGORIES: Dictionary = {
 	"slam": ["explosion_heavy", 100, 0.0, Vector2(0.85, 0.95)],
 	"shatter": ["ice_shatter", 90, -2.0, Vector2(0.95, 1.05)],
 	"whoosh": ["auto_slash", 0, -2.0, Vector2(0.95, 1.05)],
+
+	# 16 个新技能专属音效（每个 3 变体）
+	"sk_earthquake": ["sk_earthquake", 80, -4.0, Vector2(0.95, 1.05)],
+	"sk_iron_wall": ["sk_iron_wall", 100, -3.0, Vector2(0.95, 1.05)],
+	"sk_war_cry": ["sk_war_cry", 90, -2.0, Vector2(0.95, 1.05)],
+	"sk_flame_cleave": ["sk_flame_cleave", 70, -4.0, Vector2(0.95, 1.05)],
+	"sk_thunderstorm": ["sk_thunderstorm", 100, -3.0, Vector2(0.95, 1.05)],
+	"sk_frost_barrier": ["sk_frost_barrier", 90, -4.0, Vector2(0.95, 1.05)],
+	"sk_arcane_barrage": ["sk_arcane_barrage", 60, -4.0, Vector2(0.95, 1.05)],
+	"sk_lava_blast": ["sk_lava_blast", 90, -2.0, Vector2(0.95, 1.05)],
+	"sk_eviscerate": ["sk_eviscerate", 70, -4.0, Vector2(0.95, 1.05)],
+	"sk_shadow_clone": ["sk_shadow_clone", 90, -3.0, Vector2(0.95, 1.05)],
+	"sk_backstab": ["sk_backstab", 60, -5.0, Vector2(0.95, 1.05)],
+	"sk_poison_blade": ["sk_poison_blade", 80, -4.0, Vector2(0.95, 1.05)],
+	"sk_guardian_angel": ["sk_guardian_angel", 100, -3.0, Vector2(0.95, 1.05)],
+	"sk_purify": ["sk_purify", 90, -3.0, Vector2(0.95, 1.05)],
+	"sk_resurrection": ["sk_resurrection", 120, -2.0, Vector2(0.95, 1.05)],
+	"sk_holy_wrath": ["sk_holy_wrath", 90, -2.0, Vector2(0.95, 1.05)],
 }
 const VARIANTS: int = 5
 ## 同时存在的播放器上限（500 敌人同时挨打时不让音频线程爆掉）

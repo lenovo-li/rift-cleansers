@@ -692,64 +692,63 @@ func _apply_skill_result(skill_id: String, result: Dictionary, ctx: SkillContext
 		"divine_intervention":
 			SfxManager.play(_fx_parent, "holy_buff")
 		"earthquake":
-			SfxManager.play(_fx_parent, "slam")
+			SfxManager.play(_fx_parent, "sk_earthquake")
 			_shake(0.4 + 0.1 * tier)
 			HitStop.trigger(get_tree(), 0.05)
 		"iron_wall":
-			SfxManager.play(_fx_parent, "shield_up")
+			SfxManager.play(_fx_parent, "sk_iron_wall")
 		"war_cry":
-			SfxManager.play(_fx_parent, "heavy")
+			SfxManager.play(_fx_parent, "sk_war_cry")
 			_shake(0.15)
 		"flame_cleave":
-			SfxManager.play(_fx_parent, "fire_cast")
+			SfxManager.play(_fx_parent, "sk_flame_cleave")
 			if hits > 0:
 				SfxManager.play(_fx_parent, "fire_impact")
 			_shake(0.2)
 		"thunderstorm":
-			SfxManager.play(_fx_parent, "lightning_cast")
+			SfxManager.play(_fx_parent, "sk_thunderstorm")
 			_shake(0.25)
 		"frost_barrier":
-			SfxManager.play(_fx_parent, "shield_up")
+			SfxManager.play(_fx_parent, "sk_frost_barrier")
 			if hits > 0:
 				SfxManager.play(_fx_parent, "ice_shatter")
 		"arcane_barrage":
-			SfxManager.play(_fx_parent, "fire_cast")
+			SfxManager.play(_fx_parent, "sk_arcane_barrage")
 			if hits > 0:
 				SfxManager.play(_fx_parent, "crit_hit")
 		"lava_blast":
-			SfxManager.play(_fx_parent, "fire_cast")
+			SfxManager.play(_fx_parent, "sk_lava_blast")
 			if hits > 0:
 				SfxManager.play(_fx_parent, "explosion_heavy")
 			_shake(0.3 + 0.1 * tier)
 		"eviscerate":
 			if result.has("center"):
-				SfxManager.play(_fx_parent, "heavy")
+				SfxManager.play(_fx_parent, "sk_eviscerate")
 				if result.get("executed", false):
 					HitStop.trigger(get_tree(), 0.05)
 					_shake(0.3)
 		"shadow_clone":
-			SfxManager.play(_fx_parent, "crit_hit")
+			SfxManager.play(_fx_parent, "sk_shadow_clone")
 		"backstab":
 			if result.has("center"):
-				SfxManager.play(_fx_parent, "crit_hit")
+				SfxManager.play(_fx_parent, "sk_backstab")
 				if tier >= 3:
 					HitStop.trigger(get_tree(), 0.04)
 		"poison_blade":
-			SfxManager.play(_fx_parent, "fire_cast")
+			SfxManager.play(_fx_parent, "sk_poison_blade")
 		"guardian_angel":
-			SfxManager.play(_fx_parent, "holy_buff")
+			SfxManager.play(_fx_parent, "sk_guardian_angel")
 		"purify":
-			SfxManager.play(_fx_parent, "heal_cast")
+			SfxManager.play(_fx_parent, "sk_purify")
 			if hits > 0:
 				SfxManager.play(_fx_parent, "explosion_heavy")
 		"resurrection":
-			SfxManager.play(_fx_parent, "holy_buff")
+			SfxManager.play(_fx_parent, "sk_resurrection")
 			if int(result.get("revived", 0)) > 0:
 				_shake(0.3)
 		"holy_wrath":
 			if result.has("center"):
-				SfxManager.play(_fx_parent, "lightning_cast")
-				SfxManager.play(_fx_parent, "explosion_heavy")
+				SfxManager.play(_fx_parent, "sk_holy_wrath")
 				_shake(0.25 + 0.1 * tier)
 	SkillFx.play(_fx_parent, self, skill_id, result, ctx.origin, ctx.flat_facing(), tier)
 	for zone: GroundZone in ctx.new_zones:

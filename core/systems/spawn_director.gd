@@ -101,9 +101,32 @@ func _player_scale() -> float:
 	return 1.0 + 0.5 * float(maxi(0, n - 1))
 
 
-## 敌人强度倍率：按游戏时间递增血量和伤害，每分钟 +8%，18 分钟时约 2.5 倍。
+## 敌人强度倍率：按游戏时间、玩家等级、玩家数量递增血量和伤害。
+## 返回 {health: float, damage: float}
+func enemy_scaling_full(t: float) -> Dictionary:
+	var level: int = game_session.get_player_level() if game_session != null else 1
+	var player_count: int = int(player_count_provider.call()) if player_count_provider.is_valid() else 1
+
+	# 时间缩放：每分钟 +8%，18 分钟时约 2.5 倍
+	var time_mult: float = 1.0 + t / 60.0 * 0.08
+
+	# 等级缩放：等级 10 以后，每级血量 +2.5%，伤害 +1.5%
+	var level_health_mult: float = 1.0 + maxf(0.0, float(level - 10)) * 0.025
+	var level_damage_mult: float = 1.0 + maxf(0.0, float(level - 10)) * 0.015
+
+	# 多人缩放：每多一个玩家，血量 +40%，伤害 +20%
+	var coop_health_mult: float = 1.0 + maxf(0.0, float(player_count - 1)) * 0.4
+	var coop_damage_mult: float = 1.0 + maxf(0.0, float(player_count - 1)) * 0.2
+
+	return {
+		"health": time_mult * level_health_mult * coop_health_mult,
+		"damage": time_mult * level_damage_mult * coop_damage_mult
+	}
+
+
+## 敌人强度倍率（向后兼容）：返回血量倍率。
 func enemy_scaling(t: float) -> float:
-	return 1.0 + t / 60.0 * 0.08
+	return enemy_scaling_full(t).health
 
 
 func on_enemy_spawned() -> void:

@@ -70,6 +70,14 @@ func _finish(reason: String) -> bool:
 	_done = true
 	var level: int = _session.get_player_level()
 	_report(_session.get_game_time())
+
+	# 回归测试：验证敌人定义资源没有被修改（防止伤害累积bug）
+	var zombie_def: EnemyDef = load("res://content/enemies/zombie.tres")
+	if not is_equal_approx(zombie_def.attack_damage, 6.0):
+		print("[sim] REGRESSION: 僵尸伤害被修改为 %.1f (应为 6.0) - 伤害累积bug重现！" % zombie_def.attack_damage)
+		quit(1)
+		return true
+
 	var ok: bool = level >= MIN_LEVEL and level <= MAX_LEVEL and _player.get_health() > 0.0
 	print("[sim] %s -> level=%d (期望 %d-%d), hp=%.0f: %s" % [
 		reason, level, MIN_LEVEL, MAX_LEVEL, _player.get_health(), "PASS" if ok else "FAIL"])

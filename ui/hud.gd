@@ -3,6 +3,9 @@ extends Control
 ## 全部用代码搭建，数据每帧从玩家、会话、生成器读取。
 
 const SKILL_KEYS: Array[String] = ["空格", "Q", "E", "R", "F", "C"]  # 默认键（技能栏数量）；显示用 key_label()
+const COMPACT_ITEMS: int = 8  # 紧凑模式显示的装备数量
+const COMPACT_HEIGHT: int = 280  # 紧凑模式装备栏高度
+const EXPANDED_HEIGHT: int = 500  # 展开模式装备栏高度（两列）
 
 
 ## 技能栏第 i 格当前绑定的按键名（设置里可改键）。
@@ -23,7 +26,9 @@ var _shield_label: Label
 var _rage_bar: ProgressBar
 var _exp_bar: ProgressBar
 var _info_label: Label
+var _stats_label: Label  # FPS / 敌人数常驻
 var _items_label: RichTextLabel
+var _items_expanded: bool = false  # Tab 展开装备栏
 var _skill_panels: Array[Dictionary] = []
 var _boss_box: VBoxContainer
 var _boss_bar: ProgressBar
@@ -71,8 +76,13 @@ func _ready() -> void:
 	_exp_bar = _bar(top_left, Color(0.3, 0.6, 1.0), 10.0)
 	_info_label = _label(top_left, 18)
 
+	# 右上角：FPS / 敌人数常驻在最上面一行，装备栏在它下方（不会被装备列表挤掉）
+	_stats_label = _label(self, 16)
+	_place(_stats_label, Vector4(1, 0, 1, 0), Vector4(-300, 16, -16, 40))
+	_stats_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	# 装备栏：默认紧凑显示前 COMPACT_ITEMS 件，Tab 展开为两列完整列表
 	_items_label = _rich_label(self, 16)
-	_place(_items_label, Vector4(1, 0, 1, 0), Vector4(-300, 16, -16, 416))
+	_place(_items_label, Vector4(1, 0, 1, 0), Vector4(-300, 44, -16, 44 + COMPACT_HEIGHT))
 	_items_label.text = ""
 
 	_build_skill_bar()
@@ -247,8 +257,13 @@ func _process(delta: float) -> void:
 	_exp_bar.value = session.get_player_exp()
 	var t: float = session.get_game_time()
 	var dodge: String = "就绪" if player.dodge_cooldown_remaining <= 0.0 else "%.1fs" % player.dodge_cooldown_remaining
+	var auto_status: String = ""
+	if player.auto_cast:
+		auto_status = _get_auto_cast_status()
 	_info_label.text = "Lv%d   %d:%02d   击杀 %d   闪避[%s] %s%s" % [level, int(t / 60.0), int(t) % 60,
-			spawner.kills if spawner else 0, Settings.key_name(Settings.key_of("dash")), dodge, "   [自动施放]" if player.auto_cast else ""]
+			spawner.kills if spawner else 0, Settings.key_name(Settings.key_of("dash")), dodge,
+			"   [自动施放%s]" % auto_status if player.auto_cast else ""]
+	_stats_label.text = "FPS %d   敌人 %d" % [Engine.get_frames_per_second(), spawner.get_enemy_count() if spawner else 0]
 	_update_skills()
 	_update_items(stats)
 	_update_boss()
@@ -256,6 +271,46 @@ func _process(delta: float) -> void:
 	_update_team()
 	if _debug_label.visible:
 		_debug_label.text = net.debug_text() if net != null else "[单人] F3 调试（联机时显示网络状态）"
+
+
+## 获取自动施放状态提示文本
+func _get_auto_cast_status() -> String:
+	if player == null or not player.auto_cast:
+		return ""
+	var enemies: Array = get_tree().get_nodes_in_group("enemies")
+	var r: float = 12.0 if player.attack_kind == "bolt" else 6.0
+	var near: int = 0
+	for e: Node in enemies:
+		if e is Node3D and (e as Node3D).global_position.distance_squared_to(player.global_position) < r * r:
+			near += 1
+
+	if near == 0:
+		return ": 等待敌人"
+
+	# 检查技能冷却
+	var abilities: AbilitySystem = player.ability_system
+	var all_cd: bool = true
+	for id: String in abilities.equipped:
+		if abilities.can_cast(id):
+			# 特殊条件检查
+			if (id == "reflect_aura" or id == "smoke_bomb") and near < 5:
+				continue
+			if id == "divine_intervention" and not _someone_needs_rescue():
+				continue
+			all_cd = false
+			break
+
+	if all_cd:
+		return ": CD中"
+
+	return ""
+
+
+func _someone_needs_rescue() -> bool:
+	for p: Node in get_tree().get_nodes_in_group("players"):
+		if p.is_dead or p.stats.health_ratio() < 0.45:
+			return true
+	return false
 
 
 func toggle_debug() -> void:
@@ -306,23 +361,58 @@ func _update_skills() -> void:
 
 func _update_items(stats: CharacterStats) -> void:
 	var lines: PackedStringArray = []
+	var equip_list: Array[String] = []
+
 	if not stats.equipment.is_empty():
-		lines.append("装备")
 		for id: String in stats.equipment:
 			var q: int = stats.equipment_quality(id)
 			var enh: int = stats.equipment_enhance_level(id)
 			var name: String = ItemCatalog.equipment_name(id)
 			var suffix: String = " +%d" % enh if enh > 0 else ""
-			lines.append("[color=#%s]%s%s[/color]" % [EquipmentQuality.color(q).to_html(false), name, suffix])
-	if not stats.passives.is_empty():
-		lines.append("被动")
-		for id: String in stats.passives:
-			lines.append("%s" % ItemCatalog.passive_name(id))
-	lines.append("")
-	lines.append("FPS %d   敌人 %d" % [Engine.get_frames_per_second(), spawner.get_enemy_count() if spawner else 0])
-	var text: String = "[right]%s[/right]" % "\n".join(lines)
+			equip_list.append("[color=#%s]%s%s[/color]" % [EquipmentQuality.color(q).to_html(false), name, suffix])
+
+	var full: bool = stats.equipment.size() >= DropSystem.MAX_EQUIPMENT
+	var header: String = "装备 %d/%d%s" % [stats.equipment.size(), DropSystem.MAX_EQUIPMENT,
+			"（已满，只升品质）" if full else ""]
+	var passive_names: PackedStringArray = []
+	for id: String in stats.passives:
+		passive_names.append(ItemCatalog.passive_name(id))
+
+	var text: String = ""
+	if _items_expanded:
+		# 展开：两列表格，30 件也放得下
+		lines.append("%s  [Tab 收起]" % header)
+		var table: String = "[table=2]"
+		for item: String in equip_list:
+			table += "[cell]%s  [/cell]" % item
+		if equip_list.size() % 2 == 1:
+			table += "[cell][/cell]"
+		table += "[/table]"
+		lines.append(table)
+		if not passive_names.is_empty():
+			lines.append("被动：" + "、".join(passive_names))
+		text = "\n".join(lines)
+	else:
+		if not equip_list.is_empty():
+			lines.append(header)
+			for i in mini(COMPACT_ITEMS, equip_list.size()):
+				lines.append(equip_list[i])
+			if equip_list.size() > COMPACT_ITEMS:
+				lines.append("…还有 %d 件 [Tab 展开]" % (equip_list.size() - COMPACT_ITEMS))
+		if not passive_names.is_empty():
+			lines.append("被动 %d [Tab 查看]" % passive_names.size())
+		text = "[right]%s[/right]" % "\n".join(lines)
 	if _items_label.text != text:  # 避免每帧重新解析 BBCode
 		_items_label.text = text
+
+
+## Tab：展开 / 收起装备栏。展开时向左加宽成两列。
+func toggle_items() -> void:
+	_items_expanded = not _items_expanded
+	var width: float = 560.0 if _items_expanded else 284.0
+	var height: int = EXPANDED_HEIGHT if _items_expanded else COMPACT_HEIGHT
+	_place(_items_label, Vector4(1, 0, 1, 0), Vector4(-16 - width, 44, -16, 44 + height))
+	_items_label.text = ""  # 强制下一帧重建
 
 
 func _update_boss() -> void:

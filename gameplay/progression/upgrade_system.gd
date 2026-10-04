@@ -3,9 +3,14 @@ class_name UpgradeSystem extends RefCounted
 ## 选项格式：{type, id, title, desc, weight}
 ## type ∈ skill_new / skill_up / skill_swap / passive / stat_boost / equip_buff / heal
 
-const CHOICE_COUNT: int = 5
-## 五张卡里技能类（升级 / 新学 / 替换）最多几张
-const MAX_SKILL_CARDS: int = 2
+const CHOICE_COUNT: int = 10
+## 十张卡的分配：上排固定给技能（3 张旧技能升级 + 2 张新技能/替换），下排给被动 / 属性 / 装备强化。
+## 某类不够时互相补位；被动等全部抽完后再用剩余技能卡补满。
+const SKILL_UP_SLOTS: int = 3
+const SKILL_NEW_SLOTS: int = 2
+const MAX_SKILL_CARDS: int = SKILL_UP_SLOTS + SKILL_NEW_SLOTS
+## 每次升级可刷新几次
+const REFRESH_COUNT: int = 2
 const SKILL_TYPES: Array[String] = ["skill_up", "skill_new", "skill_swap", "skill_reset"]
 const MAX_SKILLS: int = 6
 const HEAL_AMOUNT: float = 200.0
@@ -74,26 +79,43 @@ static func roll_choices(abilities: AbilitySystem, stats: CharacterStats, rng: R
 	if pool.is_empty():
 		return [_option("heal", "", "治疗 %d" % int(HEAL_AMOUNT), "无可升级选项", 1.0)]
 
-	# 类型多样化：技能类卡牌最多 MAX_SKILL_CARDS 张，其余位置给被动 / 属性 / 装备强化，不够再用技能补
-	var skill_pool: Array[Dictionary] = []
+	# 按类型分池：旧技能升级 / 新技能（含替换）/ 其他
+	var up_pool: Array[Dictionary] = []
+	var new_pool: Array[Dictionary] = []
 	var other_pool: Array[Dictionary] = []
 	for o: Dictionary in pool:
-		(skill_pool if SKILL_TYPES.has(o.type) else other_pool).append(o)
-	var result: Array[Dictionary] = []
-	result.append_array(_pick_many(skill_pool, mini(MAX_SKILL_CARDS, CHOICE_COUNT), rng))
-	result.append_array(_pick_many(other_pool, CHOICE_COUNT - result.size(), rng))
-	result.append_array(_pick_many(skill_pool, CHOICE_COUNT - result.size(), rng))
-	# 打乱顺序，避免技能卡总在最左边
-	for i in range(result.size() - 1, 0, -1):
-		var j: int = rng.randi_range(0, i)
-		var tmp: Dictionary = result[i]
-		result[i] = result[j]
-		result[j] = tmp
+		if o.type == "skill_up":
+			up_pool.append(o)
+		elif SKILL_TYPES.has(o.type):
+			new_pool.append(o)
+		else:
+			other_pool.append(o)
+	# 技能区（上排）：先保底 3 张升级 + 2 张新技能，一类不够由另一类补到 5 张
+	var skills: Array[Dictionary] = []
+	skills.append_array(_pick_many(up_pool, SKILL_UP_SLOTS, rng))
+	skills.append_array(_pick_many(new_pool, SKILL_NEW_SLOTS, rng))
+	skills.append_array(_pick_many(up_pool, MAX_SKILL_CARDS - skills.size(), rng))
+	skills.append_array(_pick_many(new_pool, MAX_SKILL_CARDS - skills.size(), rng))
+	# 其他区（下排）：被动 / 属性 / 装备强化，不够再用剩下的技能卡补
+	var others: Array[Dictionary] = _pick_many(other_pool, CHOICE_COUNT - skills.size(), rng)
+	var leftover: Array[Dictionary] = up_pool + new_pool
+	others.append_array(_pick_many(leftover, CHOICE_COUNT - skills.size() - others.size(), rng))
+	_shuffle(skills, rng)
+	_shuffle(others, rng)
+	var result: Array[Dictionary] = skills + others
 
 	if result.is_empty():
 		result.append(_option("heal", "", "治疗 %d" % int(HEAL_AMOUNT), "", 1.0))
 
 	return result
+
+
+static func _shuffle(arr: Array[Dictionary], rng: RandomNumberGenerator) -> void:
+	for i in range(arr.size() - 1, 0, -1):
+		var j: int = rng.randi_range(0, i)
+		var tmp: Dictionary = arr[i]
+		arr[i] = arr[j]
+		arr[j] = tmp
 
 
 static func apply(choice: Dictionary, abilities: AbilitySystem, stats: CharacterStats) -> bool:

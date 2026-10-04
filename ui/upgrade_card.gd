@@ -5,7 +5,7 @@ extends PanelContainer
 
 signal clicked
 
-const CARD_SIZE: Vector2 = Vector2(280, 360)
+const CARD_SIZE: Vector2 = Vector2(280, 320)
 const TYPE_INFO: Dictionary = {
 	"skill_new": ["新技能", Color(0.35, 0.75, 1.0)],
 	"skill_up": ["技能升级", Color(0.45, 0.6, 1.0)],
@@ -99,7 +99,7 @@ func set_choice(choice: Dictionary, index: int) -> void:
 	var desc: String = choice.get("desc", "")
 	var evolve: bool = desc.begins_with("★")
 	var color: Color = EVOLVE_COLOR if evolve else info[1]
-	_key.text = str(index + 1)
+	_key.text = "0" if index == 9 else str(index + 1)
 	_badge.text = "进化！" if evolve else info[0]
 	_badge.add_theme_color_override("font_color", color)
 	# 类型已由标签说明，标题去掉「新技能：」「被动：」前缀

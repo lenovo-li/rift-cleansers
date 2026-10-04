@@ -81,22 +81,39 @@ func test_upgrade_choices_are_unique_and_apply() -> String:
 	rng.seed = 1
 	for round in 40:
 		var choices: Array[Dictionary] = UpgradeSystem.roll_choices(abilities, stats, rng)
-		if choices.size() != 5:
-			return "应有 5 个选项，实际 %d" % choices.size()
+		if choices.size() != 10:
+			return "应有 10 个选项，实际 %d" % choices.size()
 		var keys: Dictionary = {}
 		for c: Dictionary in choices:
 			keys["%s:%s" % [c.type, c.id]] = true
-		if keys.size() != 5 and choices[0].type != "heal":
+		if keys.size() != 10 and choices[0].type != "heal":
 			return "选项不应重复: %s" % str(keys.keys())
-		var skill_cards: int = 0
+		var ups: int = 0
+		var news: int = 0
 		var pick: Dictionary = choices[0]
 		for c: Dictionary in choices:
-			if UpgradeSystem.SKILL_TYPES.has(c.type):
-				skill_cards += 1
-			if c.type == "skill_new":
+			if c.type == "skill_up":
+				ups += 1
+			elif c.type == "skill_new":
+				news += 1
 				pick = c  # 优先学新技能，验证技能最终都能学到
-		if skill_cards > UpgradeSystem.MAX_SKILL_CARDS:
-			return "技能类卡牌不应超过 %d 张，实际 %d" % [UpgradeSystem.MAX_SKILL_CARDS, skill_cards]
+		# 可升级技能数 / 可学新技能数（保底按可用数量封顶）
+		var upgradable: int = 0
+		for id: String in abilities.equipped:
+			if abilities.get_skill(id).level < abilities.get_skill(id).max_level:
+				upgradable += 1
+		var learnable: int = 0
+		for id: String in abilities.pool():
+			if abilities.get_skill(id) == null:
+				learnable += 1
+		if ups < mini(UpgradeSystem.SKILL_UP_SLOTS, upgradable):
+			return "第 %d 轮：升级卡应保底 %d 张，实际 %d" % [round, mini(UpgradeSystem.SKILL_UP_SLOTS, upgradable), ups]
+		if abilities.equipped.size() < UpgradeSystem.MAX_SKILLS and news < mini(UpgradeSystem.SKILL_NEW_SLOTS, learnable):
+			return "第 %d 轮：新技能卡应保底 %d 张，实际 %d" % [round, mini(UpgradeSystem.SKILL_NEW_SLOTS, learnable), news]
+		# 上排 5 张都应是技能卡（技能选项足够时）
+		for i in mini(UpgradeSystem.MAX_SKILL_CARDS, upgradable + learnable):
+			if not UpgradeSystem.SKILL_TYPES.has(choices[i].type):
+				return "第 %d 轮：第 %d 张应是技能卡，实际 %s" % [round, i + 1, choices[i].type]
 		if not UpgradeSystem.apply(pick, abilities, stats):
 			return "选项应能应用: %s" % pick.title
 	for id: String in abilities.pool():
@@ -194,8 +211,12 @@ func test_drop_picks_unowned_equipment() -> String:
 		if id.is_empty() or owned.has(id):
 			return "应掉落未拥有的装备"
 		owned[id] = true
-	if not DropSystem.pick_equipment(owned, [], "iron_guard", rng).is_empty():
-		return "全部拥有后不应再掉装备"
+	# 修改：全部拥有后可以继续掉已有装备（升品质），不再返回空字符串
+	var repeat_drop: String = DropSystem.pick_equipment(owned, [], "iron_guard", rng)
+	if repeat_drop.is_empty():
+		return "全部拥有后应该掉落已有装备用于升品质"
+	if not owned.has(repeat_drop):
+		return "全部拥有后应该只从已有装备中选择"
 	for id: String in owned:
 		if not ItemCatalog.can_use(id, "iron_guard"):
 			return "铁卫掉落了其他角色的专属装备：%s" % id

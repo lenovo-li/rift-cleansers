@@ -80,11 +80,13 @@ func spawn_enemy(enemy_id: String, elite_mods: Array, center: Variant = null, ra
 		mod_str = str(elite_mods[0])
 	elif elite_mods.size() >= 2:
 		mod_str = "%s+%s" % [elite_mods[0], elite_mods[1]]
-	enemy.setup(DEFS.get(enemy_id, DEFS["zombie"]), mod_str, null, get_parent())
-	# 敌人随游戏时间变强（血量 + 伤害）
-	var power: float = _director.enemy_scaling(_session.get_game_time()) if _director != null and _session != null else 1.0
-	enemy.health_scale *= power
-	enemy.def.attack_damage *= power
+	# 复制一份 def，避免修改共享资源导致伤害累积
+	var def_copy: EnemyDef = (DEFS.get(enemy_id, DEFS["zombie"]) as EnemyDef).duplicate()
+	# 敌人随游戏时间、玩家等级、玩家数量变强
+	var scaling: Dictionary = _director.enemy_scaling_full(_session.get_game_time()) if _director != null and _session != null else {"health": 1.0, "damage": 1.0}
+	def_copy.attack_damage *= scaling.damage
+	enemy.setup(def_copy, mod_str, null, get_parent())
+	enemy.health_scale *= scaling.health
 	_add(enemy, center, radius)
 	return enemy
 
@@ -107,14 +109,27 @@ func spawn_boss(boss_index: int) -> Boss:
 	enemy.set_script(BossScript)
 	var boss: Boss = enemy as Boss
 	var boss_id: String = _pick_boss_variant(boss_index)
-	boss.setup(BOSS_DEFS.get(boss_id, BOSS_DEF), "", null, get_parent())
+	# 复制 Boss def 避免修改共享资源
+	var def_copy: EnemyDef = (BOSS_DEFS.get(boss_id, BOSS_DEF) as EnemyDef).duplicate()
+	# 获取当前等级
+	var player_level: int = _session.get_player_level() if _session != null else 1
+	# 伤害缩放：等级 10 后每级 +2%
+	var level_damage_scale: float = 1.0 + maxf(0.0, float(player_level - 10)) * 0.02
+	# 应用伤害缩放到 def（attack_damage 和 special_value）
+	def_copy.attack_damage *= level_damage_scale
+	def_copy.special_value *= level_damage_scale
+	boss.setup(def_copy, "", null, get_parent())
 	if forced_boss_affix.is_empty():
 		boss.affix = Boss.AFFIXES.pick_random()
 	else:
 		boss.affix = "" if forced_boss_affix == "none" else forced_boss_affix
-	# Boss 血量随序号递增：第1个 ×1.0，第6个 ×3.0
+	# Boss 血量和伤害缩放：序号递增 + 玩家数量 + 玩家等级
 	var order_scale: float = 1.0 + float(boss_index) * 0.4
-	boss.health_scale = order_scale * (1.0 + 0.6 * float(PlayerQuery.all(get_tree()).size() - 1))
+	var player_count: int = PlayerQuery.all(get_tree()).size()
+	var coop_scale: float = 1.0 + 0.6 * float(player_count - 1)
+	# 血量缩放：等级 10 后每级 +3%
+	var level_health_scale: float = 1.0 + maxf(0.0, float(player_level - 10)) * 0.03
+	boss.health_scale = order_scale * coop_scale * level_health_scale
 	boss.boss_index = boss_index
 	boss.summon_requested.connect(_on_boss_summon)
 	_add(boss, null, 18.0)

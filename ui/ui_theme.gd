@@ -5,6 +5,7 @@ class_name UiTheme extends RefCounted
 const THEME_PATH: String = "res://assets/ui/main_theme.tres"
 
 static var _theme: Theme = null
+static var _sound_hook_installed: bool = false
 
 
 static func get_theme() -> Theme:
@@ -21,8 +22,23 @@ static func get_theme() -> Theme:
 
 
 ## 设为根窗口主题：之后所有 Control（菜单、HUD、面板）默认都用它。
+## 同时全局监听按钮添加，自动连接点击音效（只安装一次）。
 static func install(tree: SceneTree) -> void:
 	tree.root.theme = get_theme()
+	# 全局按钮点击音效：只安装一次，避免重复连接
+	if not _sound_hook_installed:
+		_sound_hook_installed = true
+		tree.node_added.connect(func(node: Node) -> void:
+			var btn: BaseButton = node as BaseButton
+			if btn != null and not btn.has_meta("_ui_sound_connected"):
+				btn.set_meta("_ui_sound_connected", true)
+				# 立即播放（不用 deferred：按下后面板可能马上被释放）
+				btn.pressed.connect(func() -> void:
+					# 跳过自己处理音效的按钮（如升级面板的刷新按钮）
+					if is_instance_valid(btn) and not btn.has_meta("no_auto_sound"):
+						SfxManager.play(btn, "ui_click"))
+		)
+
 
 
 ## 手柄导航：让 root 下第一个可用的按钮获得焦点（之后十字键 / 摇杆移动焦点，A 确认）。

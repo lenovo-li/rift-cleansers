@@ -14,7 +14,7 @@ var _refresh_btn: Button
 var roll_choices: Callable = Callable()
 var pause_game: bool = true
 var _remote: bool = false
-var _can_refresh: bool = true  # 每次升级允许刷新一次
+var _can_refresh: int = 2  # 每次升级允许刷新的剩余次数
 var _focus: int = 0  # 手柄焦点
 
 
@@ -37,8 +37,8 @@ func _ready() -> void:
 	vbox.anchor_bottom = 0.5
 	vbox.offset_left = -780
 	vbox.offset_right = 780
-	vbox.offset_top = -340
-	vbox.add_theme_constant_override("separation", 20)
+	vbox.offset_top = -400
+	vbox.add_theme_constant_override("separation", 16)
 	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(vbox)
 
@@ -62,23 +62,43 @@ func _ready() -> void:
 	_refresh_btn.text = "🔄 刷新"
 	_refresh_btn.custom_minimum_size = Vector2(120, 48)
 	_refresh_btn.add_theme_font_size_override("font_size", 24)
+	_refresh_btn.set_meta("no_auto_sound", true)  # 自己处理音效
 	_refresh_btn.pressed.connect(_on_refresh)
 	title_row.add_child(_refresh_btn)
 
-	# 卡牌横排容器
-	var cards_container: HBoxContainer = HBoxContainer.new()
-	cards_container.alignment = BoxContainer.ALIGNMENT_CENTER
-	cards_container.add_theme_constant_override("separation", 20)
-	cards_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(cards_container)
+	# 卡牌网格容器（两行五列）
+	var cards_grid: VBoxContainer = VBoxContainer.new()
+	cards_grid.alignment = BoxContainer.ALIGNMENT_CENTER
+	cards_grid.add_theme_constant_override("separation", 15)
+	cards_grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(cards_grid)
 
-	# 创建五张卡牌
+	# 上排5张卡牌
+	var top_row: HBoxContainer = HBoxContainer.new()
+	top_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	top_row.add_theme_constant_override("separation", 15)
+	top_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cards_grid.add_child(top_row)
+
 	for i in 5:
 		var card: Control = load("res://ui/upgrade_card.gd").new()
 		card.clicked.connect(_pick.bind(i))
-		# 设置缩放中心点
-		card.pivot_offset = Vector2(140, 180)  # CARD_WIDTH/2, CARD_HEIGHT/2
-		cards_container.add_child(card)
+		card.pivot_offset = Vector2(140, 180)
+		top_row.add_child(card)
+		_cards.append(card)
+
+	# 下排5张卡牌
+	var bottom_row: HBoxContainer = HBoxContainer.new()
+	bottom_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	bottom_row.add_theme_constant_override("separation", 15)
+	bottom_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cards_grid.add_child(bottom_row)
+
+	for i in 5:
+		var card: Control = load("res://ui/upgrade_card.gd").new()
+		card.clicked.connect(_pick.bind(i + 5))
+		card.pivot_offset = Vector2(140, 180)
+		bottom_row.add_child(card)
 		_cards.append(card)
 
 	visible = false
@@ -101,14 +121,14 @@ func _open() -> void:
 		_queue = 0
 		return
 	_remote = false
-	_can_refresh = true  # 每次升级重置刷新次数
+	_can_refresh = UpgradeSystem.REFRESH_COUNT  # 每次升级重置刷新次数
 	_display(roll_choices.call())
 
 
-func show_remote(choices: Array, remaining: int, can_refresh: bool = true) -> void:
+func show_remote(choices: Array, remaining: int, can_refresh_count: int = 0) -> void:
 	_remote = true
 	_queue = remaining
-	_can_refresh = can_refresh
+	_can_refresh = can_refresh_count
 	_display(choices)
 
 
@@ -118,7 +138,7 @@ func _display(choices: Array) -> void:
 		_choices.append(c)
 
 	_update_title()
-	_refresh_btn.disabled = not _can_refresh
+	_refresh_btn.disabled = (_can_refresh <= 0)
 	_refresh_btn.visible = true
 	_set_focus(0)
 
@@ -161,18 +181,19 @@ func close() -> void:
 
 func _update_title() -> void:
 	var pad: bool = Settings.pad_connected()
-	var keys: String = "十字键 ←/→ + A" if pad else "1-%d" % _cards.size()
+	var keys: String = "十字键移动 + A" if pad else "1-9, 0"
 	var queue_text: String = ("   还有 %d 次" % (_queue - 1)) if _queue > 1 else ""
-	_title.text = "✦ 升级！选择一项 (%s) ✦%s" % [keys, queue_text]
+	var refresh_text: String = (" (还可刷新 %d 次)" % _can_refresh) if _can_refresh > 0 else ""
+	_title.text = "✦ 升级！选择一项 (%s) ✦%s%s" % [keys, queue_text, refresh_text]
 	_refresh_btn.text = "刷新 (%s)" % ("Y" if pad else "R")
-	_refresh_btn.disabled = not _can_refresh
+	_refresh_btn.disabled = (_can_refresh <= 0)
 
 
-## 刷新：换一批选项，每次升级限一次。联机客户端交给主机重新抽取。
+## 刷新：换一批选项，每次升级可刷新多次。联机客户端交给主机重新抽取。
 func _on_refresh() -> void:
-	if not visible or not _can_refresh:
+	if not visible or _can_refresh <= 0:
 		return
-	_can_refresh = false
+	_can_refresh -= 1
 	SfxManager.play(self, "ui_click")
 	if _remote:
 		_refresh_btn.disabled = true
@@ -211,12 +232,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not visible or not event.is_pressed() or event.is_echo():
 		return
 
-	# 手柄：十字键左右移动焦点，A 确认，Y 刷新
+	# 手柄：十字键/摇杆移动焦点（上下左右），A 确认，Y 刷新
 	var jb: InputEventJoypadButton = event as InputEventJoypadButton
 	if jb != null:
 		match jb.button_index:
 			JOY_BUTTON_DPAD_LEFT: _set_focus(_focus - 1)
 			JOY_BUTTON_DPAD_RIGHT: _set_focus(_focus + 1)
+			JOY_BUTTON_DPAD_UP: _set_focus(_focus - 5)  # 上排
+			JOY_BUTTON_DPAD_DOWN: _set_focus(_focus + 5)  # 下排
 			JOY_BUTTON_A: _pick(_focus)
 			JOY_BUTTON_Y: _on_refresh()
 			_: return
@@ -227,8 +250,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	var k: Key = (event as InputEventKey).keycode
-	if k >= KEY_1 and k < KEY_1 + _cards.size():
+	# 1-9 键对应前 9 张卡，0 键对应第 10 张
+	if k >= KEY_1 and k <= KEY_9:
 		_pick(int(k - KEY_1))
+		get_viewport().set_input_as_handled()
+	elif k == KEY_0:
+		_pick(9)  # 第 10 张卡
 		get_viewport().set_input_as_handled()
 	elif k == KEY_R:
 		_on_refresh()

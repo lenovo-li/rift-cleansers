@@ -1,10 +1,10 @@
 extends SceneTree
-## 完整 10 分钟模拟：PlayerBot（贴近横移 + 自动施放 + 自动选升级 + 捡装备）跑完整局，
+## 完整18分钟模拟：PlayerBot（贴近横移 + 自动施放 + 自动选升级 + 捡装备）跑完整局，
 ## 验证时间线（等级、敌人数量、装备、精英、Boss）没有运行时错误，并输出每 30 秒的状态。
 ## 用法: godot --headless --fixed-fps 60 --path . --script res://tests/sim_full_run.gd -- --seed=N
 ## 退出码 0 = 跑到结束且无异常（胜负都算），1 = 卡住或超时。
 
-const MAX_SECONDS: float = 720.0
+const MAX_SECONDS: float = 1200.0  # 20分钟超时（游戏18分钟 + 余量）
 
 var _scene: Node = null
 var _session: GameSession = null

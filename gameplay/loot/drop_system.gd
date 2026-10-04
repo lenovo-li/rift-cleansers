@@ -20,8 +20,8 @@ static func pick_equipment(owned: Dictionary, pending: Array, char_id: String, r
 		if not owned.has(id) and not pending.has(id):
 			candidates.append(id)
 
-	# 未拥有的选完了，且未达上限：从已拥有的里选（升品质）
-	if candidates.is_empty() and owned.size() < MAX_EQUIPMENT:
+	# 未拥有的选完了：从已拥有的里选（升品质/强化），无上限限制
+	if candidates.is_empty():
 		for id: String in all_items:
 			if owned.has(id) and not pending.has(id):
 				candidates.append(id)

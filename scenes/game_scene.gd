@@ -223,11 +223,11 @@ func _on_level_up(_new_level: int) -> void:
 
 
 ## 客户端：主机发来的五个选项。
-func _on_remote_upgrade_choices(choices: Array, remaining: int, can_refresh: bool) -> void:
+func _on_remote_upgrade_choices(choices: Array, remaining: int, can_refresh_count: int) -> void:
 	if auto_pick_upgrades:
 		net.send_action(NetSession.Action.UPGRADE, 0)
 	else:
-		_upgrade_panel.show_remote(choices, remaining, can_refresh)
+		_upgrade_panel.show_remote(choices, remaining, can_refresh_count)
 
 
 func _on_upgrade_chosen(choice: Dictionary, index: int) -> void:
@@ -335,6 +335,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				Settings.set_value("auto_cast", _player.auto_cast)
 				if net != null:
 					net.send_action(NetSession.Action.AUTO_CAST, int(_player.auto_cast))
+			KEY_TAB:
+				_hud.toggle_items()
+				get_viewport().set_input_as_handled()
 			KEY_F3:
 				_hud.toggle_debug()
 	if event is InputEventJoypadButton and event.pressed and (event as InputEventJoypadButton).button_index == JOY_BUTTON_BACK:

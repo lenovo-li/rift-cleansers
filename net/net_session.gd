@@ -6,7 +6,7 @@ class_name NetSession extends Node
 ## 局域网原型：没有鉴权和加密，只校验 RPC 发送者与槽位对应。
 
 signal toast_received(text: String)
-signal upgrade_choices_received(choices: Array, remaining: int, can_refresh: bool)
+signal upgrade_choices_received(choices: Array, remaining: int, can_refresh_count: int)
 signal game_over_received(reason: String, victory: bool)
 
 enum Action { SKILL, DODGE, UPGRADE, AUTO_CAST, REFRESH_UPGRADE }
@@ -45,7 +45,7 @@ var _slot_by_peer: Dictionary = {}     # 主机：peer id -> slot
 var _disconnect_timers: Dictionary = {}  # 主机：slot -> 剩余托管秒数
 var _pending_upgrades: Dictionary = {}   # 主机：slot -> 待选次数
 var _offered: Dictionary = {}            # 主机：slot -> 当前五个选项
-var _can_refresh: Dictionary = {}        # 主机：slot -> 是否还能刷新
+var _can_refresh: Dictionary = {}        # 主机：slot -> 剩余刷新次数
 var _fx_batch: Array = []
 var _timers: Dictionary = {"player": 0.0, "enemy": 0.0, "world": 0.0, "hello": 0.0, "ping": 0.0}
 var _outbox: Array = []  # 模拟延迟：[到期毫秒, peer, 方法, 参数]
@@ -476,18 +476,18 @@ func _offer_upgrade(slot: int, refreshed: bool = false) -> void:
 	if player == null or not _peer_by_slot.has(slot):
 		return
 	if not refreshed:
-		_can_refresh[slot] = true  # 每次升级可刷新一次
+		_can_refresh[slot] = UpgradeSystem.REFRESH_COUNT  # 每次升级可刷新多次
 	var choices: Array[Dictionary] = UpgradeSystem.roll_choices(player.ability_system, player.stats, _rng)
 	_offered[slot] = choices
 	_send(_peer_by_slot[slot], &"rpc_upgrade_choices",
-			[choices, int(_pending_upgrades.get(slot, 1)), bool(_can_refresh.get(slot, false))])
+			[choices, int(_pending_upgrades.get(slot, 1)), int(_can_refresh.get(slot, 0))])
 
 
 ## 客户端请求刷新：主机校验次数后重新抽取并下发。
 func _on_upgrade_refresh(slot: int) -> void:
-	if int(_pending_upgrades.get(slot, 0)) <= 0 or not bool(_can_refresh.get(slot, false)):
+	if int(_pending_upgrades.get(slot, 0)) <= 0 or int(_can_refresh.get(slot, 0)) <= 0:
 		return
-	_can_refresh[slot] = false
+	_can_refresh[slot] = int(_can_refresh[slot]) - 1
 	_offer_upgrade(slot, true)
 
 
@@ -642,8 +642,8 @@ func rpc_toast(text: String) -> void:
 
 
 @rpc("authority", "call_remote", "reliable")
-func rpc_upgrade_choices(choices: Array, remaining: int, can_refresh: bool) -> void:
-	upgrade_choices_received.emit(choices, remaining, can_refresh)
+func rpc_upgrade_choices(choices: Array, remaining: int, can_refresh_count: int) -> void:
+	upgrade_choices_received.emit(choices, remaining, can_refresh_count)
 
 
 @rpc("authority", "call_remote", "reliable")

@@ -68,10 +68,10 @@ func _process(delta: float) -> void:
 			var dist: float = d.length()
 			if dist < ORB_MAGNET_RADIUS and dist > 0.01:
 				global_position += d / dist * minf(dist, 14.0 * delta)
-	# 装备可以重复拾取（升品质），满 30 个才停止拾取
+	# 装备可以重复拾取（升品质 / 传说强化）；满 30 件后只拒绝新装备
 	for p: Node3D in PlayerQuery.alive_in_radius(get_tree(), global_position, COLLECT_RADIUS):
 		if kind == "equipment" and (not ItemCatalog.can_use(item_id, p.character_id) \
-				or p.stats.equipment.size() >= DropSystem.MAX_EQUIPMENT):
+				or (p.stats.equipment.size() >= DropSystem.MAX_EQUIPMENT and not p.stats.has_equipment(item_id))):
 			continue
 		collected.emit(self, p)
 		queue_free()
